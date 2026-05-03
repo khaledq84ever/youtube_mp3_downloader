@@ -1,33 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Youtube Download</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT MP3</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { background:#0f0f0f; color:#e0e0e0; font-family:sans-serif; }
+        .card { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:14px; }
+        h1 { color:#ff0000; font-weight:800; }
+        .btn-red { background:#ff0000; border:none; color:#fff; font-weight:600; }
+        .btn-red:hover { background:#cc0000; color:#fff; }
+        .form-control { background:#222; border:1px solid #3a3a3a; color:#e0e0e0; border-radius:8px; }
+        .form-control:focus { background:#222; color:#e0e0e0; border-color:#ff0000; box-shadow:0 0 0 2px rgba(255,0,0,.2); }
+        .lbl { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#555; margin-bottom:8px; }
+        .badge-ok { display:inline-block; background:#28a745; color:#fff; padding:2px 12px; border-radius:99px; font-size:12px; }
+        .badge-no { display:inline-block; background:#555; color:#ccc; padding:2px 12px; border-radius:99px; font-size:12px; }
+        code { color:#ff6b6b; background:rgba(255,107,107,.1); padding:1px 5px; border-radius:3px; }
+        details summary { cursor:pointer; color:#888; }
+        details summary:hover { color:#fff; }
+        details[open] summary { margin-bottom:12px; }
+        textarea.form-control { font-size:12px; font-family:monospace; }
+        .step { background:#111; border-radius:8px; padding:12px 16px; margin-bottom:8px; font-size:13px; }
+        .step b { color:#fff; }
+        kbd { background:#333; border:1px solid #555; border-radius:4px; padding:1px 6px; font-size:12px; color:#eee; }
+        img.screenshot { max-width:100%; border-radius:8px; border:1px solid #333; margin:8px 0; }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">Youtube Download</h1>
-        {% if error_message %}
-        <div class="alert alert-danger" role="alert">
-            {{ error_message }}
-        </div>
-        {% endif %}
-        <form action="/download" method="post" autocomplete="off">
-            <div class="form-group">
-                <input type="text" class="form-control" id="url" name="url" placeholder="Enter YouTube URL" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Download</button>
-        </form>
-        
-        <form action="/batch_download" method="post" enctype="multipart/form-data">
-            <div class="form-group">
-                <label for="file">Upload a file containing YouTube URLs:</label>
-                <input type="file" class="form-control-file" id="file" name="file" accept=".txt">
-            </div>
-            <button type="submit" class="btn btn-primary">Batch Download</button>
-        </form>
-        
-    </div>
-</body>
+<div class="container py-5" style="max-width:620px">
 
+    <div class="text-center mb-5">
+        <h1>&#9654; YT MP3</h1>
+        <p class="text-muted mb-2">Download any YouTube video as high-quality MP3</p>
+        {% if has_cookies %}
+        <span class="badge-ok">&#10003; Cookies active — all videos unlocked</span>
+        {% else %}
+        <span class="badge-no">No cookies — some videos may be blocked</span>
+        {% endif %}
+    </div>
+
+    {% if error_message %}
+    <div class="alert alert-danger" style="border-radius:10px">
+        {{ error_message }}
+        {% if 'blocked' in error_message or 'bot' in error_message or 'cookies' in error_message.lower() %}
+        <hr style="border-color:#7a0000">
+        <small>&#128071; Add your YouTube cookies below to fix this — no install needed.</small>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if success_message %}
+    <div class="alert alert-success" style="border-radius:10px">{{ success_message }}</div>
+    {% endif %}
+
+    <!-- Single download -->
+    <div class="card p-4 mb-3">
+        <div class="lbl">Download MP3</div>
+        <form action="/download" method="post">
+            <div class="input-group">
+                <input type="url" class="form-control" name="url"
+                       placeholder="https://www.youtube.com/watch?v=..."
+                       required autofocus style="border-radius:8px 0 0 8px">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-red" style="border-radius:0 8px 8px 0;padding:0 20px">
+                        &#8681; MP3
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Batch -->
+    <div class="card p-4 mb-3">
+        <div class="lbl">Batch Download (ZIP)</div>
+        <form action="/batch_download" method="post" enctype="multipart/form-data">
+            <div class="input-group">
+                <input type="file" class="form-control" name="file" accept=".txt" style="padding:6px;border-radius:8px 0 0 8px">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-outline-danger" style="border-radius:0 8px 8px 0">
+                        &#8681; ZIP
+                    </button>
+                </div>
+            </div>
+            <small class="text-muted mt-1 d-block">One YouTube URL per line in the .txt file</small>
+        </form>
+    </div>
+
+    <!-- Cookie setup — collapsed by default, opens if there's a bot error -->
+    <div class="card p-4">
+        <details {% if error_message and ('blocked' in error_message or 'bot' in error_message or 'cookies' in error_message.lower()) %}open{% endif %}>
+            <summary>
+                &#128274; Fix blocked downloads — add YouTube cookies
+                <small class="text-muted ml-2">(no install required)</small>
+            </summary>
+
+            <p class="text-muted mt-2" style="font-size:14px">
+                YouTube blocks downloads from server IPs. Give the app your browser's YouTube session cookies — it's a one-time paste, no extension needed.
+            </p>
+
+            <!-- Method 1: Paste from DevTools -->
+            <div class="mb-3">
+                <div class="lbl">Method 1 — Paste from Browser (easiest)</div>
+                <div class="step">
+                    <b>Step 1:</b> Open <a href="https://www.youtube.com" target="_blank" style="color:#ff6b6b">youtube.com</a> while logged in
+                </div>
+                <div class="step">
+                    <b>Step 2:</b> Press <kbd>F12</kbd> → <b>Application</b> tab → <b>Storage → Cookies → https://www.youtube.com</b>
+                </div>
+                <div class="step">
+                    <b>Step 3:</b> Press <kbd>Ctrl+A</kbd> to select all cookies, then copy the cookie string from the <b>Network</b> tab instead:<br>
+                    <small class="text-muted">Network tab → click any request → Headers → scroll to <code>Cookie:</code> → right-click → Copy value</small>
+                </div>
+                <div class="step">
+                    <b>Step 4:</b> Paste it below and click Save:
+                </div>
+                <form action="/set-cookies" method="post">
+                    <textarea class="form-control mb-2" name="cookiestring" rows="3"
+                              placeholder="CONSENT=YES; SID=abc123; SSID=xyz..."></textarea>
+                    <button type="submit" class="btn btn-red btn-block" style="border-radius:8px">
+                        Save Cookie String
+                    </button>
+                </form>
+            </div>
+
+            <hr style="border-color:#2a2a2a">
+
+            <!-- Method 2: Upload cookies.txt file -->
+            <div>
+                <div class="lbl">Method 2 — Upload cookies.txt file</div>
+                <p style="font-size:13px;color:#888">
+                    Install <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally" target="_blank" style="color:#ff6b6b">Get cookies.txt LOCALLY</a>,
+                    export from youtube.com, upload here:
+                </p>
+                <form action="/set-cookies" method="post" enctype="multipart/form-data">
+                    <div class="input-group">
+                        <input type="file" class="form-control" name="cookiefile" accept=".txt" style="padding:6px;border-radius:8px 0 0 8px">
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-outline-danger" style="border-radius:0 8px 8px 0">
+                                Upload
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <p class="text-muted mt-3 mb-0" style="font-size:12px">
+                &#9888; Cookies are stored in server memory and reset on redeploy. For permanent storage, set <code>YOUTUBE_COOKIES_B64</code> in Railway env vars.
+            </p>
+        </details>
+    </div>
+
+</div>
+</body>
 </html>

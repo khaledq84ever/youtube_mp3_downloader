@@ -1,11 +1,12 @@
-FROM python:3.9-slim-buster
+FROM python:3.11-slim
 
-LABEL org.opencontainers.image.version="1.0"
-LABEL org.opencontainers.image.maintainer="Wildpasta <chauve.richard@protonmail.com>"
-LABEL org.opencontainers.image.repository="https://github.com/WildPasta/youtube_mp3_downloader"
-LABEL org.opencontainers.image.description="Docker container for Youtube Downloader"
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/youtube_downloader/server
+WORKDIR /app
 
 COPY server .
 
@@ -14,4 +15,3 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 13000
 
 CMD ["python", "app.py"]
-
