@@ -65,6 +65,10 @@ def clean_title(title):
 def is_valid_url(url):
     return bool(re.search(r'(youtube\.com|youtu\.be)/', url))
 
+def is_playlist_only(url):
+    """True for playlist URLs that have no specific video (no v= param)."""
+    return ('playlist?' in url or '/playlist' in url) and 'v=' not in url
+
 def _find_ffmpeg_dir():
     p = shutil.which('ffmpeg')
     if p:
@@ -178,6 +182,8 @@ def get_info():
     url = data.get('url', '').strip()
     if not is_valid_url(url):
         return jsonify({'error': 'Invalid YouTube URL — please check the link.'}), 400
+    if is_playlist_only(url):
+        return jsonify({'error': 'That\'s a playlist link — please paste a single video URL (e.g. youtube.com/watch?v=...).'}), 400
     try:
         result = subprocess.run([YTDLP, '--dump-json', '--no-playlist',
                                  '--extractor-args', 'youtube:player_client=android,web', url],
@@ -219,6 +225,8 @@ def start_convert():
     cookie_id = data.get('cookie_id')
     if not is_valid_url(url):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
+    if is_playlist_only(url):
+        return jsonify({'error': 'Please paste a single video URL, not a playlist.'}), 400
     cookie_path = cookie_store.get(cookie_id) if cookie_id else None
     job_id = str(uuid.uuid4())
     job = {'status': 'pending', 'file': None, 'filename': None, 'error': None}
