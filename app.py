@@ -57,7 +57,7 @@ FFMPEG_DIR = _find_ffmpeg_dir()
 
 def build_cmd(url, output_template, cookie_path=None):
     cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist',
-           '--extractor-args', 'youtube:player_client=ios']
+           '--extractor-args', 'youtube:player_client=android,web']
     if FFMPEG_DIR:
         cmd += ['--ffmpeg-location', FFMPEG_DIR]
     if cookie_path and os.path.exists(cookie_path):
