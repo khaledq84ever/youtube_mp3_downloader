@@ -77,8 +77,6 @@ def _find_ffmpeg_dir():
         return os.path.dirname(nix_matches[0])
     return None
 
-FFMPEG_DIR = _find_ffmpeg_dir()
-
 
 def _set_job(job_id, updates):
     with jobs_lock:
@@ -108,8 +106,9 @@ def schedule_cleanup(job_id, path):
 def build_cmd(url, output_template, cookie_path=None):
     cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist',
            '--extractor-args', 'youtube:player_client=android,web']
-    if FFMPEG_DIR:
-        cmd += ['--ffmpeg-location', FFMPEG_DIR]
+    ffmpeg_dir = _find_ffmpeg_dir()
+    if ffmpeg_dir:
+        cmd += ['--ffmpeg-location', ffmpeg_dir]
     if cookie_path and os.path.exists(cookie_path):
         cmd += ['--cookies', cookie_path]
     cmd += ['-o', output_template, url]
