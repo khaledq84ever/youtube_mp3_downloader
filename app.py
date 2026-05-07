@@ -179,7 +179,8 @@ def get_info():
     if not is_valid_url(url):
         return jsonify({'error': 'Invalid YouTube URL — please check the link.'}), 400
     try:
-        result = subprocess.run([YTDLP, '--dump-json', '--no-playlist', url],
+        result = subprocess.run([YTDLP, '--dump-json', '--no-playlist',
+                                 '--extractor-args', 'youtube:player_client=android,web', url],
                                 capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return jsonify({'error': 'Could not fetch video. Check the URL and try again.'}), 400
