@@ -8,6 +8,7 @@ CORS(app)
 DOWNLOAD_DIR = '/tmp/ytdl_cache'
 YTDLP = os.environ.get('YTDLP_PATH', 'yt-dlp')
 MAX_BATCH = 20
+FILE_TTL = 600
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -24,6 +25,21 @@ def is_valid_url(url):
     return bool(re.match(
         r'^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)[\w\-]', url
     ))
+
+
+def schedule_cleanup(job_id, path):
+    def _cleanup():
+        time.sleep(FILE_TTL)
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+            elif os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+        except Exception:
+            pass
+        with jobs_lock:
+            jobs.pop(job_id, None)
+    threading.Thread(target=_cleanup, daemon=True).start()
 
 
 def build_cmd(url, output_template, cookie_path=None):
@@ -64,6 +80,7 @@ def do_convert(job_id, url, cookie_path=None):
         with jobs_lock:
             jobs[job_id].update(status='done', file=files[0],
                                 filename=clean_title(title) + '.mp3')
+        schedule_cleanup(job_id, files[0])
     except subprocess.TimeoutExpired:
         with jobs_lock:
             jobs[job_id].update(status='error', error='Download timed out.')
@@ -99,6 +116,7 @@ def do_batch_convert(job_id, urls, cookie_path=None):
     with jobs_lock:
         jobs[job_id].update(status='done', file=zip_path,
                             filename='ytmp3_batch.zip')
+    schedule_cleanup(job_id, zip_path)
 
 
 @app.route('/')
@@ -204,19 +222,7 @@ def download_file(job_id):
         return jsonify({'error': 'File expired. Please convert again.'}), 410
 
     mimetype = 'application/zip' if filename.endswith('.zip') else 'audio/mpeg'
-    response = send_file(mp3_path, as_attachment=True, download_name=filename, mimetype=mimetype)
-
-    def cleanup():
-        time.sleep(60)
-        try:
-            os.remove(mp3_path)
-        except Exception:
-            pass
-        with jobs_lock:
-            jobs.pop(job_id, None)
-
-    threading.Thread(target=cleanup, daemon=True).start()
-    return response
+    return send_file(mp3_path, as_attachment=True, download_name=filename, mimetype=mimetype)
 
 
 if __name__ == '__main__':
