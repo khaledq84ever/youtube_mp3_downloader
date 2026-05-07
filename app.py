@@ -140,6 +140,19 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/debug-env')
+def debug_env():
+    which = subprocess.run(['which', 'ffmpeg'], capture_output=True, text=True)
+    nix = glob.glob('/nix/store/*/bin/ffmpeg')
+    return jsonify({
+        'ffmpeg_dir': FFMPEG_DIR,
+        'which_ffmpeg': which.stdout.strip(),
+        'nix_matches': nix[:3],
+        'PATH': os.environ.get('PATH', ''),
+        'yt_dlp': subprocess.run([YTDLP, '--version'], capture_output=True, text=True).stdout.strip(),
+    })
+
+
 @app.route('/info', methods=['POST'])
 def get_info():
     data = request.get_json() or {}
