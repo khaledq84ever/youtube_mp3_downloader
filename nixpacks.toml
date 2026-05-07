@@ -1,6 +1,8 @@
 [phases.setup]
 nixPkgs = ["python311"]
-aptPkgs = ["ffmpeg"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt && python3 -c 'import static_ffmpeg; static_ffmpeg.add_paths()'"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 360"
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 360"
