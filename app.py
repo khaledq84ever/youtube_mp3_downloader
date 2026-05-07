@@ -125,8 +125,8 @@ def do_convert(job_id, url, cookie_path=None):
         result = subprocess.run(build_cmd(url, output_template, cookie_path),
                                 capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            err = (result.stderr or result.stdout or '').strip()[-400:]
-            _set_job(job_id, {'status': 'error', 'error': err or 'Download failed.'})
+            _set_job(job_id, {'status': 'error',
+                               'error': 'Download failed. Video may be unavailable or age-restricted.'})
             return
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
         if not files:
