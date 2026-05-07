@@ -84,9 +84,9 @@ def do_convert(job_id, url, cookie_path=None):
                                 capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
-            err = (result.stderr or result.stdout or '').strip()[-300:]
             with jobs_lock:
-                jobs[job_id].update(status='error', error=err or 'Download failed.')
+                jobs[job_id].update(status='error',
+                                    error='Download failed. Video may be unavailable or age-restricted.')
             return
 
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
@@ -146,17 +146,6 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/debug-env')
-def debug_env():
-    which = subprocess.run(['which', 'ffmpeg'], capture_output=True, text=True)
-    nix = glob.glob('/nix/store/*/bin/ffmpeg')
-    return jsonify({
-        'ffmpeg_dir': FFMPEG_DIR,
-        'which_ffmpeg': which.stdout.strip(),
-        'nix_matches': nix[:3],
-        'PATH': os.environ.get('PATH', ''),
-        'yt_dlp': subprocess.run([YTDLP, '--version'], capture_output=True, text=True).stdout.strip(),
-    })
 
 
 @app.route('/info', methods=['POST'])
