@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YT to MP3 — Free YouTube Converter</title>
+  <title>▶ YT MP3 — Free YouTube to MP3 Converter</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,6 +17,7 @@
       --accent2: #5b8af5;
       --success: #22d3a5;
       --danger: #ff4757;
+      --warn: #f59e0b;
       --text: #f0f0f8;
       --muted: #7c7c9a;
       --radius: 14px;
@@ -31,42 +32,51 @@
       flex-direction: column;
     }
 
-    header {
-      padding: 28px 24px 0;
-      text-align: center;
-    }
+    /* ── Header ── */
+    header { padding: 32px 24px 0; text-align: center; }
+
     .logo {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       text-decoration: none;
     }
-    .logo-icon {
-      width: 40px; height: 40px;
+    .logo-play {
+      font-size: 1.5rem;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
     }
-    .logo-icon svg { width: 22px; height: 22px; }
-    .logo-text { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
-    .logo-text span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .tagline { margin-top: 10px; color: var(--muted); font-size: 0.88rem; }
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+    .logo-text span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline { margin-top: 8px; color: var(--muted); font-size: 0.85rem; }
 
+    /* ── Main ── */
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 48px 20px 60px;
+      padding: 44px 20px 60px;
     }
 
     h1 {
-      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
       font-weight: 800;
       text-align: center;
       line-height: 1.2;
       letter-spacing: -1px;
-      max-width: 600px;
+      max-width: 560px;
     }
     h1 span {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -74,17 +84,49 @@
       -webkit-text-fill-color: transparent;
     }
     .subtitle {
-      margin-top: 14px;
+      margin-top: 12px;
       color: var(--muted);
-      font-size: 1rem;
+      font-size: 0.95rem;
       text-align: center;
-      max-width: 420px;
     }
 
-    .input-card {
-      margin-top: 40px;
+    /* ── Tabs ── */
+    .tabs {
+      margin-top: 36px;
+      display: flex;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 5px;
       width: 100%;
       max-width: 680px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    /* ── Panels ── */
+    .panel { width: 100%; max-width: 680px; display: none; }
+    .panel.active { display: block; }
+
+    /* ── Input card ── */
+    .input-card {
+      margin-top: 12px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -105,7 +147,7 @@
     }
     .url-input::placeholder { color: var(--muted); }
 
-    .btn-convert {
+    .btn-primary {
       flex-shrink: 0;
       padding: 12px 24px;
       border: none;
@@ -119,16 +161,74 @@
       transition: opacity 0.2s, transform 0.1s;
       white-space: nowrap;
     }
-    .btn-convert:hover { opacity: 0.9; }
-    .btn-convert:active { transform: scale(0.98); }
-    .btn-convert:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .error-msg { margin-top: 14px; color: var(--danger); font-size: 0.88rem; display: none; }
+    .error-msg { margin-top: 12px; color: var(--danger); font-size: 0.85rem; display: none; }
 
+    /* ── Cookies strip ── */
+    .cookie-strip {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.2s;
+    }
+    .cookie-strip:hover { border-color: var(--accent); }
+    .cookie-strip.has-cookies { border-color: var(--success); color: var(--success); }
+    .cookie-strip .lock { font-size: 1rem; }
+    .cookie-strip .caret { margin-left: auto; transition: transform 0.2s; }
+    .cookie-strip.open .caret { transform: rotate(180deg); }
+
+    .cookie-panel {
+      display: none;
+      margin-top: 6px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .cookie-panel.open { display: block; }
+    .cookie-panel ol { padding-left: 18px; margin: 8px 0; }
+    .cookie-panel a { color: var(--accent2); text-decoration: none; }
+
+    .cookie-upload-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-upload {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .btn-upload:hover { border-color: var(--accent); }
+    .cookie-status { font-size: 0.8rem; color: var(--muted); }
+    .cookie-status.ok { color: var(--success); }
+
+    /* ── Video result card ── */
     .video-card {
-      margin-top: 28px;
-      width: 100%;
-      max-width: 680px;
+      margin-top: 20px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -137,41 +237,40 @@
       animation: fadeUp 0.3s ease;
     }
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .video-card-inner {
       display: flex;
       align-items: center;
-      gap: 16px;
-      padding: 16px;
+      gap: 14px;
+      padding: 14px;
     }
     .video-thumb {
       flex-shrink: 0;
-      width: 110px; height: 62px;
+      width: 108px; height: 60px;
       border-radius: 8px;
       object-fit: cover;
       background: var(--surface2);
     }
     .video-meta { flex: 1; min-width: 0; }
     .video-title {
-      font-size: 0.95rem;
-      font-weight: 600;
+      font-size: 0.93rem; font-weight: 600;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
     }
-    .video-sub { margin-top: 5px; font-size: 0.8rem; color: var(--muted); }
+    .video-sub { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
 
-    .card-actions { padding: 0 16px 16px; }
+    .card-actions { padding: 0 14px 14px; }
 
     .progress-wrap {
-      height: 6px;
+      height: 5px;
       background: var(--surface2);
       border-radius: 99px;
       overflow: hidden;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: none;
     }
     .progress-bar {
@@ -180,21 +279,15 @@
       border-radius: 99px;
       width: 0%;
       transition: width 0.4s ease;
-      animation: pulse-bar 2s ease-in-out infinite;
     }
-    @keyframes pulse-bar {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    .status-text { font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; display: none; }
+    .status-text { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; display: none; }
 
     .btn-download {
       width: 100%;
       padding: 13px;
       border: none;
       border-radius: 10px;
-      background: linear-gradient(135deg, var(--success) 0%, #18b893 100%);
+      background: linear-gradient(135deg, var(--success), #18b893);
       color: #fff;
       font-family: inherit;
       font-size: 0.95rem;
@@ -204,48 +297,82 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: opacity 0.2s, transform 0.1s;
       text-decoration: none;
+      transition: opacity 0.2s;
     }
     .btn-download:hover { opacity: 0.9; }
-    .btn-download:active { transform: scale(0.99); }
-    .btn-download svg { width: 18px; height: 18px; }
+    .btn-download svg { width: 17px; height: 17px; }
 
-    .steps { margin-top: 60px; width: 100%; max-width: 680px; }
-    .steps-title { text-align: center; font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: var(--muted); }
-    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    /* ── Batch panel ── */
+    .batch-drop {
+      margin-top: 12px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .batch-drop:hover, .batch-drop.dragover { border-color: var(--accent); background: rgba(124,92,252,0.04); }
+    .batch-drop input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .batch-drop-icon { font-size: 2rem; margin-bottom: 10px; }
+    .batch-drop-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .batch-drop-sub { font-size: 0.8rem; color: var(--muted); }
+    .batch-selected { margin-top: 6px; font-size: 0.82rem; color: var(--success); display: none; }
+
+    .batch-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .batch-actions .btn-primary { flex: 1; }
+
+    .batch-result {
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: none;
+    }
+    .batch-progress-label { font-size: 0.82rem; color: var(--muted); margin-bottom: 8px; }
+
+    /* ── Steps ── */
+    .steps { margin-top: 56px; width: 100%; max-width: 680px; }
+    .steps-title { text-align: center; font-size: 1rem; font-weight: 700; margin-bottom: 20px; color: var(--muted); }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .step {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px 16px;
+      padding: 18px 14px;
       text-align: center;
     }
     .step-num {
-      width: 36px; height: 36px;
-      margin: 0 auto 12px;
+      width: 34px; height: 34px;
+      margin: 0 auto 10px;
       border-radius: 50%;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.85rem; font-weight: 700;
+      font-size: 0.82rem; font-weight: 700;
     }
-    .step h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 5px; }
-    .step p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+    .step h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    .step p { font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 
+    /* ── Footer ── */
     footer {
       text-align: center;
-      padding: 24px;
+      padding: 22px;
       color: var(--muted);
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       border-top: 1px solid var(--border);
     }
 
     @media (max-width: 540px) {
       .input-card { flex-direction: column; }
-      .btn-convert { width: 100%; padding: 14px; }
+      .btn-primary { width: 100%; padding: 14px; }
       .steps-grid { grid-template-columns: 1fr; }
       .video-card-inner { flex-direction: column; align-items: flex-start; }
-      .video-thumb { width: 100%; height: 160px; }
+      .video-thumb { width: 100%; height: 150px; }
     }
   </style>
 </head>
@@ -253,89 +380,190 @@
 
 <header>
   <a class="logo" href="/">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <polygon points="10 8 16 12 10 16 10 8" fill="white" stroke="none"/>
-      </svg>
-    </div>
-    <span class="logo-text">YT<span>MP3</span></span>
+    <span class="logo-play">▶</span>
+    <span class="logo-text">YT <span>MP3</span></span>
   </a>
   <p class="tagline">Free · No signup · High quality</p>
 </header>
 
 <main>
-  <h1>Convert YouTube to <span>MP3</span><br/>in seconds</h1>
-  <p class="subtitle">Paste any YouTube link below and download the audio as a high-quality MP3 file — free, fast, no limits.</p>
+  <h1>Download any YouTube video<br/>as high-quality <span>MP3</span></h1>
+  <p class="subtitle">No cookies — some videos may be blocked</p>
 
-  <div class="input-card">
-    <input type="text" class="url-input" id="urlInput"
-      placeholder="https://youtube.com/watch?v=..." autocomplete="off" spellcheck="false" />
-    <button class="btn-convert" id="btnConvert" onclick="handleConvert()">Convert</button>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('single', this)">Single Download</button>
+    <button class="tab-btn" onclick="switchTab('batch', this)">Batch Download (ZIP)</button>
   </div>
-  <p class="error-msg" id="errorMsg"></p>
 
-  <div class="video-card" id="videoCard">
-    <div class="video-card-inner">
-      <img class="video-thumb" id="videoThumb" src="" alt="" />
-      <div class="video-meta">
-        <div class="video-title" id="videoTitle"></div>
-        <div class="video-sub" id="videoSub"></div>
+  <!-- ── Single panel ── -->
+  <div class="panel active" id="panel-single">
+    <div class="input-card">
+      <input type="text" class="url-input" id="urlInput"
+        placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" spellcheck="false" />
+      <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
+    </div>
+    <p class="error-msg" id="singleError"></p>
+
+    <!-- Cookie strip -->
+    <div class="cookie-strip" id="cookieStrip" onclick="toggleCookiePanel()">
+      <span class="lock">🔒</span>
+      <span id="cookieStripLabel">Fix blocked downloads — add YouTube cookies (no install required)</span>
+      <span class="caret">▾</span>
+    </div>
+    <div class="cookie-panel" id="cookiePanel">
+      <strong style="color:var(--text)">How to export cookies from your browser:</strong>
+      <ol>
+        <li>Install the <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a> extension</li>
+        <li>Go to <a href="https://youtube.com" target="_blank">youtube.com</a> and log in</li>
+        <li>Click the extension icon → Export → save as <code>cookies.txt</code></li>
+        <li>Upload the file below</li>
+      </ol>
+      <div class="cookie-upload-row">
+        <button class="btn-upload" onclick="document.getElementById('cookieFileInput').click()">Upload cookies.txt</button>
+        <input type="file" id="cookieFileInput" accept=".txt" style="display:none" onchange="uploadCookies(this)" />
+        <span class="cookie-status" id="cookieStatus">No cookies uploaded</span>
       </div>
     </div>
-    <div class="card-actions">
-      <p class="status-text" id="statusText"></p>
-      <div class="progress-wrap" id="progressWrap">
-        <div class="progress-bar" id="progressBar"></div>
+
+    <!-- Video result -->
+    <div class="video-card" id="videoCard">
+      <div class="video-card-inner">
+        <img class="video-thumb" id="videoThumb" src="" alt="" />
+        <div class="video-meta">
+          <div class="video-title" id="videoTitle"></div>
+          <div class="video-sub" id="videoSub"></div>
+        </div>
       </div>
-      <a class="btn-download" id="btnDownload" href="#">
+      <div class="card-actions">
+        <p class="status-text" id="statusText"></p>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <a class="btn-download" id="btnDownload" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download MP3
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Batch panel ── -->
+  <div class="panel" id="panel-batch">
+    <div class="batch-drop" id="batchDrop"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleBatchDrop(event)">
+      <input type="file" accept=".txt" onchange="handleBatchFile(this.files[0])" />
+      <div class="batch-drop-icon">📄</div>
+      <div class="batch-drop-title">Drop your .txt file here or click to browse</div>
+      <div class="batch-drop-sub">One YouTube URL per line — max 20 URLs</div>
+    </div>
+    <p class="batch-selected" id="batchSelected"></p>
+    <p class="error-msg" id="batchError"></p>
+
+    <div class="batch-actions">
+      <button class="btn-primary" id="btnBatch" onclick="handleBatch()" disabled>Download ZIP</button>
+    </div>
+
+    <div class="batch-result" id="batchResult">
+      <p class="batch-progress-label" id="batchProgressLabel">Processing…</p>
+      <div class="progress-wrap" style="display:block;margin-bottom:12px">
+        <div class="progress-bar" id="batchProgressBar"></div>
+      </div>
+      <a class="btn-download" id="btnBatchDownload" href="#" style="display:none;text-decoration:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        Download MP3
+        Download ZIP
       </a>
     </div>
   </div>
 
+  <!-- Steps -->
   <div class="steps">
     <p class="steps-title">How it works</p>
     <div class="steps-grid">
       <div class="step">
         <div class="step-num">1</div>
         <h3>Paste URL</h3>
-        <p>Copy the YouTube link and paste it into the search bar above</p>
+        <p>Copy any YouTube link and paste it into the bar above</p>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <h3>Convert</h3>
-        <p>Click Convert and we'll extract the audio track in MP3 format</p>
+        <p>We extract the audio track and encode it as high-quality MP3</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <h3>Download</h3>
-        <p>Hit Download and save the MP3 file directly to your device</p>
+        <p>Save the MP3 file directly to your device — no account needed</p>
       </div>
     </div>
   </div>
 </main>
 
-<footer>
-  &copy; 2025 YTMP3 &mdash; For personal use only. Respect copyright laws.
-</footer>
+<footer>▶ YT MP3 &mdash; For personal use only. Respect copyright laws.</footer>
 
 <script>
+  let cookieId = null;
+  let batchFile = null;
   let pollTimer = null;
 
   const $ = id => document.getElementById(id);
 
-  function showError(msg) {
-    const el = $('errorMsg');
+  // ── Tabs ──
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('panel-' + name).classList.add('active');
+  }
+
+  // ── Cookie panel ──
+  function toggleCookiePanel() {
+    const strip = $('cookieStrip');
+    const panel = $('cookiePanel');
+    strip.classList.toggle('open');
+    panel.classList.toggle('open');
+  }
+
+  async function uploadCookies(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    $('cookieStatus').textContent = 'Uploading…';
+    try {
+      const res = await fetch('/upload-cookies', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.cookie_id) {
+        cookieId = data.cookie_id;
+        $('cookieStatus').textContent = '✓ Cookies uploaded';
+        $('cookieStatus').className = 'cookie-status ok';
+        $('cookieStrip').classList.add('has-cookies');
+        $('cookieStripLabel').textContent = '✓ Cookies active — blocked videos should now work';
+      } else {
+        $('cookieStatus').textContent = data.error || 'Upload failed';
+      }
+    } catch (e) {
+      $('cookieStatus').textContent = 'Upload failed';
+    }
+  }
+
+  // ── Single convert ──
+  function showSingleError(msg) {
+    const el = $('singleError');
     el.textContent = msg;
     el.style.display = 'block';
   }
-  function hideError() { $('errorMsg').style.display = 'none'; }
+  function hideSingleError() { $('singleError').style.display = 'none'; }
 
   function setConverting(on) {
     $('btnConvert').disabled = on;
@@ -346,9 +574,9 @@
   async function handleConvert() {
     clearInterval(pollTimer);
     const url = $('urlInput').value.trim();
-    if (!url) { showError('Please paste a YouTube URL'); return; }
+    if (!url) { showSingleError('Please paste a YouTube URL'); return; }
 
-    hideError();
+    hideSingleError();
     $('videoCard').style.display = 'none';
     $('btnDownload').style.display = 'none';
     $('progressWrap').style.display = 'none';
@@ -356,13 +584,13 @@
     setConverting(true);
 
     try {
-      const res = await fetch('/info', {
+      const infoRes = await fetch('/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
-      const info = await res.json();
-      if (!res.ok) { showError(info.error || 'Could not fetch video info'); setConverting(false); return; }
+      const info = await infoRes.json();
+      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info'); setConverting(false); return; }
 
       $('videoThumb').src = info.thumbnail;
       $('videoTitle').textContent = info.title;
@@ -372,85 +600,158 @@
       const startRes = await fetch('/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, cookie_id: cookieId })
       });
       const startData = await startRes.json();
-      if (!startRes.ok) { showError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
+      if (!startRes.ok) { showSingleError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
 
-      pollJob(startData.job_id);
-
+      pollJob(startData.job_id, 'single');
     } catch (e) {
-      showError('Network error. Please try again.');
+      showSingleError('Network error. Please try again.');
       setConverting(false);
     }
   }
 
-  function pollJob(jobId) {
-    const progressWrap = $('progressWrap');
-    const progressBar = $('progressBar');
-    const statusText = $('statusText');
+  function pollJob(jobId, mode) {
+    const progressWrap = mode === 'single' ? $('progressWrap') : null;
+    const progressBar  = mode === 'single' ? $('progressBar')  : $('batchProgressBar');
+    const statusText   = mode === 'single' ? $('statusText')   : $('batchProgressLabel');
 
-    progressWrap.style.display = 'block';
-    statusText.style.display = 'block';
-    statusText.textContent = 'Converting audio…';
+    if (progressWrap) progressWrap.style.display = 'block';
+    if (statusText)   { statusText.style.display = 'block'; statusText.textContent = 'Converting…'; }
 
-    let fakeProgress = 10;
-    progressBar.style.width = fakeProgress + '%';
-
+    let fake = 10;
+    progressBar.style.width = fake + '%';
     const grow = setInterval(() => {
-      if (fakeProgress < 85) {
-        fakeProgress += Math.random() * 6;
-        progressBar.style.width = Math.min(fakeProgress, 85) + '%';
-      }
-    }, 800);
+      if (fake < 85) { fake += Math.random() * 5; progressBar.style.width = Math.min(fake, 85) + '%'; }
+    }, 900);
 
     let attempts = 0;
     pollTimer = setInterval(async () => {
-      attempts++;
-      if (attempts > 120) {
+      if (++attempts > 150) {
         clearInterval(pollTimer); clearInterval(grow);
-        showError('Conversion timed out. Try again.');
-        setConverting(false);
+        if (mode === 'single') { showSingleError('Timed out. Try again.'); setConverting(false); }
         return;
       }
-
       try {
         const res = await fetch(`/status/${jobId}`);
         const data = await res.json();
 
+        if (data.type === 'batch' && data.total) {
+          const pct = Math.round((data.done / data.total) * 100);
+          progressBar.style.width = Math.max(fake, pct) + '%';
+          statusText.textContent = `Processing ${data.done} / ${data.total}…`;
+        }
+
         if (data.status === 'done') {
           clearInterval(pollTimer); clearInterval(grow);
           progressBar.style.width = '100%';
-          statusText.textContent = 'Done! Your file is ready.';
-          setTimeout(() => {
-            progressWrap.style.display = 'none';
-            statusText.style.display = 'none';
-            const dl = $('btnDownload');
+
+          if (mode === 'single') {
+            statusText.textContent = 'Done! Downloading…';
+            setTimeout(() => {
+              progressWrap.style.display = 'none';
+              statusText.style.display = 'none';
+              // Auto-trigger download
+              const tmp = document.createElement('a');
+              tmp.href = `/download/${jobId}`;
+              tmp.download = data.filename || 'audio.mp3';
+              document.body.appendChild(tmp);
+              tmp.click();
+              document.body.removeChild(tmp);
+              // Fallback button
+              const dl = $('btnDownload');
+              dl.href = `/download/${jobId}`;
+              dl.download = data.filename || 'audio.mp3';
+              dl.textContent = '';
+              dl.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`);
+              dl.style.display = 'flex';
+              setConverting(false);
+            }, 400);
+          } else {
+            statusText.textContent = 'All done!';
+            const dl = $('btnBatchDownload');
             dl.href = `/download/${jobId}`;
-            dl.download = data.filename || 'audio.mp3';
+            dl.download = data.filename || 'ytmp3_batch.zip';
             dl.style.display = 'flex';
-            setConverting(false);
-          }, 500);
+            $('btnBatch').disabled = false;
+          }
         } else if (data.status === 'error') {
           clearInterval(pollTimer); clearInterval(grow);
-          progressWrap.style.display = 'none';
-          statusText.style.display = 'none';
-          showError(data.error || 'Conversion failed.');
-          setConverting(false);
+          if (mode === 'single') {
+            if (progressWrap) progressWrap.style.display = 'none';
+            statusText.style.display = 'none';
+            showSingleError(data.error || 'Conversion failed.');
+            setConverting(false);
+          } else {
+            statusText.textContent = '⚠ ' + (data.error || 'Batch failed.');
+            $('btnBatch').disabled = false;
+          }
         }
       } catch (e) {}
     }, 2000);
   }
 
-  $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
+  // ── Batch ──
+  function handleBatchDrop(e) {
+    e.preventDefault();
+    $('batchDrop').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleBatchFile(file);
+  }
 
+  function handleBatchFile(file) {
+    if (!file || !file.name.endsWith('.txt')) {
+      $('batchError').textContent = 'Please upload a .txt file';
+      $('batchError').style.display = 'block';
+      return;
+    }
+    batchFile = file;
+    $('batchError').style.display = 'none';
+    $('batchSelected').textContent = `✓ ${file.name} selected`;
+    $('batchSelected').style.display = 'block';
+    $('btnBatch').disabled = false;
+  }
+
+  async function handleBatch() {
+    if (!batchFile) return;
+    $('batchError').style.display = 'none';
+    $('btnBatch').disabled = true;
+    $('btnBatchDownload').style.display = 'none';
+    $('batchResult').style.display = 'block';
+    $('batchProgressBar').style.width = '5%';
+    $('batchProgressLabel').textContent = 'Starting…';
+
+    const fd = new FormData();
+    fd.append('file', batchFile);
+    if (cookieId) fd.append('cookie_id', cookieId);
+
+    try {
+      const res = await fetch('/batch', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        $('batchError').textContent = data.error || 'Failed to start batch';
+        $('batchError').style.display = 'block';
+        $('batchResult').style.display = 'none';
+        $('btnBatch').disabled = false;
+        return;
+      }
+      pollJob(data.job_id, 'batch');
+    } catch (e) {
+      $('batchError').textContent = 'Network error';
+      $('batchError').style.display = 'block';
+      $('btnBatch').disabled = false;
+    }
+  }
+
+  // Enter key & auto-paste
+  $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
   $('urlInput').addEventListener('focus', async () => {
     if ($('urlInput').value) return;
     try {
       const text = await navigator.clipboard.readText();
-      if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+      if (text && (text.includes('youtube.com') || text.includes('youtu.be')))
         $('urlInput').value = text;
-      }
     } catch (e) {}
   });
 </script>
