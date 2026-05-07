@@ -2,4 +2,4 @@
 nixPkgs = ["ffmpeg", "python311"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 360"
+cmd = "export PATH=/nix/var/nix/profiles/default/bin:$PATH && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 360"
