@@ -22,9 +22,7 @@ def clean_title(title):
 
 
 def is_valid_url(url):
-    return bool(re.match(
-        r'^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)[\w\-]', url
-    ))
+    return bool(re.search(r'(youtube\.com|youtu\.be)/', url))
 
 
 def schedule_cleanup(job_id, path):
