@@ -61,9 +61,9 @@ def do_convert(job_id, url, cookie_path=None):
                                 capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
+            err = (result.stderr or result.stdout or '').strip()[-300:]
             with jobs_lock:
-                jobs[job_id].update(status='error',
-                                    error='Download failed. Video may be unavailable or age-restricted.')
+                jobs[job_id].update(status='error', error=err or 'Download failed.')
             return
 
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
