@@ -78,7 +78,6 @@ def make_ydl_opts(output_template):
                 'player_client': ['ios', 'android', 'web_creator'],
             }
         },
-        'js_runtimes': ['nodejs'],
     }
     cf = get_cookies_file()
     if cf:
@@ -126,7 +125,7 @@ def download():
         msg = str(e)
         if 'unavailable' in msg.lower() or 'private' in msg.lower():
             user_msg = "Video is unavailable or private."
-        elif 'Invalid' in msg or 'invalid' in msg:
+        elif 'Invalid YouTube URL' in msg:
             user_msg = "Invalid YouTube URL — please check the link."
         elif 'age' in msg.lower() or 'restricted' in msg.lower():
             user_msg = "Age-restricted video. Add your YouTube cookies below to download it."

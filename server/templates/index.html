@@ -1,155 +1,204 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YT MP3</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        body { background:#0f0f0f; color:#e0e0e0; font-family:sans-serif; }
-        .card { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:14px; }
-        h1 { color:#ff0000; font-weight:800; }
-        .btn-red { background:#ff0000; border:none; color:#fff; font-weight:600; }
-        .btn-red:hover { background:#cc0000; color:#fff; }
-        .form-control { background:#222; border:1px solid #3a3a3a; color:#e0e0e0; border-radius:8px; }
-        .form-control:focus { background:#222; color:#e0e0e0; border-color:#ff0000; box-shadow:0 0 0 2px rgba(255,0,0,.2); }
-        .lbl { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#555; margin-bottom:8px; }
-        .badge-ok { display:inline-block; background:#28a745; color:#fff; padding:2px 12px; border-radius:99px; font-size:12px; }
-        .badge-no { display:inline-block; background:#555; color:#ccc; padding:2px 12px; border-radius:99px; font-size:12px; }
-        code { color:#ff6b6b; background:rgba(255,107,107,.1); padding:1px 5px; border-radius:3px; }
-        details summary { cursor:pointer; color:#888; }
-        details summary:hover { color:#fff; }
-        details[open] summary { margin-bottom:12px; }
-        textarea.form-control { font-size:12px; font-family:monospace; }
-        .step { background:#111; border-radius:8px; padding:12px 16px; margin-bottom:8px; font-size:13px; }
-        .step b { color:#fff; }
-        kbd { background:#333; border:1px solid #555; border-radius:4px; padding:1px 6px; font-size:12px; color:#eee; }
-        img.screenshot { max-width:100%; border-radius:8px; border:1px solid #333; margin:8px 0; }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YouTube to MP3 Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#0f0f0f;color:#fff;min-height:100vh;}
+a{text-decoration:none;color:inherit;}
+
+/* HEADER */
+.header{background:#0f0f0f;border-bottom:1px solid #222;padding:1rem 1.5rem;display:flex;align-items:center;gap:0.75rem;}
+.logo-icon{width:36px;height:36px;background:#ff0000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+.logo-text{font-size:1.2rem;font-weight:800;color:#fff;}
+.logo-text span{color:#ff0000;}
+
+/* HERO */
+.hero{text-align:center;padding:4rem 1.5rem 2rem;}
+.hero-badge{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff6b6b;font-size:0.78rem;font-weight:600;padding:0.35rem 0.9rem;border-radius:999px;margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:1px;}
+.hero h1{font-size:clamp(2rem,6vw,3.5rem);font-weight:900;line-height:1.1;margin-bottom:1rem;}
+.hero h1 .yt{color:#ff0000;}
+.hero h1 .mp3{color:#fff;}
+.hero p{color:#888;font-size:1rem;max-width:480px;margin:0 auto 2.5rem;}
+
+/* MAIN FORM CARD */
+.form-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:2rem;max-width:640px;margin:0 auto 1.5rem;}
+.input-wrap{display:flex;gap:0;margin-bottom:0.75rem;}
+.url-input{flex:1;background:#0f0f0f;border:2px solid #333;border-right:none;border-radius:12px 0 0 12px;padding:0.9rem 1.1rem;font-size:0.95rem;color:#fff;outline:none;transition:border-color 0.2s;font-family:'Inter',sans-serif;}
+.url-input::placeholder{color:#555;}
+.url-input:focus{border-color:#ff0000;}
+.btn-convert{background:#ff0000;color:#fff;border:none;border-radius:0 12px 12px 0;padding:0 1.75rem;font-size:0.95rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;font-family:'Inter',sans-serif;}
+.btn-convert:hover{background:#cc0000;}
+.form-hint{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
+.hint-item{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#555;}
+.hint-item span{color:#ff0000;}
+
+/* ALERT */
+.alert{border-radius:12px;padding:0.9rem 1.1rem;font-size:0.88rem;margin-bottom:1.25rem;max-width:640px;margin-left:auto;margin-right:auto;}
+.alert-error{background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff8080;}
+.alert-success{background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.3);color:#66ffaa;}
+
+/* FEATURES */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;max-width:640px;margin:0 auto 3rem;}
+.feature{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:1.25rem;text-align:center;}
+.feature-icon{font-size:1.75rem;margin-bottom:0.6rem;}
+.feature h3{font-size:0.88rem;font-weight:700;margin-bottom:0.3rem;}
+.feature p{font-size:0.75rem;color:#666;}
+
+/* BATCH */
+.batch-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:1.5rem;max-width:640px;margin:0 auto 1.5rem;}
+.batch-title{font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:1rem;}
+.batch-row{display:flex;gap:0;}
+.file-input{flex:1;background:#0f0f0f;border:2px solid #333;border-right:none;border-radius:12px 0 0 12px;padding:0.75rem 1rem;font-size:0.85rem;color:#888;outline:none;cursor:pointer;}
+.btn-batch{background:#333;color:#fff;border:none;border-radius:0 12px 12px 0;padding:0 1.25rem;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;}
+.btn-batch:hover{background:#444;}
+.batch-hint{font-size:0.75rem;color:#555;margin-top:0.5rem;}
+
+/* COOKIES */
+.cookies-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:1.5rem;max-width:640px;margin:0 auto 3rem;}
+.cookies-toggle{width:100%;background:none;border:none;color:#555;font-size:0.85rem;font-family:'Inter',sans-serif;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:0;}
+.cookies-toggle:hover{color:#888;}
+.cookies-body{display:none;margin-top:1.25rem;}
+.cookies-body.open{display:block;}
+.step{background:#0f0f0f;border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:0.82rem;color:#888;}
+.step b{color:#ccc;}
+kbd{background:#2a2a2a;border:1px solid #444;border-radius:4px;padding:1px 6px;font-size:0.78rem;color:#ddd;}
+textarea{width:100%;background:#0f0f0f;border:2px solid #333;border-radius:10px;padding:0.75rem;font-size:0.82rem;font-family:monospace;color:#ccc;resize:vertical;outline:none;margin-bottom:0.75rem;}
+textarea:focus{border-color:#ff0000;}
+.btn-save{width:100%;background:#ff0000;color:#fff;border:none;border-radius:10px;padding:0.75rem;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn-save:hover{background:#cc0000;}
+.divider{border:none;border-top:1px solid #2a2a2a;margin:1.25rem 0;}
+.cookies-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:0.75rem;}
+
+/* FOOTER */
+footer{text-align:center;padding:2rem 1rem;color:#444;font-size:0.8rem;border-top:1px solid #1a1a1a;}
+footer a{color:#555;}
+
+@media(max-width:500px){
+  .btn-convert{padding:0 1rem;font-size:0.85rem;}
+  .hero{padding:2.5rem 1rem 1.5rem;}
+  .form-card,.batch-card,.cookies-card{padding:1.25rem;}
+}
+</style>
 </head>
 <body>
-<div class="container py-5" style="max-width:620px">
 
-    <div class="text-center mb-5">
-        <h1>&#9654; YT MP3</h1>
-        <p class="text-muted mb-2">Download any YouTube video as high-quality MP3</p>
-        {% if has_cookies %}
-        <span class="badge-ok">&#10003; Cookies active — all videos unlocked</span>
-        {% else %}
-        <span class="badge-no">No cookies — some videos may be blocked</span>
-        {% endif %}
-    </div>
-
-    {% if error_message %}
-    <div class="alert alert-danger" style="border-radius:10px">
-        {{ error_message }}
-        {% if 'blocked' in error_message or 'bot' in error_message or 'cookies' in error_message.lower() %}
-        <hr style="border-color:#7a0000">
-        <small>&#128071; Add your YouTube cookies below to fix this — no install needed.</small>
-        {% endif %}
-    </div>
-    {% endif %}
-    {% if success_message %}
-    <div class="alert alert-success" style="border-radius:10px">{{ success_message }}</div>
-    {% endif %}
-
-    <!-- Single download -->
-    <div class="card p-4 mb-3">
-        <div class="lbl">Download MP3</div>
-        <form action="/download" method="post">
-            <div class="input-group">
-                <input type="url" class="form-control" name="url"
-                       placeholder="https://www.youtube.com/watch?v=..."
-                       required autofocus style="border-radius:8px 0 0 8px">
-                <div class="input-group-append">
-                    <button type="submit" class="btn btn-red" style="border-radius:0 8px 8px 0;padding:0 20px">
-                        &#8681; MP3
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-
-    <!-- Batch -->
-    <div class="card p-4 mb-3">
-        <div class="lbl">Batch Download (ZIP)</div>
-        <form action="/batch_download" method="post" enctype="multipart/form-data">
-            <div class="input-group">
-                <input type="file" class="form-control" name="file" accept=".txt" style="padding:6px;border-radius:8px 0 0 8px">
-                <div class="input-group-append">
-                    <button type="submit" class="btn btn-outline-danger" style="border-radius:0 8px 8px 0">
-                        &#8681; ZIP
-                    </button>
-                </div>
-            </div>
-            <small class="text-muted mt-1 d-block">One YouTube URL per line in the .txt file</small>
-        </form>
-    </div>
-
-    <!-- Cookie setup — collapsed by default, opens if there's a bot error -->
-    <div class="card p-4">
-        <details {% if error_message and ('blocked' in error_message or 'bot' in error_message or 'cookies' in error_message.lower()) %}open{% endif %}>
-            <summary>
-                &#128274; Fix blocked downloads — add YouTube cookies
-                <small class="text-muted ml-2">(no install required)</small>
-            </summary>
-
-            <p class="text-muted mt-2" style="font-size:14px">
-                YouTube blocks downloads from server IPs. Give the app your browser's YouTube session cookies — it's a one-time paste, no extension needed.
-            </p>
-
-            <!-- Method 1: Paste from DevTools -->
-            <div class="mb-3">
-                <div class="lbl">Method 1 — Paste from Browser (easiest)</div>
-                <div class="step">
-                    <b>Step 1:</b> Open <a href="https://www.youtube.com" target="_blank" style="color:#ff6b6b">youtube.com</a> while logged in
-                </div>
-                <div class="step">
-                    <b>Step 2:</b> Press <kbd>F12</kbd> → <b>Application</b> tab → <b>Storage → Cookies → https://www.youtube.com</b>
-                </div>
-                <div class="step">
-                    <b>Step 3:</b> Press <kbd>Ctrl+A</kbd> to select all cookies, then copy the cookie string from the <b>Network</b> tab instead:<br>
-                    <small class="text-muted">Network tab → click any request → Headers → scroll to <code>Cookie:</code> → right-click → Copy value</small>
-                </div>
-                <div class="step">
-                    <b>Step 4:</b> Paste it below and click Save:
-                </div>
-                <form action="/set-cookies" method="post">
-                    <textarea class="form-control mb-2" name="cookiestring" rows="3"
-                              placeholder="CONSENT=YES; SID=abc123; SSID=xyz..."></textarea>
-                    <button type="submit" class="btn btn-red btn-block" style="border-radius:8px">
-                        Save Cookie String
-                    </button>
-                </form>
-            </div>
-
-            <hr style="border-color:#2a2a2a">
-
-            <!-- Method 2: Upload cookies.txt file -->
-            <div>
-                <div class="lbl">Method 2 — Upload cookies.txt file</div>
-                <p style="font-size:13px;color:#888">
-                    Install <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally" target="_blank" style="color:#ff6b6b">Get cookies.txt LOCALLY</a>,
-                    export from youtube.com, upload here:
-                </p>
-                <form action="/set-cookies" method="post" enctype="multipart/form-data">
-                    <div class="input-group">
-                        <input type="file" class="form-control" name="cookiefile" accept=".txt" style="padding:6px;border-radius:8px 0 0 8px">
-                        <div class="input-group-append">
-                            <button type="submit" class="btn btn-outline-danger" style="border-radius:0 8px 8px 0">
-                                Upload
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <p class="text-muted mt-3 mb-0" style="font-size:12px">
-                &#9888; Cookies are stored in server memory and reset on redeploy. For permanent storage, set <code>YOUTUBE_COOKIES_B64</code> in Railway env vars.
-            </p>
-        </details>
-    </div>
-
+<div class="header">
+  <div class="logo-icon">▶</div>
+  <div class="logo-text">YT<span>MP3</span></div>
 </div>
+
+<div class="hero">
+  <div class="hero-badge">⚡ Free · Fast · No signup</div>
+  <h1><span class="yt">YouTube</span><br><span class="mp3">to MP3 Converter</span></h1>
+  <p>Paste any YouTube link and download it as a high-quality MP3 in seconds.</p>
+
+  {% if error_message %}
+  <div class="alert alert-error">⚠ {{ error_message }}</div>
+  {% endif %}
+  {% if success_message %}
+  <div class="alert alert-success">✓ {{ success_message }}</div>
+  {% endif %}
+
+  <div class="form-card">
+    <form action="/download" method="post">
+      <div class="input-wrap">
+        <input class="url-input" type="url" name="url"
+               placeholder="https://www.youtube.com/watch?v=..."
+               required autofocus/>
+        <button type="submit" class="btn-convert">⬇ Convert</button>
+      </div>
+      <div class="form-hint">
+        <div class="hint-item"><span>✓</span> 192 kbps MP3</div>
+        <div class="hint-item"><span>✓</span> No registration</div>
+        <div class="hint-item"><span>✓</span> Instant download</div>
+      </div>
+    </form>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🎵</div>
+      <h3>High Quality</h3>
+      <p>192 kbps audio</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <h3>Fast</h3>
+      <p>Seconds to convert</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🆓</div>
+      <h3>Free</h3>
+      <p>No limits, no cost</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📱</div>
+      <h3>Mobile Ready</h3>
+      <p>Works on any device</p>
+    </div>
+  </div>
+</div>
+
+<!-- Batch -->
+<div class="batch-card">
+  <div class="batch-title">▼ Batch Download — Multiple URLs (ZIP)</div>
+  <form action="/batch_download" method="post" enctype="multipart/form-data">
+    <div class="batch-row">
+      <input type="file" class="file-input" name="file" accept=".txt"/>
+      <button type="submit" class="btn-batch">⬇ ZIP</button>
+    </div>
+    <p class="batch-hint">Upload a .txt file with one YouTube URL per line</p>
+  </form>
+</div>
+
+<!-- Cookies -->
+<div class="cookies-card">
+  <button class="cookies-toggle" onclick="toggleCookies(this)">
+    <span>🔒 Fix blocked downloads — add YouTube cookies</span>
+    <span>▼</span>
+  </button>
+  <div class="cookies-body" id="cookies-body" {% if has_cookies %}style="display:block"{% endif %}>
+    <p style="font-size:0.82rem;color:#666;margin-bottom:1rem;">YouTube blocks some downloads from servers. Add your browser cookies once to unlock all videos.</p>
+
+    <div class="cookies-label">Method 1 — Paste from Browser</div>
+    <div class="step"><b>Step 1:</b> Open <a href="https://youtube.com" target="_blank" style="color:#ff6b6b">youtube.com</a> while logged in</div>
+    <div class="step"><b>Step 2:</b> Press <kbd>F12</kbd> → Network tab → click any request → Headers → find <code style="color:#ff6b6b">Cookie:</code> → right-click → Copy value</div>
+    <div class="step"><b>Step 3:</b> Paste below and save</div>
+    <form action="/set-cookies" method="post">
+      <textarea name="cookiestring" rows="3" placeholder="CONSENT=YES; SID=abc123; SSID=xyz..."></textarea>
+      <button type="submit" class="btn-save">Save Cookies</button>
+    </form>
+
+    <div class="divider"></div>
+
+    <div class="cookies-label">Method 2 — Upload cookies.txt file</div>
+    <form action="/set-cookies" method="post" enctype="multipart/form-data">
+      <div class="batch-row" style="margin-bottom:0;">
+        <input type="file" class="file-input" name="cookiefile" accept=".txt"/>
+        <button type="submit" class="btn-batch">Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer>
+  &copy; 2026 YT MP3 Converter &mdash; For personal use only &mdash;
+  <a href="https://www.youtube.com/t/terms" target="_blank">YouTube Terms</a>
+</footer>
+
+<script>
+function toggleCookies(btn) {
+  const body = document.getElementById('cookies-body');
+  body.style.display = body.style.display === 'block' ? 'none' : 'block';
+}
+{% if error_message and ('blocked' in error_message or 'bot' in error_message or 'cookies' in error_message|lower) %}
+document.getElementById('cookies-body').style.display = 'block';
+{% endif %}
+</script>
+
 </body>
 </html>
