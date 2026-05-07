@@ -41,7 +41,8 @@ def schedule_cleanup(job_id, path):
 
 
 def build_cmd(url, output_template, cookie_path=None):
-    cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist']
+    cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist',
+           '--extractor-args', 'youtube:player_client=android,web']
     if cookie_path and os.path.exists(cookie_path):
         cmd += ['--cookies', cookie_path]
     cmd += ['-o', output_template, url]
