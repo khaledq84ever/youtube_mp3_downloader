@@ -2,6 +2,12 @@ from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 import subprocess, os, uuid, json, re, glob, threading, time, zipfile, shutil
 
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()  # binary pre-downloaded at build; this just adds it to PATH
+except Exception:
+    pass
+
 app = Flask(__name__)
 CORS(app)
 
