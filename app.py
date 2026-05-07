@@ -183,7 +183,10 @@ def get_info():
                                  '--extractor-args', 'youtube:player_client=android,web', url],
                                 capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
-            return jsonify({'error': 'Could not fetch video. Check the URL and try again.'}), 400
+            err = result.stderr or ''
+            if 'Sign in' in err or 'bot' in err or 'cookies' in err.lower():
+                return jsonify({'error': 'This video requires sign-in. Upload your YouTube cookies using the 🔒 button below.'}), 400
+            return jsonify({'error': 'Could not fetch video. It may be private, deleted, or region-blocked.'}), 400
         info = json.loads(result.stdout)
         duration = info.get('duration', 0)
         m, s = divmod(int(duration), 60)
