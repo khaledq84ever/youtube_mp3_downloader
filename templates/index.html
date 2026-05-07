@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YT to MP3 — Free YouTube Converter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0b0f;
+      --surface: #13131a;
+      --surface2: #1c1c27;
+      --border: #2a2a3a;
+      --accent: #7c5cfc;
+      --accent2: #5b8af5;
+      --success: #22d3a5;
+      --danger: #ff4757;
+      --text: #f0f0f8;
+      --muted: #7c7c9a;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 28px 24px 0;
+      text-align: center;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 22px; height: 22px; }
+    .logo-text { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .tagline { margin-top: 10px; color: var(--muted); font-size: 0.88rem; }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 60px;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.2;
+      letter-spacing: -1px;
+      max-width: 600px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 1rem;
+      text-align: center;
+      max-width: 420px;
+    }
+
+    .input-card {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      display: flex;
+      gap: 8px;
+    }
+    .url-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      min-width: 0;
+    }
+    .url-input::placeholder { color: var(--muted); }
+
+    .btn-convert {
+      flex-shrink: 0;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn-convert:hover { opacity: 0.9; }
+    .btn-convert:active { transform: scale(0.98); }
+    .btn-convert:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg { margin-top: 14px; color: var(--danger); font-size: 0.88rem; display: none; }
+
+    .video-card {
+      margin-top: 28px;
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: none;
+      animation: fadeUp 0.3s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .video-card-inner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+    }
+    .video-thumb {
+      flex-shrink: 0;
+      width: 110px; height: 62px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: var(--surface2);
+    }
+    .video-meta { flex: 1; min-width: 0; }
+    .video-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .video-sub { margin-top: 5px; font-size: 0.8rem; color: var(--muted); }
+
+    .card-actions { padding: 0 16px 16px; }
+
+    .progress-wrap {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: pulse-bar 2s ease-in-out infinite;
+    }
+    @keyframes pulse-bar {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .status-text { font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; display: none; }
+
+    .btn-download {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--success) 0%, #18b893 100%);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+      text-decoration: none;
+    }
+    .btn-download:hover { opacity: 0.9; }
+    .btn-download:active { transform: scale(0.99); }
+    .btn-download svg { width: 18px; height: 18px; }
+
+    .steps { margin-top: 60px; width: 100%; max-width: 680px; }
+    .steps-title { text-align: center; font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: var(--muted); }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 16px;
+      text-align: center;
+    }
+    .step-num {
+      width: 36px; height: 36px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700;
+    }
+    .step h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 5px; }
+    .step p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 540px) {
+      .input-card { flex-direction: column; }
+      .btn-convert { width: 100%; padding: 14px; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .video-card-inner { flex-direction: column; align-items: flex-start; }
+      .video-thumb { width: 100%; height: 160px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="10 8 16 12 10 16 10 8" fill="white" stroke="none"/>
+      </svg>
+    </div>
+    <span class="logo-text">YT<span>MP3</span></span>
+  </a>
+  <p class="tagline">Free · No signup · High quality</p>
+</header>
+
+<main>
+  <h1>Convert YouTube to <span>MP3</span><br/>in seconds</h1>
+  <p class="subtitle">Paste any YouTube link below and download the audio as a high-quality MP3 file — free, fast, no limits.</p>
+
+  <div class="input-card">
+    <input type="text" class="url-input" id="urlInput"
+      placeholder="https://youtube.com/watch?v=..." autocomplete="off" spellcheck="false" />
+    <button class="btn-convert" id="btnConvert" onclick="handleConvert()">Convert</button>
+  </div>
+  <p class="error-msg" id="errorMsg"></p>
+
+  <div class="video-card" id="videoCard">
+    <div class="video-card-inner">
+      <img class="video-thumb" id="videoThumb" src="" alt="" />
+      <div class="video-meta">
+        <div class="video-title" id="videoTitle"></div>
+        <div class="video-sub" id="videoSub"></div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <p class="status-text" id="statusText"></p>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <a class="btn-download" id="btnDownload" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download MP3
+      </a>
+    </div>
+  </div>
+
+  <div class="steps">
+    <p class="steps-title">How it works</p>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Paste URL</h3>
+        <p>Copy the YouTube link and paste it into the search bar above</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Convert</h3>
+        <p>Click Convert and we'll extract the audio track in MP3 format</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Download</h3>
+        <p>Hit Download and save the MP3 file directly to your device</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  &copy; 2025 YTMP3 &mdash; For personal use only. Respect copyright laws.
+</footer>
+
+<script>
+  let pollTimer = null;
+
+  const $ = id => document.getElementById(id);
+
+  function showError(msg) {
+    const el = $('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideError() { $('errorMsg').style.display = 'none'; }
+
+  function setConverting(on) {
+    $('btnConvert').disabled = on;
+    $('btnConvert').textContent = on ? 'Loading…' : 'Convert';
+    $('urlInput').disabled = on;
+  }
+
+  async function handleConvert() {
+    clearInterval(pollTimer);
+    const url = $('urlInput').value.trim();
+    if (!url) { showError('Please paste a YouTube URL'); return; }
+
+    hideError();
+    $('videoCard').style.display = 'none';
+    $('btnDownload').style.display = 'none';
+    $('progressWrap').style.display = 'none';
+    $('statusText').style.display = 'none';
+    setConverting(true);
+
+    try {
+      const res = await fetch('/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const info = await res.json();
+      if (!res.ok) { showError(info.error || 'Could not fetch video info'); setConverting(false); return; }
+
+      $('videoThumb').src = info.thumbnail;
+      $('videoTitle').textContent = info.title;
+      $('videoSub').textContent = `${info.uploader}  ·  ${info.duration}`;
+      $('videoCard').style.display = 'block';
+
+      const startRes = await fetch('/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) { showError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
+
+      pollJob(startData.job_id);
+
+    } catch (e) {
+      showError('Network error. Please try again.');
+      setConverting(false);
+    }
+  }
+
+  function pollJob(jobId) {
+    const progressWrap = $('progressWrap');
+    const progressBar = $('progressBar');
+    const statusText = $('statusText');
+
+    progressWrap.style.display = 'block';
+    statusText.style.display = 'block';
+    statusText.textContent = 'Converting audio…';
+
+    let fakeProgress = 10;
+    progressBar.style.width = fakeProgress + '%';
+
+    const grow = setInterval(() => {
+      if (fakeProgress < 85) {
+        fakeProgress += Math.random() * 6;
+        progressBar.style.width = Math.min(fakeProgress, 85) + '%';
+      }
+    }, 800);
+
+    let attempts = 0;
+    pollTimer = setInterval(async () => {
+      attempts++;
+      if (attempts > 120) {
+        clearInterval(pollTimer); clearInterval(grow);
+        showError('Conversion timed out. Try again.');
+        setConverting(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/status/${jobId}`);
+        const data = await res.json();
+
+        if (data.status === 'done') {
+          clearInterval(pollTimer); clearInterval(grow);
+          progressBar.style.width = '100%';
+          statusText.textContent = 'Done! Your file is ready.';
+          setTimeout(() => {
+            progressWrap.style.display = 'none';
+            statusText.style.display = 'none';
+            const dl = $('btnDownload');
+            dl.href = `/download/${jobId}`;
+            dl.download = data.filename || 'audio.mp3';
+            dl.style.display = 'flex';
+            setConverting(false);
+          }, 500);
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer); clearInterval(grow);
+          progressWrap.style.display = 'none';
+          statusText.style.display = 'none';
+          showError(data.error || 'Conversion failed.');
+          setConverting(false);
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
+
+  $('urlInput').addEventListener('focus', async () => {
+    if ($('urlInput').value) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+        $('urlInput').value = text;
+      }
+    } catch (e) {}
+  });
+</script>
+</body>
+</html>
