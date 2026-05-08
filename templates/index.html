@@ -34,91 +34,45 @@
 
     /* ── Header ── */
     header { padding: 32px 24px 0; text-align: center; }
-
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      text-decoration: none;
-    }
+    .logo { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
     .logo-play {
       font-size: 1.5rem;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;
     }
-    .logo-text {
-      font-size: 1.5rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--text);
-    }
+    .logo-text { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
     .logo-text span {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
     .tagline { margin-top: 8px; color: var(--muted); font-size: 0.85rem; }
 
     /* ── Main ── */
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 44px 20px 60px;
-    }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 44px 20px 60px; }
 
     h1 {
-      font-size: clamp(1.7rem, 4vw, 2.6rem);
-      font-weight: 800;
-      text-align: center;
-      line-height: 1.2;
-      letter-spacing: -1px;
-      max-width: 560px;
+      font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 800;
+      text-align: center; line-height: 1.2; letter-spacing: -1px; max-width: 560px;
     }
     h1 span {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .subtitle {
-      margin-top: 12px;
-      color: var(--muted);
-      font-size: 0.95rem;
-      text-align: center;
-    }
+    .subtitle { margin-top: 12px; color: var(--muted); font-size: 0.95rem; text-align: center; }
 
     /* ── Tabs ── */
     .tabs {
-      margin-top: 36px;
-      display: flex;
-      gap: 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 5px;
-      width: 100%;
-      max-width: 680px;
+      margin-top: 36px; display: flex; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 5px; width: 100%; max-width: 680px;
     }
     .tab-btn {
-      flex: 1;
-      padding: 9px 16px;
-      border: none;
-      border-radius: 9px;
-      background: transparent;
-      color: var(--muted);
-      font-family: inherit;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
+      flex: 1; padding: 9px 16px; border: none; border-radius: 9px;
+      background: transparent; color: var(--muted); font-family: inherit;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
       transition: background 0.2s, color 0.2s;
     }
-    .tab-btn.active {
-      background: var(--surface2);
-      color: var(--text);
-    }
+    .tab-btn.active { background: var(--surface2); color: var(--text); }
 
     /* ── Panels ── */
     .panel { width: 100%; max-width: 680px; display: none; }
@@ -126,40 +80,22 @@
 
     /* ── Input card ── */
     .input-card {
-      margin-top: 12px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 8px;
-      display: flex;
-      gap: 8px;
+      margin-top: 12px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 8px; display: flex; gap: 8px;
     }
     .url-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.95rem;
-      padding: 12px 14px;
-      min-width: 0;
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: inherit; font-size: 0.95rem;
+      padding: 12px 14px; min-width: 0;
     }
     .url-input::placeholder { color: var(--muted); }
 
     .btn-primary {
-      flex-shrink: 0;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 10px;
+      flex-shrink: 0; padding: 12px 24px; border: none; border-radius: 10px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-      white-space: nowrap;
+      color: #fff; font-family: inherit; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s, transform 0.1s; white-space: nowrap;
     }
     .btn-primary:hover { opacity: 0.9; }
     .btn-primary:active { transform: scale(0.98); }
@@ -169,58 +105,32 @@
 
     /* ── Cookies strip ── */
     .cookie-strip {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
-      cursor: pointer;
-      user-select: none;
-      transition: border-color 0.2s;
+      margin-top: 10px; display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; font-size: 0.82rem; color: var(--muted);
+      cursor: pointer; user-select: none; transition: border-color 0.2s, box-shadow 0.2s;
     }
     .cookie-strip:hover { border-color: var(--accent); }
     .cookie-strip.has-cookies { border-color: var(--success); color: var(--success); }
+    .cookie-strip.needs-cookies { border-color: var(--warn); color: var(--warn); box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
     .cookie-strip .lock { font-size: 1rem; }
     .cookie-strip .caret { margin-left: auto; transition: transform 0.2s; }
     .cookie-strip.open .caret { transform: rotate(180deg); }
 
     .cookie-panel {
-      display: none;
-      margin-top: 6px;
-      padding: 14px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.7;
+      display: none; margin-top: 6px; padding: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.7;
     }
     .cookie-panel.open { display: block; }
     .cookie-panel ol { padding-left: 18px; margin: 8px 0; }
     .cookie-panel a { color: var(--accent2); text-decoration: none; }
 
-    .cookie-upload-row {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .cookie-upload-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .btn-upload {
-      padding: 8px 16px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface2);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.2s;
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface2); color: var(--text); font-family: inherit;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: border-color 0.2s;
     }
     .btn-upload:hover { border-color: var(--accent); }
     .cookie-status { font-size: 0.8rem; color: var(--muted); }
@@ -228,96 +138,81 @@
 
     /* ── Video result card ── */
     .video-card {
-      margin-top: 20px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      display: none;
+      margin-top: 20px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; display: none;
       animation: fadeUp 0.3s ease;
     }
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .video-card-inner {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px;
-    }
+    .video-card-inner { display: flex; align-items: center; gap: 14px; padding: 14px; }
     .video-thumb {
-      flex-shrink: 0;
-      width: 108px; height: 60px;
-      border-radius: 8px;
-      object-fit: cover;
-      background: var(--surface2);
+      flex-shrink: 0; width: 108px; height: 60px;
+      border-radius: 8px; object-fit: cover; background: var(--surface2);
     }
     .video-meta { flex: 1; min-width: 0; }
     .video-title {
-      font-size: 0.93rem; font-weight: 600;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      font-size: 0.93rem; font-weight: 600; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
     .video-sub { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+    .quality-badge {
+      display: inline-block; margin-top: 5px;
+      padding: 2px 7px; border-radius: 4px;
+      background: rgba(124,92,252,0.18); color: var(--accent);
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.03em;
+    }
 
     .card-actions { padding: 0 14px 14px; }
 
     .progress-wrap {
-      height: 5px;
-      background: var(--surface2);
-      border-radius: 99px;
-      overflow: hidden;
-      margin-bottom: 12px;
-      display: none;
+      height: 5px; background: var(--surface2); border-radius: 99px;
+      overflow: hidden; margin-bottom: 8px; display: none;
     }
     .progress-bar {
       height: 100%;
       background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 99px;
-      width: 0%;
-      transition: width 0.4s ease;
+      border-radius: 99px; width: 0%; transition: width 0.5s ease;
     }
     .status-text { font-size: 0.8rem; color: var(--muted); margin-bottom: 10px; display: none; }
 
+    /* ── Download button + actions ── */
+    .download-actions { display: flex; flex-direction: column; gap: 8px; }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,165,0.4); }
+      50%       { box-shadow: 0 0 0 8px rgba(34,211,165,0); }
+    }
     .btn-download {
-      width: 100%;
-      padding: 13px;
-      border: none;
-      border-radius: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
       background: linear-gradient(135deg, var(--success), #18b893);
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      text-decoration: none;
-      transition: opacity 0.2s;
+      color: #fff; font-family: inherit; font-size: 1rem; font-weight: 700;
+      cursor: pointer; display: none; align-items: center; justify-content: center;
+      gap: 8px; text-decoration: none; transition: opacity 0.2s;
     }
     .btn-download:hover { opacity: 0.9; }
-    .btn-download svg { width: 17px; height: 17px; }
+    .btn-download.pulse { animation: pulse-glow 1.6s ease-in-out infinite; }
+    .btn-download svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    .btn-copy-link {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface2); color: var(--muted); font-family: inherit;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; display: none;
+      align-items: center; justify-content: center; gap: 6px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-copy-link:hover { border-color: var(--accent); color: var(--text); }
+    .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
 
     /* ── Batch panel ── */
     .batch-drop {
-      margin-top: 12px;
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 36px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-      position: relative;
+      margin-top: 12px; border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 36px 20px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; position: relative;
     }
     .batch-drop:hover, .batch-drop.dragover { border-color: var(--accent); background: rgba(124,92,252,0.04); }
-    .batch-drop input[type=file] {
-      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-    }
+    .batch-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
     .batch-drop-icon { font-size: 2rem; margin-bottom: 10px; }
     .batch-drop-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
     .batch-drop-sub { font-size: 0.8rem; color: var(--muted); }
@@ -327,30 +222,33 @@
     .batch-actions .btn-primary { flex: 1; }
 
     .batch-result {
-      margin-top: 14px;
-      padding: 14px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      display: none;
+      margin-top: 14px; padding: 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); display: none;
     }
     .batch-progress-label { font-size: 0.82rem; color: var(--muted); margin-bottom: 8px; }
+
+    .batch-results-list { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .batch-result-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 8px; background: var(--surface2);
+      font-size: 0.78rem;
+    }
+    .batch-result-item .ri { flex-shrink: 0; font-size: 0.9rem; }
+    .batch-result-item .rt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+    .batch-result-item.ok .rt { color: var(--text); }
+    .batch-result-item.fail .ri { color: var(--danger); }
+    .batch-result-item.ok .ri { color: var(--success); }
 
     /* ── Steps ── */
     .steps { margin-top: 56px; width: 100%; max-width: 680px; }
     .steps-title { text-align: center; font-size: 1rem; font-weight: 700; margin-bottom: 20px; color: var(--muted); }
     .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .step {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px 14px;
-      text-align: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 14px; text-align: center;
     }
     .step-num {
-      width: 34px; height: 34px;
-      margin: 0 auto 10px;
-      border-radius: 50%;
+      width: 34px; height: 34px; margin: 0 auto 10px; border-radius: 50%;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       display: flex; align-items: center; justify-content: center;
       font-size: 0.82rem; font-weight: 700;
@@ -360,19 +258,20 @@
 
     /* ── Footer ── */
     footer {
-      text-align: center;
-      padding: 22px;
-      color: var(--muted);
-      font-size: 0.76rem;
-      border-top: 1px solid var(--border);
+      text-align: center; padding: 22px; color: var(--muted);
+      font-size: 0.76rem; border-top: 1px solid var(--border);
     }
 
+    /* ── Mobile ── */
     @media (max-width: 540px) {
-      .input-card { flex-direction: column; }
-      .btn-primary { width: 100%; padding: 14px; }
+      main { padding: 32px 16px 48px; }
+      .input-card { flex-direction: column; padding: 10px; }
+      .btn-primary { width: 100%; padding: 16px; font-size: 1rem; }
       .steps-grid { grid-template-columns: 1fr; }
       .video-card-inner { flex-direction: column; align-items: flex-start; }
-      .video-thumb { width: 100%; height: 150px; }
+      .video-thumb { width: 100%; height: 160px; }
+      .btn-download { padding: 16px; font-size: 1.05rem; }
+      .tabs { margin-top: 24px; }
     }
   </style>
 </head>
@@ -390,7 +289,6 @@
   <h1>Download any YouTube video<br/>as high-quality <span>MP3</span></h1>
   <p class="subtitle">No cookies — some videos may be blocked</p>
 
-  <!-- Tabs -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('single', this)">Single Download</button>
     <button class="tab-btn" onclick="switchTab('batch', this)">Batch Download (ZIP)</button>
@@ -399,8 +297,10 @@
   <!-- ── Single panel ── -->
   <div class="panel active" id="panel-single">
     <div class="input-card">
-      <input type="text" class="url-input" id="urlInput"
-        placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" spellcheck="false" />
+      <input type="url" class="url-input" id="urlInput"
+        placeholder="https://www.youtube.com/watch?v=..."
+        autocomplete="off" autocorrect="off" autocapitalize="off"
+        spellcheck="false" inputmode="url" />
       <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
     </div>
     <p class="error-msg" id="singleError"></p>
@@ -417,7 +317,7 @@
         <li>Install the <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a> extension</li>
         <li>Go to <a href="https://youtube.com" target="_blank">youtube.com</a> and log in</li>
         <li>Click the extension icon → Export → save as <code>cookies.txt</code></li>
-        <li>Upload the file below</li>
+        <li>Upload the file below, then try converting again</li>
       </ol>
       <div class="cookie-upload-row">
         <button class="btn-upload" onclick="document.getElementById('cookieFileInput').click()">Upload cookies.txt</button>
@@ -433,6 +333,7 @@
         <div class="video-meta">
           <div class="video-title" id="videoTitle"></div>
           <div class="video-sub" id="videoSub"></div>
+          <span class="quality-badge">320 kbps MP3</span>
         </div>
       </div>
       <div class="card-actions">
@@ -440,14 +341,22 @@
         <div class="progress-wrap" id="progressWrap">
           <div class="progress-bar" id="progressBar"></div>
         </div>
-        <a class="btn-download" id="btnDownload" href="#">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Download MP3
-        </a>
+        <div class="download-actions">
+          <a class="btn-download" id="btnDownload" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download MP3
+          </a>
+          <button class="btn-copy-link" id="btnCopyLink" onclick="copyDownloadLink()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy download link
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -475,7 +384,8 @@
       <div class="progress-wrap" style="display:block;margin-bottom:12px">
         <div class="progress-bar" id="batchProgressBar"></div>
       </div>
-      <a class="btn-download" id="btnBatchDownload" href="#" style="display:none;text-decoration:none">
+      <div class="batch-results-list" id="batchResultsList"></div>
+      <a class="btn-download" id="btnBatchDownload" href="#" style="display:none;text-decoration:none;margin-top:12px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -498,12 +408,12 @@
       <div class="step">
         <div class="step-num">2</div>
         <h3>Convert</h3>
-        <p>We extract the audio track and encode it as high-quality MP3</p>
+        <p>We extract the audio and encode it as high-quality 320 kbps MP3</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <h3>Download</h3>
-        <p>Save the MP3 file directly to your device — no account needed</p>
+        <p>Save the MP3 directly to your device — no account needed</p>
       </div>
     </div>
   </div>
@@ -515,6 +425,7 @@
   let cookieId = null;
   let batchFile = null;
   let pollTimer = null;
+  let currentDownloadUrl = null;
 
   const $ = id => document.getElementById(id);
 
@@ -528,10 +439,17 @@
 
   // ── Cookie panel ──
   function toggleCookiePanel() {
+    $('cookieStrip').classList.toggle('open');
+    $('cookiePanel').classList.toggle('open');
+  }
+
+  function openCookiePanel(highlight) {
     const strip = $('cookieStrip');
     const panel = $('cookiePanel');
-    strip.classList.toggle('open');
-    panel.classList.toggle('open');
+    strip.classList.add('open');
+    panel.classList.add('open');
+    if (highlight) strip.classList.add('needs-cookies');
+    setTimeout(() => strip.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
   }
 
   async function uploadCookies(input) {
@@ -548,22 +466,29 @@
         $('cookieStatus').textContent = '✓ Cookies uploaded';
         $('cookieStatus').className = 'cookie-status ok';
         $('cookieStrip').classList.add('has-cookies');
+        $('cookieStrip').classList.remove('needs-cookies');
         $('cookieStripLabel').textContent = '✓ Cookies active — blocked videos should now work';
       } else {
         $('cookieStatus').textContent = data.error || 'Upload failed';
       }
-    } catch (e) {
+    } catch {
       $('cookieStatus').textContent = 'Upload failed';
     }
   }
 
   // ── Single convert ──
-  function showSingleError(msg) {
+  function showSingleError(msg, needsCookies) {
     const el = $('singleError');
     el.textContent = msg;
     el.style.display = 'block';
+    if (needsCookies || /cookie|sign.?in/i.test(msg)) {
+      openCookiePanel(true);
+    }
   }
-  function hideSingleError() { $('singleError').style.display = 'none'; }
+  function hideSingleError() {
+    $('singleError').style.display = 'none';
+    $('cookieStrip').classList.remove('needs-cookies');
+  }
 
   function setConverting(on) {
     $('btnConvert').disabled = on;
@@ -579,8 +504,10 @@
     hideSingleError();
     $('videoCard').style.display = 'none';
     $('btnDownload').style.display = 'none';
+    $('btnCopyLink').style.display = 'none';
     $('progressWrap').style.display = 'none';
     $('statusText').style.display = 'none';
+    currentDownloadUrl = null;
     setConverting(true);
 
     try {
@@ -590,7 +517,11 @@
         body: JSON.stringify({ url })
       });
       const info = await infoRes.json();
-      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info'); setConverting(false); return; }
+      if (!infoRes.ok) {
+        showSingleError(info.error || 'Could not fetch video info', info.needs_cookies);
+        setConverting(false);
+        return;
+      }
 
       $('videoThumb').src = info.thumbnail;
       $('videoTitle').textContent = info.title;
@@ -600,13 +531,17 @@
       const startRes = await fetch('/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, cookie_id: cookieId })
+        body: JSON.stringify({ url: info.url || url, cookie_id: cookieId, title: info.title, uploader: info.uploader })
       });
       const startData = await startRes.json();
-      if (!startRes.ok) { showSingleError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
+      if (!startRes.ok) {
+        showSingleError(startData.error || 'Failed to start conversion', startData.needs_cookies);
+        setConverting(false);
+        return;
+      }
 
       pollJob(startData.job_id, 'single');
-    } catch (e) {
+    } catch {
       showSingleError('Network error. Please try again.');
       setConverting(false);
     }
@@ -618,13 +553,13 @@
     const statusText   = mode === 'single' ? $('statusText')   : $('batchProgressLabel');
 
     if (progressWrap) progressWrap.style.display = 'block';
-    if (statusText)   { statusText.style.display = 'block'; statusText.textContent = 'Converting…'; }
+    if (statusText) { statusText.style.display = 'block'; statusText.textContent = 'Converting…'; }
 
-    let fake = 10;
+    let fake = 5;
     progressBar.style.width = fake + '%';
     const grow = setInterval(() => {
-      if (fake < 85) { fake += Math.random() * 5; progressBar.style.width = Math.min(fake, 85) + '%'; }
-    }, 900);
+      if (fake < 30) { fake += Math.random() * 4; progressBar.style.width = fake + '%'; }
+    }, 1200);
 
     let attempts = 0;
     pollTimer = setInterval(async () => {
@@ -637,10 +572,22 @@
         const res = await fetch(`/status/${jobId}`);
         const data = await res.json();
 
+        // Real progress from backend
+        if (data.progress != null && data.progress > fake) {
+          clearInterval(grow);
+          fake = data.progress;
+          progressBar.style.width = fake + '%';
+          if (mode === 'single' && data.progress < 95) {
+            statusText.textContent = `Downloading… ${data.progress}%`;
+          }
+        }
+
+        // Batch progress + per-URL results
         if (data.type === 'batch' && data.total) {
           const pct = Math.round((data.done / data.total) * 100);
           progressBar.style.width = Math.max(fake, pct) + '%';
           statusText.textContent = `Processing ${data.done} / ${data.total}…`;
+          if (data.results && data.results.length) renderBatchResults(data.results);
         }
 
         if (data.status === 'done') {
@@ -648,28 +595,37 @@
           progressBar.style.width = '100%';
 
           if (mode === 'single') {
-            statusText.textContent = 'Done! Downloading…';
+            statusText.textContent = 'Done! Starting download…';
             setTimeout(() => {
               progressWrap.style.display = 'none';
               statusText.style.display = 'none';
+              const dlUrl = `/download/${jobId}`;
+              currentDownloadUrl = dlUrl;
+
               // Auto-trigger download
               const tmp = document.createElement('a');
-              tmp.href = `/download/${jobId}`;
+              tmp.href = dlUrl;
               tmp.download = data.filename || 'audio.mp3';
               document.body.appendChild(tmp);
               tmp.click();
               document.body.removeChild(tmp);
-              // Fallback button
+
+              // Fallback download button (pulsing)
               const dl = $('btnDownload');
-              dl.href = `/download/${jobId}`;
+              dl.href = dlUrl;
               dl.download = data.filename || 'audio.mp3';
-              dl.textContent = '';
-              dl.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`);
+              dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`;
               dl.style.display = 'flex';
+              dl.classList.add('pulse');
+              setTimeout(() => dl.classList.remove('pulse'), 6000);
+
+              // Copy-link button
+              $('btnCopyLink').style.display = 'flex';
               setConverting(false);
             }, 400);
           } else {
             statusText.textContent = 'All done!';
+            if (data.results) renderBatchResults(data.results);
             const dl = $('btnBatchDownload');
             dl.href = `/download/${jobId}`;
             dl.download = data.filename || 'ytmp3_batch.zip';
@@ -688,8 +644,35 @@
             $('btnBatch').disabled = false;
           }
         }
-      } catch (e) {}
+      } catch {}
     }, 2000);
+  }
+
+  // ── Copy download link ──
+  async function copyDownloadLink() {
+    if (!currentDownloadUrl) return;
+    const full = location.origin + currentDownloadUrl;
+    try {
+      await navigator.clipboard.writeText(full);
+      $('btnCopyLink').textContent = '✓ Copied!';
+      $('btnCopyLink').classList.add('copied');
+      setTimeout(() => {
+        $('btnCopyLink').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy download link`;
+        $('btnCopyLink').classList.remove('copied');
+      }, 2000);
+    } catch {
+      prompt('Copy this link:', full);
+    }
+  }
+
+  // ── Batch results ──
+  function renderBatchResults(results) {
+    const list = $('batchResultsList');
+    list.innerHTML = results.map(r => `
+      <div class="batch-result-item ${r.ok ? 'ok' : 'fail'}">
+        <span class="ri">${r.ok ? '✓' : '✗'}</span>
+        <span class="rt" title="${r.url}">${r.title || r.url}</span>
+      </div>`).join('');
   }
 
   // ── Batch ──
@@ -718,8 +701,9 @@
     $('batchError').style.display = 'none';
     $('btnBatch').disabled = true;
     $('btnBatchDownload').style.display = 'none';
+    $('batchResultsList').innerHTML = '';
     $('batchResult').style.display = 'block';
-    $('batchProgressBar').style.width = '5%';
+    $('batchProgressBar').style.width = '3%';
     $('batchProgressLabel').textContent = 'Starting…';
 
     const fd = new FormData();
@@ -737,14 +721,14 @@
         return;
       }
       pollJob(data.job_id, 'batch');
-    } catch (e) {
+    } catch {
       $('batchError').textContent = 'Network error';
       $('batchError').style.display = 'block';
       $('btnBatch').disabled = false;
     }
   }
 
-  // Enter key & auto-paste
+  // ── Enter key & auto-paste ──
   $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
   $('urlInput').addEventListener('focus', async () => {
     if ($('urlInput').value) return;
@@ -752,7 +736,7 @@
       const text = await navigator.clipboard.readText();
       if (text && (text.includes('youtube.com') || text.includes('youtu.be')))
         $('urlInput').value = text;
-    } catch (e) {}
+    } catch {}
   });
 </script>
 </body>
