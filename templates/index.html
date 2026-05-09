@@ -165,15 +165,34 @@
       font-size: 0.76rem; border-top: 1px solid var(--border);
     }
 
+    /* ── Quality selector ── */
+    .quality-selector {
+      margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .q-btn {
+      flex: 1; min-width: 80px; padding: 9px 12px; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--surface); color: var(--muted);
+      font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .q-btn:hover { border-color: var(--accent); color: var(--text); }
+    .q-btn.active {
+      border-color: var(--accent); background: rgba(124,92,252,0.15);
+      color: var(--accent);
+    }
+    .q-btn.mp4-btn.active {
+      border-color: var(--accent2); background: rgba(91,138,245,0.15);
+      color: var(--accent2);
+    }
+
     /* ── Mobile ── */
     @media (max-width: 540px) {
       main { padding: 32px 16px 48px; }
       .input-card { flex-direction: column; padding: 10px; }
       .btn-primary { width: 100%; padding: 16px; font-size: 1rem; }
-.video-card-inner { flex-direction: column; align-items: flex-start; }
+      .video-card-inner { flex-direction: column; align-items: flex-start; }
       .video-thumb { width: 100%; height: 160px; }
       .btn-download { padding: 16px; font-size: 1.05rem; }
-      .tabs { margin-top: 24px; }
     }
   </style>
 </head>
@@ -188,8 +207,8 @@
 </header>
 
 <main>
-  <h1>Download any YouTube video<br/>as high-quality <span>MP3</span></h1>
-  <p class="subtitle">No cookies — some videos may be blocked</p>
+  <h1>Download any YouTube video<br/>as <span>MP3</span> or <span>MP4</span></h1>
+  <p class="subtitle">Free · No signup · Fast</p>
 
   <!-- ── Single panel ── -->
   <div id="panel-single" style="width:100%;max-width:680px">
@@ -200,6 +219,15 @@
         spellcheck="false" inputmode="url" />
       <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
     </div>
+
+    <!-- Quality selector -->
+    <div class="quality-selector">
+      <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)">MP3 128K</button>
+      <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)">MP3 192K</button>
+      <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)">MP3 320K ★</button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="" onclick="selectQuality(this)">MP4 Video</button>
+    </div>
+
     <p class="error-msg" id="singleError"></p>
 
 
@@ -210,7 +238,7 @@
         <div class="video-meta">
           <div class="video-title" id="videoTitle"></div>
           <div class="video-sub" id="videoSub"></div>
-          <span class="quality-badge">320 kbps MP3</span>
+          <span class="quality-badge" id="qualityBadge">320K MP3</span>
         </div>
       </div>
       <div class="card-actions">
@@ -239,17 +267,26 @@
   </div>
 
 
-  <!-- Steps -->
 </main>
 
-<footer>▶ YT MP3 &mdash; For personal use only. Respect copyright laws.</footer>
+<footer>▶ YT MP3 &mdash; For personal use only. Respect copyright laws. &nbsp;·&nbsp; <a href="https://twitter.com/KhaledQ84Ever" target="_blank" style="color:var(--accent2);text-decoration:none;">@KhaledQ84Ever</a></footer>
 
 <script>
   let cookieId = null;
   let pollTimer = null;
   let currentDownloadUrl = null;
+  let selectedFmt = 'mp3';
+  let selectedQ   = '320K';
 
   const $ = id => document.getElementById(id);
+
+  // ── Quality selector ──
+  function selectQuality(btn) {
+    document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedFmt = btn.dataset.fmt;
+    selectedQ   = btn.dataset.q;
+  }
 
   // ── Single convert ──
   function showSingleError(msg) {
@@ -297,12 +334,13 @@
       $('videoThumb').src = info.thumbnail;
       $('videoTitle').textContent = info.title;
       $('videoSub').textContent = `${info.uploader}  ·  ${info.duration}`;
+      $('qualityBadge').textContent = selectedFmt === 'mp4' ? 'MP4 Video' : `${selectedQ} MP3`;
       $('videoCard').style.display = 'block';
 
       const startRes = await fetch('/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: info.url || url, cookie_id: cookieId, title: info.title, uploader: info.uploader })
+        body: JSON.stringify({ url: info.url || url, cookie_id: cookieId, title: info.title, uploader: info.uploader, format: selectedFmt, quality: selectedQ })
       });
       const startData = await startRes.json();
       if (!startRes.ok) {
@@ -336,7 +374,7 @@
     pollTimer = setInterval(async () => {
       if (++attempts > 150) {
         clearInterval(pollTimer); clearInterval(grow);
-        if (mode === 'single') { showSingleError('Timed out. Try again.'); setConverting(false); }
+        showSingleError('Timed out. Try again.'); setConverting(false);
         return;
       }
       try {
@@ -373,7 +411,8 @@
             const dl = $('btnDownload');
             dl.href = dlUrl;
             dl.download = data.filename || 'audio.mp3';
-            dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`;
+            const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
+            dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
             dl.style.display = 'flex';
             dl.classList.add('pulse');
             setTimeout(() => dl.classList.remove('pulse'), 6000);

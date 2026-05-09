@@ -77,8 +77,8 @@ _NOISE_RE = re.compile(
     re.IGNORECASE
 )
 
-def make_filename(title, uploader=''):
-    """Return 'Uploader - Title.mp3', stripped of noise, max 80 chars."""
+def make_filename(title, uploader='', ext='mp3'):
+    """Return 'Uploader - Title.ext', stripped of noise, max 80 chars."""
     clean = _NOISE_RE.sub(' ', title).strip()
     clean = re.sub(r'\s+', ' ', clean).strip()
     if uploader and uploader.lower() not in clean.lower():
@@ -86,7 +86,7 @@ def make_filename(title, uploader=''):
     else:
         name = clean
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', name).strip()
-    return (name[:80] or 'download') + '.mp3'
+    return (name[:80] or 'download') + '.' + ext
 
 def is_valid_url(url):
     return bool(re.search(r'(youtube\.com|youtu\.be)/', url))
@@ -129,10 +129,18 @@ def schedule_cleanup(job_id, path):
             jobs.pop(job_id, None)
     threading.Thread(target=_cleanup, daemon=True).start()
 
-def build_cmd(url, output_template, cookie_path=None):
-    cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-           '--no-playlist', '--newline',
-           '--extractor-args', 'youtube:player_client=android,web']
+def build_cmd(url, output_template, cookie_path=None, quality='320K', fmt='mp3'):
+    if fmt == 'mp4':
+        cmd = [YTDLP,
+               '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+               '--merge-output-format', 'mp4',
+               '--no-playlist', '--newline',
+               '--extractor-args', 'youtube:player_client=android,web']
+    else:
+        q = quality if quality else '320K'
+        cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', q,
+               '--no-playlist', '--newline',
+               '--extractor-args', 'youtube:player_client=android,web']
     ffmpeg_dir = _find_ffmpeg_dir()
     if ffmpeg_dir:
         cmd += ['--ffmpeg-location', ffmpeg_dir]
@@ -146,11 +154,11 @@ def build_cmd(url, output_template, cookie_path=None):
 
 _PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%')
 
-def do_convert(job_id, url, cookie_path=None, prefetched_title=None, prefetched_uploader=None):
+def do_convert(job_id, url, cookie_path=None, prefetched_title=None, prefetched_uploader=None, quality='320K', fmt='mp3'):
     _set_job(job_id, {'status': 'processing', 'progress': 0})
     file_id = str(uuid.uuid4())
     output_template = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
-    cmd = build_cmd(url, output_template, cookie_path)
+    cmd = build_cmd(url, output_template, cookie_path, quality, fmt)
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stderr_lines = []
@@ -187,7 +195,8 @@ def do_convert(job_id, url, cookie_path=None, prefetched_title=None, prefetched_
 
         title = prefetched_title or 'download'
         uploader = prefetched_uploader or ''
-        filename = make_filename(title, uploader)
+        ext = 'mp4' if fmt == 'mp4' else 'mp3'
+        filename = make_filename(title, uploader, ext)
         _set_job(job_id, {'status': 'done', 'file': files[0], 'filename': filename, 'progress': 100})
         schedule_cleanup(job_id, files[0])
     except Exception as e:
@@ -290,6 +299,10 @@ def start_convert():
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     if is_playlist_only(url):
         return jsonify({'error': 'Please paste a single video URL, not a playlist.'}), 400
+    quality = data.get('quality', '320K') or '320K'
+    fmt = data.get('format', 'mp3')
+    if fmt not in ('mp3', 'mp4'):
+        fmt = 'mp3'
     cookie_path = cookie_store.get(cookie_id) if cookie_id else None
     job_id = str(uuid.uuid4())
     job = {'status': 'pending', 'file': None, 'filename': None, 'error': None, 'progress': 0}
@@ -297,7 +310,7 @@ def start_convert():
         jobs[job_id] = job
         _save_job(job_id, job)
     threading.Thread(target=do_convert,
-                     args=(job_id, url, cookie_path, title or None, uploader or None),
+                     args=(job_id, url, cookie_path, title or None, uploader or None, quality, fmt),
                      daemon=True).start()
     return jsonify({'job_id': job_id})
 
