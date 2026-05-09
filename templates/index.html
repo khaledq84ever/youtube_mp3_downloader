@@ -169,9 +169,31 @@
 
     /* ── Footer ── */
     footer {
-      text-align: center; padding: 20px; color: var(--muted);
-      font-size: clamp(0.7rem, 2vw, 0.76rem); border-top: 1px solid var(--border);
+      text-align: center; padding: 24px 20px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; flex-wrap: wrap;
     }
+    .footer-brand {
+      font-size: clamp(0.82rem, 2.2vw, 0.9rem); font-weight: 700;
+      letter-spacing: 0.04em; color: var(--text);
+    }
+    .footer-brand span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .footer-divider { color: var(--border); font-size: 1rem; }
+    .footer-copy {
+      font-size: clamp(0.7rem, 1.8vw, 0.75rem); color: var(--muted); font-weight: 400;
+    }
+    .footer-handle {
+      font-size: clamp(0.78rem, 2vw, 0.84rem); font-weight: 700;
+      letter-spacing: 0.02em;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-decoration: none; transition: opacity 0.2s;
+    }
+    .footer-handle:hover { opacity: 0.75; }
 
     /* ── Quality selector ── */
     .quality-selector {
@@ -280,7 +302,13 @@
 
 </main>
 
-<footer>▶ YT MP3 &mdash; For personal use only. Respect copyright laws. &nbsp;·&nbsp; <a href="https://twitter.com/KhaledQ84Ever" target="_blank" style="color:var(--accent2);text-decoration:none;">@KhaledQ84Ever</a></footer>
+<footer>
+  <span class="footer-brand">▶ YT <span>MP3</span></span>
+  <span class="footer-divider">·</span>
+  <span class="footer-copy">For personal use only. Respect copyright laws.</span>
+  <span class="footer-divider">·</span>
+  <a class="footer-handle" href="https://twitter.com/KhaledQ84Ever" target="_blank">@KhaledQ84Ever</a>
+</footer>
 
 <script>
   let cookieId = null;
