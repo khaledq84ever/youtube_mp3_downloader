@@ -3,61 +3,110 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>YouTube to MP3 Converter</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet"/>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3956390078338144"
-     crossorigin="anonymous"></script>
+<title>YT MP3 — Free YouTube to MP3 Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet"/>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3956390078338144" crossorigin="anonymous"></script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#0f0f0f;color:#fff;min-height:100vh;}
+:root{--red:#ff0000;--red-dark:#cc0000;--bg:#0f0f0f;--card:#181818;--border:#2a2a2a;--text:#e8e8e8;--muted:#666;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
 a{text-decoration:none;color:inherit;}
 
 /* HEADER */
-.header{background:#0f0f0f;border-bottom:1px solid #222;padding:1rem 1.5rem;display:flex;align-items:center;gap:0.75rem;}
-.logo-icon{width:36px;height:36px;background:#ff0000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
-.logo-text{font-size:1.2rem;font-weight:800;color:#fff;}
-.logo-text span{color:#ff0000;}
+.header{background:#111;border-bottom:1px solid #1f1f1f;padding:0.9rem 1.5rem;display:flex;align-items:center;gap:0.75rem;}
+.logo-icon{width:34px;height:34px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.logo-text{font-size:1.15rem;font-weight:800;letter-spacing:-0.3px;}
+.logo-text span{color:var(--red);}
+
+/* MAIN */
+main{flex:1;padding:3.5rem 1.25rem 2rem;max-width:680px;margin:0 auto;width:100%;}
 
 /* HERO */
-.hero{text-align:center;padding:4rem 1.5rem 2rem;}
-.hero-badge{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff6b6b;font-size:0.78rem;font-weight:600;padding:0.35rem 0.9rem;border-radius:999px;margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:1px;}
-.hero h1{font-size:clamp(2rem,6vw,3.5rem);font-weight:900;line-height:1.1;margin-bottom:1rem;}
-.hero h1 .yt{color:#ff0000;}
-.hero h1 .mp3{color:#fff;}
-.hero p{color:#888;font-size:1rem;max-width:480px;margin:0 auto 2.5rem;}
+.badge{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(255,0,0,0.08);border:1px solid rgba(255,0,0,0.25);color:#ff7070;font-size:0.72rem;font-weight:700;padding:0.3rem 0.85rem;border-radius:999px;margin-bottom:1.5rem;letter-spacing:1.2px;text-transform:uppercase;}
+h1{font-size:clamp(1.85rem,5.5vw,3rem);font-weight:900;line-height:1.1;margin-bottom:0.9rem;letter-spacing:-0.5px;}
+h1 .yt{color:var(--red);}
+.subtitle{color:var(--muted);font-size:0.95rem;margin-bottom:2.5rem;line-height:1.6;}
 
-/* MAIN FORM CARD */
-.form-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:2rem;max-width:640px;margin:0 auto 1.5rem;}
-.input-wrap{display:flex;gap:0;margin-bottom:0.75rem;}
-.url-input{flex:1;background:#0f0f0f;border:2px solid #333;border-right:none;border-radius:12px 0 0 12px;padding:0.9rem 1.1rem;font-size:0.95rem;color:#fff;outline:none;transition:border-color 0.2s;font-family:'Inter',sans-serif;}
-.url-input::placeholder{color:#555;}
-.url-input:focus{border-color:#ff0000;}
-.btn-convert{background:#ff0000;color:#fff;border:none;border-radius:0 12px 12px 0;padding:0 1.75rem;font-size:0.95rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;font-family:'Inter',sans-serif;}
-.btn-convert:hover{background:#cc0000;}
-.form-hint{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
-.hint-item{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#555;}
-.hint-item span{color:#ff0000;}
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1.75rem;}
+
+/* URL ROW */
+.url-row{display:flex;gap:0;margin-bottom:1rem;}
+.url-input{flex:1;background:#0f0f0f;border:2px solid #333;border-right:none;border-radius:12px 0 0 12px;padding:0.85rem 1rem;font-size:0.95rem;color:#fff;outline:none;transition:border-color .2s;font-family:inherit;}
+.url-input::placeholder{color:#444;}
+.url-input:focus{border-color:var(--red);}
+.btn-go{background:var(--red);color:#fff;border:none;border-radius:0 12px 12px 0;padding:0 1.6rem;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .2s;font-family:inherit;display:flex;align-items:center;gap:0.5rem;}
+.btn-go:hover:not(:disabled){background:var(--red-dark);}
+.btn-go:disabled{opacity:.6;cursor:not-allowed;}
+
+/* QUALITY ROW */
+.quality-row{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;}
+.quality-label{font-size:0.78rem;color:var(--muted);}
+.quality-btns{display:flex;gap:0.4rem;}
+.q-btn{background:#1f1f1f;border:1px solid #333;color:#888;font-size:0.75rem;font-weight:600;padding:0.3rem 0.7rem;border-radius:6px;cursor:pointer;transition:all .15s;font-family:inherit;}
+.q-btn.active{background:rgba(255,0,0,0.12);border-color:rgba(255,0,0,0.5);color:#ff7070;}
+
+/* PROGRESS */
+.progress-wrap{display:none;margin-top:1.25rem;}
+.progress-wrap.show{display:block;}
+.progress-bar-bg{background:#1f1f1f;border-radius:999px;height:6px;overflow:hidden;margin-bottom:0.65rem;}
+.progress-bar{height:100%;border-radius:999px;background:var(--red);width:0%;transition:width .4s ease;background:linear-gradient(90deg,#ff0000,#ff6b6b);}
+.progress-bar.indeterminate{animation:indeterminate 1.4s ease-in-out infinite;}
+@keyframes indeterminate{0%{transform:translateX(-100%);width:50%;}100%{transform:translateX(250%);width:50%;}}
+.progress-msg{font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:0.5rem;}
+.spinner{width:13px;height:13px;border:2px solid #333;border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
 /* ALERT */
-.alert{border-radius:12px;padding:0.9rem 1.1rem;font-size:0.88rem;margin-bottom:1.25rem;max-width:640px;margin-left:auto;margin-right:auto;}
-.alert-error{background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff8080;}
-.alert-success{background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.3);color:#66ffaa;}
+.alert{border-radius:12px;padding:0.85rem 1rem;font-size:0.85rem;margin-top:1.1rem;display:none;}
+.alert.show{display:block;}
+.alert-error{background:rgba(255,0,0,0.08);border:1px solid rgba(255,0,0,0.3);color:#ff8080;}
+.alert-success{background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.3);color:#55ee99;}
+
+/* DOWNLOAD RESULT */
+.result-box{display:none;margin-top:1.25rem;background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:1.1rem 1.25rem;}
+.result-box.show{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.result-info{flex:1;min-width:0;}
+.result-title{font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0.2rem;}
+.result-meta{font-size:0.75rem;color:var(--muted);}
+.btn-download{background:var(--red);color:#fff;border:none;border-radius:10px;padding:0.6rem 1.25rem;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;text-decoration:none;display:inline-block;}
+.btn-download:hover{background:var(--red-dark);}
+
+/* DIVIDER */
+.divider{border:none;border-top:1px solid #1f1f1f;margin:2rem 0 1.75rem;}
+
+/* BATCH */
+.section-title{font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:0.85rem;}
+.batch-textarea{width:100%;background:#0f0f0f;border:2px solid #333;border-radius:12px;padding:0.85rem 1rem;font-size:0.85rem;color:#ccc;outline:none;resize:vertical;min-height:100px;font-family:inherit;line-height:1.6;transition:border-color .2s;}
+.batch-textarea::placeholder{color:#444;}
+.batch-textarea:focus{border-color:var(--red);}
+.batch-row{display:flex;justify-content:flex-end;margin-top:0.75rem;}
+.btn-batch{background:transparent;border:1px solid #333;color:#aaa;border-radius:10px;padding:0.6rem 1.2rem;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-batch:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.btn-batch:disabled{opacity:.5;cursor:not-allowed;}
 
 /* FEATURES */
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;max-width:640px;margin:0 auto 3rem;}
-.feature{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:1.25rem;text-align:center;}
-.feature-icon{font-size:1.75rem;margin-bottom:0.6rem;}
-.feature h3{font-size:0.88rem;font-weight:700;margin-bottom:0.3rem;}
-.feature p{font-size:0.75rem;color:#666;}
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:0.85rem;margin-top:2.5rem;}
+.feature{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.1rem;text-align:center;}
+.feature-icon{font-size:1.6rem;margin-bottom:0.5rem;}
+.feature h3{font-size:0.82rem;font-weight:700;margin-bottom:0.2rem;}
+.feature p{font-size:0.72rem;color:var(--muted);}
 
 /* FOOTER */
-footer{text-align:center;padding:2rem 1rem;color:#444;font-size:0.8rem;border-top:1px solid #1a1a1a;}
-footer a{color:#555;}
+footer{text-align:center;padding:1.75rem 1rem;color:#333;font-size:0.78rem;border-top:1px solid #1a1a1a;}
+footer a{color:#444;}
+footer a:hover{color:#666;}
 
-@media(max-width:500px){
-  .btn-convert{padding:0 1rem;font-size:0.85rem;}
-  .hero{padding:2.5rem 1rem 1.5rem;}
-  .form-card{padding:1.25rem;}
+@media(max-width:600px){
+  .features{grid-template-columns:repeat(2,1fr);}
+  .btn-go{padding:0 1rem;font-size:0.85rem;}
+  main{padding:2.5rem 1rem 1.5rem;}
+  .card{padding:1.25rem;}
+}
+@media(max-width:380px){
+  .url-row{flex-direction:column;}
+  .url-input{border-right:2px solid #333;border-radius:12px 12px 0 0;}
+  .btn-go{border-radius:0 0 12px 12px;padding:0.85rem;justify-content:center;}
 }
 </style>
 </head>
@@ -68,63 +117,200 @@ footer a{color:#555;}
   <div class="logo-text">YT<span>MP3</span></div>
 </div>
 
-<div class="hero">
-  <div class="hero-badge">⚡ Free · Fast · No signup</div>
-  <h1><span class="yt">YouTube</span><br><span class="mp3">to MP3 Converter</span></h1>
-  <p>Paste any YouTube link and download it as a high-quality MP3 in seconds.</p>
+<main>
+  <div class="badge">⚡ Free · Fast · No Signup</div>
+  <h1><span class="yt">YouTube</span> to<br>MP3 Converter</h1>
+  <p class="subtitle">Paste any YouTube link and download it as a high-quality MP3 in seconds.</p>
 
-  {% if error_message %}
-  <div class="alert alert-error">⚠ {{ error_message }}</div>
-  {% endif %}
-  {% if success_message %}
-  <div class="alert alert-success">✓ {{ success_message }}</div>
-  {% endif %}
+  <div class="card">
+    <div class="url-row">
+      <input class="url-input" id="urlInput" type="url"
+             placeholder="https://www.youtube.com/watch?v=..."
+             autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <button class="btn-go" id="btnConvert">
+        <span id="btnLabel">⬇ Convert</span>
+      </button>
+    </div>
 
-  <div class="form-card">
-    <form action="/download" method="post">
-      <div class="input-wrap">
-        <input class="url-input" type="url" name="url"
-               placeholder="https://www.youtube.com/watch?v=..."
-               required autofocus/>
-        <button type="submit" class="btn-convert">⬇ Convert</button>
+    <div class="quality-row">
+      <span class="quality-label">Quality:</span>
+      <div class="quality-btns">
+        <button class="q-btn" data-q="128">128 kbps</button>
+        <button class="q-btn active" data-q="192">192 kbps</button>
+        <button class="q-btn" data-q="320">320 kbps</button>
       </div>
-      <div class="form-hint">
-        <div class="hint-item"><span>✓</span> 192 kbps MP3</div>
-        <div class="hint-item"><span>✓</span> No registration</div>
-        <div class="hint-item"><span>✓</span> Instant download</div>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar indeterminate" id="progressBar"></div></div>
+      <div class="progress-msg"><div class="spinner"></div><span id="progressMsg">Fetching video info…</span></div>
+    </div>
+
+    <div class="alert alert-error" id="alertError"></div>
+    <div class="alert alert-success" id="alertSuccess"></div>
+
+    <div class="result-box" id="resultBox">
+      <div class="result-info">
+        <div class="result-title" id="resultTitle"></div>
+        <div class="result-meta" id="resultMeta"></div>
       </div>
-    </form>
+      <a class="btn-download" id="btnDownload" href="#" download>⬇ Download MP3</a>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <p class="section-title">Batch Download</p>
+  <div class="card">
+    <textarea class="batch-textarea" id="batchUrls"
+              placeholder="Paste one YouTube URL per line (max 20)&#10;https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."></textarea>
+    <div class="batch-row">
+      <button class="btn-batch" id="btnBatch">⬇ Download as ZIP</button>
+    </div>
+    <div class="progress-wrap" id="batchProgressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar indeterminate" id="batchProgressBar"></div></div>
+      <div class="progress-msg"><div class="spinner"></div><span id="batchProgressMsg">Processing batch…</span></div>
+    </div>
+    <div class="alert alert-error" id="batchAlertError"></div>
   </div>
 
   <div class="features">
-    <div class="feature">
-      <div class="feature-icon">🎵</div>
-      <h3>High Quality</h3>
-      <p>192 kbps audio</p>
-    </div>
-    <div class="feature">
-      <div class="feature-icon">⚡</div>
-      <h3>Fast</h3>
-      <p>Seconds to convert</p>
-    </div>
-    <div class="feature">
-      <div class="feature-icon">🆓</div>
-      <h3>Free</h3>
-      <p>No limits, no cost</p>
-    </div>
-    <div class="feature">
-      <div class="feature-icon">📱</div>
-      <h3>Mobile Ready</h3>
-      <p>Works on any device</p>
-    </div>
+    <div class="feature"><div class="feature-icon">🎵</div><h3>High Quality</h3><p>Up to 320 kbps</p></div>
+    <div class="feature"><div class="feature-icon">⚡</div><h3>Fast</h3><p>Seconds to convert</p></div>
+    <div class="feature"><div class="feature-icon">🆓</div><h3>Free</h3><p>No limits, no cost</p></div>
+    <div class="feature"><div class="feature-icon">📱</div><h3>Mobile Ready</h3><p>Works on any device</p></div>
   </div>
-</div>
+</main>
 
 <footer>
   &copy; 2026 YT MP3 Converter &mdash; For personal use only &mdash;
   <a href="https://www.youtube.com/t/terms" target="_blank">YouTube Terms</a>
 </footer>
 
+<script>
+let selectedQuality = '192';
 
+// Quality buttons
+document.querySelectorAll('.q-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedQuality = btn.dataset.q;
+  });
+});
+
+function showProgress(wrapId, msg) {
+  const wrap = document.getElementById(wrapId);
+  wrap.classList.add('show');
+  document.getElementById(wrapId.replace('Wrap','Msg').replace('Progress','Progress')) &&
+    (document.getElementById(wrapId === 'progressWrap' ? 'progressMsg' : 'batchProgressMsg').textContent = msg);
+}
+function hideProgress(wrapId) {
+  document.getElementById(wrapId).classList.remove('show');
+}
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideAlerts() {
+  ['alertError','alertSuccess','batchAlertError'].forEach(id => {
+    document.getElementById(id).classList.remove('show');
+  });
+}
+function hideResult() {
+  document.getElementById('resultBox').classList.remove('show');
+}
+
+// Single convert
+document.getElementById('btnConvert').addEventListener('click', async () => {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showAlert('alertError', 'Please paste a YouTube URL.'); return; }
+
+  hideAlerts(); hideResult();
+  const btn = document.getElementById('btnConvert');
+  btn.disabled = true;
+  document.getElementById('btnLabel').textContent = 'Converting…';
+  showProgress('progressWrap', 'Fetching video info…');
+
+  // Simulate progress message updates
+  const msgs = ['Fetching video info…','Downloading audio stream…','Converting to MP3…','Almost done…'];
+  let mi = 0;
+  const ticker = setInterval(() => {
+    mi = Math.min(mi + 1, msgs.length - 1);
+    document.getElementById('progressMsg').textContent = msgs[mi];
+  }, 8000);
+
+  try {
+    const res = await fetch('/convert', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url, quality: selectedQuality })
+    });
+    clearInterval(ticker);
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showAlert('alertError', '⚠ ' + (data.error || 'Conversion failed.'));
+    } else {
+      document.getElementById('resultTitle').textContent = data.title;
+      document.getElementById('resultMeta').textContent = `${selectedQuality} kbps MP3 · Ready to download`;
+      const dlBtn = document.getElementById('btnDownload');
+      dlBtn.href = data.download_url;
+      dlBtn.setAttribute('download', data.filename);
+      document.getElementById('resultBox').classList.add('show');
+      showAlert('alertSuccess', '✓ Conversion complete — click Download MP3 below.');
+    }
+  } catch (err) {
+    clearInterval(ticker);
+    showAlert('alertError', '⚠ Network error — please try again.');
+  } finally {
+    hideProgress('progressWrap');
+    btn.disabled = false;
+    document.getElementById('btnLabel').textContent = '⬇ Convert';
+  }
+});
+
+// Allow Enter key to trigger convert
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btnConvert').click();
+});
+
+// Batch download
+document.getElementById('btnBatch').addEventListener('click', async () => {
+  const raw = document.getElementById('batchUrls').value.trim();
+  const urls = raw.split('\n').map(u => u.trim()).filter(Boolean).slice(0, 20);
+  if (!urls.length) { showAlert('batchAlertError', 'Please enter at least one URL.'); return; }
+
+  const btn = document.getElementById('btnBatch');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  showProgress('batchProgressWrap', `Processing ${urls.length} URL(s)…`);
+  document.getElementById('batchAlertError').classList.remove('show');
+
+  try {
+    const res = await fetch('/batch', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ urls, quality: selectedQuality })
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      showAlert('batchAlertError', '⚠ ' + (d.error || 'Batch download failed.'));
+    } else {
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mp3_batch.zip';
+      a.click();
+    }
+  } catch (err) {
+    showAlert('batchAlertError', '⚠ Network error — please try again.');
+  } finally {
+    hideProgress('batchProgressWrap');
+    btn.disabled = false;
+    btn.textContent = '⬇ Download as ZIP';
+  }
+});
+</script>
 </body>
 </html>
