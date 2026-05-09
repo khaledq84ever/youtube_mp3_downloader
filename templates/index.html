@@ -64,7 +64,7 @@
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .subtitle { margin-top: 10px; color: var(--muted); font-size: clamp(0.82rem, 2.5vw, 0.95rem); text-align: center; }
+    .subtitle { margin-top: 8px; margin-bottom: 4px; color: var(--muted); font-size: clamp(0.82rem, 2.5vw, 0.95rem); text-align: center; }
 
 
     /* ── Input card ── */
@@ -195,9 +195,12 @@
     }
 
     /* ── Mobile ── */
-    @media (max-width: 540px) {
-      main { flex: 0 0 auto; padding: 20px 14px 28px; }
+    @media (max-width: 768px) {
+      body { min-height: unset; }
+      main { flex: 0 0 auto; padding: 20px 14px 24px; }
       header { padding: 18px 16px 0; }
+    }
+    @media (max-width: 540px) {
       .input-card { flex-direction: column; padding: 10px; gap: 6px; }
       .btn-primary { width: 100%; padding: 14px; }
       .video-card-inner { flex-direction: column; align-items: flex-start; }
