@@ -157,22 +157,6 @@
     .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
 
 
-    /* ── Steps ── */
-    .steps { margin-top: 56px; width: 100%; max-width: 680px; }
-    .steps-title { text-align: center; font-size: 1rem; font-weight: 700; margin-bottom: 20px; color: var(--muted); }
-    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .step {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 18px 14px; text-align: center;
-    }
-    .step-num {
-      width: 34px; height: 34px; margin: 0 auto 10px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.82rem; font-weight: 700;
-    }
-    .step h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
-    .step p { font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 
     /* ── Footer ── */
     footer {
@@ -185,8 +169,7 @@
       main { padding: 32px 16px 48px; }
       .input-card { flex-direction: column; padding: 10px; }
       .btn-primary { width: 100%; padding: 16px; font-size: 1rem; }
-      .steps-grid { grid-template-columns: 1fr; }
-      .video-card-inner { flex-direction: column; align-items: flex-start; }
+.video-card-inner { flex-direction: column; align-items: flex-start; }
       .video-thumb { width: 100%; height: 160px; }
       .btn-download { padding: 16px; font-size: 1.05rem; }
       .tabs { margin-top: 24px; }
@@ -256,26 +239,6 @@
 
 
   <!-- Steps -->
-  <div class="steps">
-    <p class="steps-title">How it works</p>
-    <div class="steps-grid">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Paste URL</h3>
-        <p>Copy any YouTube link and paste it into the bar above</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>Convert</h3>
-        <p>We extract the audio and encode it as high-quality 320 kbps MP3</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Download</h3>
-        <p>Save the MP3 directly to your device — no account needed</p>
-      </div>
-    </div>
-  </div>
 </main>
 
 <footer>▶ YT MP3 &mdash; For personal use only. Respect copyright laws.</footer>
