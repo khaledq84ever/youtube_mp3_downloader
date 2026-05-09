@@ -131,8 +131,14 @@ def schedule_cleanup(job_id, path):
 
 def build_cmd(url, output_template, cookie_path=None, quality='320K', fmt='mp3'):
     if fmt == 'mp4':
+        if quality == '720':
+            fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
+        elif quality == '1080':
+            fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
+        else:
+            fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
         cmd = [YTDLP,
-               '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+               '-f', fmt_str,
                '--merge-output-format', 'mp4',
                '--no-playlist', '--newline',
                '--extractor-args', 'youtube:player_client=android,web']

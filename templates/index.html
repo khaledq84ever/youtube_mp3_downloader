@@ -197,24 +197,39 @@
 
     /* ── Quality selector ── */
     .quality-selector {
-      margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
     }
     .q-btn {
-      flex: 1; min-width: 72px; padding: 10px 10px; border: 1px solid var(--border);
-      border-radius: 9px; background: var(--surface); color: var(--muted);
-      font-family: inherit; font-size: clamp(0.75rem, 2.2vw, 0.82rem); font-weight: 600;
-      cursor: pointer; transition: border-color 0.2s, color 0.2s, background 0.2s;
-      min-height: 40px;
+      padding: 10px 8px 9px; border: 1px solid var(--border);
+      border-radius: 10px; background: var(--surface); color: var(--muted);
+      font-family: inherit; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      text-align: center;
     }
     .q-btn:hover { border-color: var(--accent); color: var(--text); }
+    .q-title {
+      font-size: clamp(0.72rem, 2vw, 0.82rem); font-weight: 700; line-height: 1.2;
+    }
+    .q-sub {
+      font-size: clamp(0.6rem, 1.6vw, 0.68rem); font-weight: 500;
+      color: var(--muted); line-height: 1;
+    }
     .q-btn.active {
-      border-color: var(--accent); background: rgba(124,92,252,0.15);
-      color: var(--accent);
+      border-color: var(--accent); background: rgba(124,92,252,0.14);
+      box-shadow: 0 0 0 1px var(--accent);
     }
+    .q-btn.active .q-title { color: var(--accent); }
+    .q-btn.active .q-sub   { color: var(--accent); opacity: 0.7; }
     .q-btn.mp4-btn.active {
-      border-color: var(--accent2); background: rgba(91,138,245,0.15);
-      color: var(--accent2);
+      border-color: var(--accent2); background: rgba(91,138,245,0.14);
+      box-shadow: 0 0 0 1px var(--accent2);
     }
+    .q-btn.mp4-btn.active .q-title { color: var(--accent2); }
+    .q-btn.mp4-btn.active .q-sub   { color: var(--accent2); opacity: 0.7; }
 
     /* ── Mobile ── */
     @media (max-width: 768px) {
@@ -227,7 +242,8 @@
       .btn-primary { width: 100%; padding: 14px; }
       .video-card-inner { flex-direction: column; align-items: flex-start; }
       .video-thumb { width: 100%; height: 140px; }
-      .q-btn { min-width: 60px; padding: 10px 6px; }
+      .quality-selector { gap: 5px; }
+      .q-btn { padding: 9px 4px 8px; }
     }
   </style>
 </head>
@@ -255,10 +271,30 @@
 
     <!-- Quality selector -->
     <div class="quality-selector">
-      <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)">MP3 128K</button>
-      <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)">MP3 192K</button>
-      <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)">MP3 320K ★</button>
-      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="" onclick="selectQuality(this)">MP4 Video</button>
+      <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)">
+        <span class="q-title">MP3 128K</span>
+        <span class="q-sub">Smaller file</span>
+      </button>
+      <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)">
+        <span class="q-title">MP3 192K</span>
+        <span class="q-sub">Balanced</span>
+      </button>
+      <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)">
+        <span class="q-title">MP3 320K ★</span>
+        <span class="q-sub">Best audio</span>
+      </button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="720" onclick="selectQuality(this)">
+        <span class="q-title">MP4 720p</span>
+        <span class="q-sub">HD Video</span>
+      </button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="1080" onclick="selectQuality(this)">
+        <span class="q-title">MP4 1080p</span>
+        <span class="q-sub">Full HD</span>
+      </button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="best" onclick="selectQuality(this)">
+        <span class="q-title">MP4 Best</span>
+        <span class="q-sub">4K / Max</span>
+      </button>
     </div>
 
     <p class="error-msg" id="singleError"></p>
@@ -373,7 +409,8 @@
       $('videoThumb').src = info.thumbnail;
       $('videoTitle').textContent = info.title;
       $('videoSub').textContent = `${info.uploader}  ·  ${info.duration}`;
-      $('qualityBadge').textContent = selectedFmt === 'mp4' ? 'MP4 Video' : `${selectedQ} MP3`;
+      const badgeMap = { '720': 'MP4 720p', '1080': 'MP4 1080p', 'best': 'MP4 Best' };
+      $('qualityBadge').textContent = selectedFmt === 'mp4' ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
       $('videoCard').style.display = 'block';
 
       const startRes = await fetch('/start', {
