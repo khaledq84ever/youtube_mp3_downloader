@@ -60,23 +60,6 @@
     }
     .subtitle { margin-top: 12px; color: var(--muted); font-size: 0.95rem; text-align: center; }
 
-    /* ── Tabs ── */
-    .tabs {
-      margin-top: 36px; display: flex; gap: 6px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 5px; width: 100%; max-width: 680px;
-    }
-    .tab-btn {
-      flex: 1; padding: 9px 16px; border: none; border-radius: 9px;
-      background: transparent; color: var(--muted); font-family: inherit;
-      font-size: 0.88rem; font-weight: 600; cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-    }
-    .tab-btn.active { background: var(--surface2); color: var(--text); }
-
-    /* ── Panels ── */
-    .panel { width: 100%; max-width: 680px; display: none; }
-    .panel.active { display: block; }
 
     /* ── Input card ── */
     .input-card {
@@ -103,38 +86,6 @@
 
     .error-msg { margin-top: 12px; color: var(--danger); font-size: 0.85rem; display: none; }
 
-    /* ── Cookies strip ── */
-    .cookie-strip {
-      margin-top: 10px; display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; font-size: 0.82rem; color: var(--muted);
-      cursor: pointer; user-select: none; transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .cookie-strip:hover { border-color: var(--accent); }
-    .cookie-strip.has-cookies { border-color: var(--success); color: var(--success); }
-    .cookie-strip.needs-cookies { border-color: var(--warn); color: var(--warn); box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
-    .cookie-strip .lock { font-size: 1rem; }
-    .cookie-strip .caret { margin-left: auto; transition: transform 0.2s; }
-    .cookie-strip.open .caret { transform: rotate(180deg); }
-
-    .cookie-panel {
-      display: none; margin-top: 6px; padding: 14px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.7;
-    }
-    .cookie-panel.open { display: block; }
-    .cookie-panel ol { padding-left: 18px; margin: 8px 0; }
-    .cookie-panel a { color: var(--accent2); text-decoration: none; }
-
-    .cookie-upload-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .btn-upload {
-      padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
-      background: var(--surface2); color: var(--text); font-family: inherit;
-      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: border-color 0.2s;
-    }
-    .btn-upload:hover { border-color: var(--accent); }
-    .cookie-status { font-size: 0.8rem; color: var(--muted); }
-    .cookie-status.ok { color: var(--success); }
 
     /* ── Video result card ── */
     .video-card {
@@ -205,39 +156,6 @@
     .btn-copy-link:hover { border-color: var(--accent); color: var(--text); }
     .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
 
-    /* ── Batch panel ── */
-    .batch-drop {
-      margin-top: 12px; border: 2px dashed var(--border); border-radius: var(--radius);
-      padding: 36px 20px; text-align: center; cursor: pointer;
-      transition: border-color 0.2s, background 0.2s; position: relative;
-    }
-    .batch-drop:hover, .batch-drop.dragover { border-color: var(--accent); background: rgba(124,92,252,0.04); }
-    .batch-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-    .batch-drop-icon { font-size: 2rem; margin-bottom: 10px; }
-    .batch-drop-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
-    .batch-drop-sub { font-size: 0.8rem; color: var(--muted); }
-    .batch-selected { margin-top: 6px; font-size: 0.82rem; color: var(--success); display: none; }
-
-    .batch-actions { margin-top: 10px; display: flex; gap: 8px; }
-    .batch-actions .btn-primary { flex: 1; }
-
-    .batch-result {
-      margin-top: 14px; padding: 14px; background: var(--surface);
-      border: 1px solid var(--border); border-radius: var(--radius); display: none;
-    }
-    .batch-progress-label { font-size: 0.82rem; color: var(--muted); margin-bottom: 8px; }
-
-    .batch-results-list { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
-    .batch-result-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 10px; border-radius: 8px; background: var(--surface2);
-      font-size: 0.78rem;
-    }
-    .batch-result-item .ri { flex-shrink: 0; font-size: 0.9rem; }
-    .batch-result-item .rt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-    .batch-result-item.ok .rt { color: var(--text); }
-    .batch-result-item.fail .ri { color: var(--danger); }
-    .batch-result-item.ok .ri { color: var(--success); }
 
     /* ── Steps ── */
     .steps { margin-top: 56px; width: 100%; max-width: 680px; }
@@ -289,13 +207,8 @@
   <h1>Download any YouTube video<br/>as high-quality <span>MP3</span></h1>
   <p class="subtitle">No cookies — some videos may be blocked</p>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('single', this)">Single Download</button>
-    <button class="tab-btn" onclick="switchTab('batch', this)">Batch Download (ZIP)</button>
-  </div>
-
   <!-- ── Single panel ── -->
-  <div class="panel active" id="panel-single">
+  <div id="panel-single" style="width:100%;max-width:680px">
     <div class="input-card">
       <input type="url" class="url-input" id="urlInput"
         placeholder="https://www.youtube.com/watch?v=..."
@@ -305,26 +218,6 @@
     </div>
     <p class="error-msg" id="singleError"></p>
 
-    <!-- Cookie strip -->
-    <div class="cookie-strip" id="cookieStrip" onclick="toggleCookiePanel()">
-      <span class="lock">🔒</span>
-      <span id="cookieStripLabel">Fix blocked downloads — add YouTube cookies (no install required)</span>
-      <span class="caret">▾</span>
-    </div>
-    <div class="cookie-panel" id="cookiePanel">
-      <strong style="color:var(--text)">How to export cookies from your browser:</strong>
-      <ol>
-        <li>Install the <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a> extension</li>
-        <li>Go to <a href="https://youtube.com" target="_blank">youtube.com</a> and log in</li>
-        <li>Click the extension icon → Export → save as <code>cookies.txt</code></li>
-        <li>Upload the file below, then try converting again</li>
-      </ol>
-      <div class="cookie-upload-row">
-        <button class="btn-upload" onclick="document.getElementById('cookieFileInput').click()">Upload cookies.txt</button>
-        <input type="file" id="cookieFileInput" accept=".txt" style="display:none" onchange="uploadCookies(this)" />
-        <span class="cookie-status" id="cookieStatus">No cookies uploaded</span>
-      </div>
-    </div>
 
     <!-- Video result -->
     <div class="video-card" id="videoCard">
@@ -361,40 +254,6 @@
     </div>
   </div>
 
-  <!-- ── Batch panel ── -->
-  <div class="panel" id="panel-batch">
-    <div class="batch-drop" id="batchDrop"
-         ondragover="event.preventDefault();this.classList.add('dragover')"
-         ondragleave="this.classList.remove('dragover')"
-         ondrop="handleBatchDrop(event)">
-      <input type="file" accept=".txt" onchange="handleBatchFile(this.files[0])" />
-      <div class="batch-drop-icon">📄</div>
-      <div class="batch-drop-title">Drop your .txt file here or click to browse</div>
-      <div class="batch-drop-sub">One YouTube URL per line — max 20 URLs</div>
-    </div>
-    <p class="batch-selected" id="batchSelected"></p>
-    <p class="error-msg" id="batchError"></p>
-
-    <div class="batch-actions">
-      <button class="btn-primary" id="btnBatch" onclick="handleBatch()" disabled>Download ZIP</button>
-    </div>
-
-    <div class="batch-result" id="batchResult">
-      <p class="batch-progress-label" id="batchProgressLabel">Processing…</p>
-      <div class="progress-wrap" style="display:block;margin-bottom:12px">
-        <div class="progress-bar" id="batchProgressBar"></div>
-      </div>
-      <div class="batch-results-list" id="batchResultsList"></div>
-      <a class="btn-download" id="btnBatchDownload" href="#" style="display:none;text-decoration:none;margin-top:12px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        Download ZIP
-      </a>
-    </div>
-  </div>
 
   <!-- Steps -->
   <div class="steps">
@@ -423,71 +282,19 @@
 
 <script>
   let cookieId = null;
-  let batchFile = null;
   let pollTimer = null;
   let currentDownloadUrl = null;
 
   const $ = id => document.getElementById(id);
 
-  // ── Tabs ──
-  function switchTab(name, btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    $('panel-' + name).classList.add('active');
-  }
-
-  // ── Cookie panel ──
-  function toggleCookiePanel() {
-    $('cookieStrip').classList.toggle('open');
-    $('cookiePanel').classList.toggle('open');
-  }
-
-  function openCookiePanel(highlight) {
-    const strip = $('cookieStrip');
-    const panel = $('cookiePanel');
-    strip.classList.add('open');
-    panel.classList.add('open');
-    if (highlight) strip.classList.add('needs-cookies');
-    setTimeout(() => strip.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
-  }
-
-  async function uploadCookies(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    $('cookieStatus').textContent = 'Uploading…';
-    try {
-      const res = await fetch('/upload-cookies', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (data.cookie_id) {
-        cookieId = data.cookie_id;
-        $('cookieStatus').textContent = '✓ Cookies uploaded';
-        $('cookieStatus').className = 'cookie-status ok';
-        $('cookieStrip').classList.add('has-cookies');
-        $('cookieStrip').classList.remove('needs-cookies');
-        $('cookieStripLabel').textContent = '✓ Cookies active — blocked videos should now work';
-      } else {
-        $('cookieStatus').textContent = data.error || 'Upload failed';
-      }
-    } catch {
-      $('cookieStatus').textContent = 'Upload failed';
-    }
-  }
-
   // ── Single convert ──
-  function showSingleError(msg, needsCookies) {
+  function showSingleError(msg) {
     const el = $('singleError');
     el.textContent = msg;
     el.style.display = 'block';
-    if (needsCookies || /cookie|sign.?in/i.test(msg)) {
-      openCookiePanel(true);
-    }
   }
   function hideSingleError() {
     $('singleError').style.display = 'none';
-    $('cookieStrip').classList.remove('needs-cookies');
   }
 
   function setConverting(on) {
@@ -518,7 +325,7 @@
       });
       const info = await infoRes.json();
       if (!infoRes.ok) {
-        showSingleError(info.error || 'Could not fetch video info', info.needs_cookies);
+        showSingleError(info.error || 'Could not fetch video info');
         setConverting(false);
         return;
       }
@@ -535,22 +342,22 @@
       });
       const startData = await startRes.json();
       if (!startRes.ok) {
-        showSingleError(startData.error || 'Failed to start conversion', startData.needs_cookies);
+        showSingleError(startData.error || 'Failed to start conversion');
         setConverting(false);
         return;
       }
 
-      pollJob(startData.job_id, 'single');
+      pollJob(startData.job_id);
     } catch {
       showSingleError('Network error. Please try again.');
       setConverting(false);
     }
   }
 
-  function pollJob(jobId, mode) {
-    const progressWrap = mode === 'single' ? $('progressWrap') : null;
-    const progressBar  = mode === 'single' ? $('progressBar')  : $('batchProgressBar');
-    const statusText   = mode === 'single' ? $('statusText')   : $('batchProgressLabel');
+  function pollJob(jobId) {
+    const progressWrap = $('progressWrap');
+    const progressBar  = $('progressBar');
+    const statusText   = $('statusText');
 
     if (progressWrap) progressWrap.style.display = 'block';
     if (statusText) { statusText.style.display = 'block'; statusText.textContent = 'Converting…'; }
@@ -577,72 +384,45 @@
           clearInterval(grow);
           fake = data.progress;
           progressBar.style.width = fake + '%';
-          if (mode === 'single' && data.progress < 95) {
+          if (data.progress < 95) {
             statusText.textContent = `Downloading… ${data.progress}%`;
           }
-        }
-
-        // Batch progress + per-URL results
-        if (data.type === 'batch' && data.total) {
-          const pct = Math.round((data.done / data.total) * 100);
-          progressBar.style.width = Math.max(fake, pct) + '%';
-          statusText.textContent = `Processing ${data.done} / ${data.total}…`;
-          if (data.results && data.results.length) renderBatchResults(data.results);
         }
 
         if (data.status === 'done') {
           clearInterval(pollTimer); clearInterval(grow);
           progressBar.style.width = '100%';
+          statusText.textContent = 'Done! Starting download…';
+          setTimeout(() => {
+            progressWrap.style.display = 'none';
+            statusText.style.display = 'none';
+            const dlUrl = `/download/${jobId}`;
+            currentDownloadUrl = dlUrl;
 
-          if (mode === 'single') {
-            statusText.textContent = 'Done! Starting download…';
-            setTimeout(() => {
-              progressWrap.style.display = 'none';
-              statusText.style.display = 'none';
-              const dlUrl = `/download/${jobId}`;
-              currentDownloadUrl = dlUrl;
+            const tmp = document.createElement('a');
+            tmp.href = dlUrl;
+            tmp.download = data.filename || 'audio.mp3';
+            document.body.appendChild(tmp);
+            tmp.click();
+            document.body.removeChild(tmp);
 
-              // Auto-trigger download
-              const tmp = document.createElement('a');
-              tmp.href = dlUrl;
-              tmp.download = data.filename || 'audio.mp3';
-              document.body.appendChild(tmp);
-              tmp.click();
-              document.body.removeChild(tmp);
-
-              // Fallback download button (pulsing)
-              const dl = $('btnDownload');
-              dl.href = dlUrl;
-              dl.download = data.filename || 'audio.mp3';
-              dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`;
-              dl.style.display = 'flex';
-              dl.classList.add('pulse');
-              setTimeout(() => dl.classList.remove('pulse'), 6000);
-
-              // Copy-link button
-              $('btnCopyLink').style.display = 'flex';
-              setConverting(false);
-            }, 400);
-          } else {
-            statusText.textContent = 'All done!';
-            if (data.results) renderBatchResults(data.results);
-            const dl = $('btnBatchDownload');
-            dl.href = `/download/${jobId}`;
-            dl.download = data.filename || 'ytmp3_batch.zip';
+            const dl = $('btnDownload');
+            dl.href = dlUrl;
+            dl.download = data.filename || 'audio.mp3';
+            dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download MP3`;
             dl.style.display = 'flex';
-            $('btnBatch').disabled = false;
-          }
+            dl.classList.add('pulse');
+            setTimeout(() => dl.classList.remove('pulse'), 6000);
+
+            $('btnCopyLink').style.display = 'flex';
+            setConverting(false);
+          }, 400);
         } else if (data.status === 'error') {
           clearInterval(pollTimer); clearInterval(grow);
-          if (mode === 'single') {
-            if (progressWrap) progressWrap.style.display = 'none';
-            statusText.style.display = 'none';
-            showSingleError(data.error || 'Conversion failed.');
-            setConverting(false);
-          } else {
-            statusText.textContent = '⚠ ' + (data.error || 'Batch failed.');
-            $('btnBatch').disabled = false;
-          }
+          progressWrap.style.display = 'none';
+          statusText.style.display = 'none';
+          showSingleError(data.error || 'Conversion failed.');
+          setConverting(false);
         }
       } catch {}
     }, 2000);
@@ -662,69 +442,6 @@
       }, 2000);
     } catch {
       prompt('Copy this link:', full);
-    }
-  }
-
-  // ── Batch results ──
-  function renderBatchResults(results) {
-    const list = $('batchResultsList');
-    list.innerHTML = results.map(r => `
-      <div class="batch-result-item ${r.ok ? 'ok' : 'fail'}">
-        <span class="ri">${r.ok ? '✓' : '✗'}</span>
-        <span class="rt" title="${r.url}">${r.title || r.url}</span>
-      </div>`).join('');
-  }
-
-  // ── Batch ──
-  function handleBatchDrop(e) {
-    e.preventDefault();
-    $('batchDrop').classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) handleBatchFile(file);
-  }
-
-  function handleBatchFile(file) {
-    if (!file || !file.name.endsWith('.txt')) {
-      $('batchError').textContent = 'Please upload a .txt file';
-      $('batchError').style.display = 'block';
-      return;
-    }
-    batchFile = file;
-    $('batchError').style.display = 'none';
-    $('batchSelected').textContent = `✓ ${file.name} selected`;
-    $('batchSelected').style.display = 'block';
-    $('btnBatch').disabled = false;
-  }
-
-  async function handleBatch() {
-    if (!batchFile) return;
-    $('batchError').style.display = 'none';
-    $('btnBatch').disabled = true;
-    $('btnBatchDownload').style.display = 'none';
-    $('batchResultsList').innerHTML = '';
-    $('batchResult').style.display = 'block';
-    $('batchProgressBar').style.width = '3%';
-    $('batchProgressLabel').textContent = 'Starting…';
-
-    const fd = new FormData();
-    fd.append('file', batchFile);
-    if (cookieId) fd.append('cookie_id', cookieId);
-
-    try {
-      const res = await fetch('/batch', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) {
-        $('batchError').textContent = data.error || 'Failed to start batch';
-        $('batchError').style.display = 'block';
-        $('batchResult').style.display = 'none';
-        $('btnBatch').disabled = false;
-        return;
-      }
-      pollJob(data.job_id, 'batch');
-    } catch {
-      $('batchError').textContent = 'Network error';
-      $('batchError').style.display = 'block';
-      $('btnBatch').disabled = false;
     }
   }
 
