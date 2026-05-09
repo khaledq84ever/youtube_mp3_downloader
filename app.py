@@ -298,6 +298,20 @@ def add_security_headers(resp):
 def index():
     return render_template('index.html')
 
+@app.route('/manifest.json')
+def manifest():
+    data = {
+        "name": "YT MP3 Converter",
+        "short_name": "YT MP3",
+        "description": "Convert YouTube videos to MP3 or MP4",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0b0b0f",
+        "theme_color": "#7c5cfc",
+        "icons": []
+    }
+    return jsonify(data)
+
 @app.route('/robots.txt')
 def robots():
     return 'User-agent: *\nAllow: /\n', 200, {'Content-Type': 'text/plain'}
@@ -333,11 +347,12 @@ def get_info():
         duration = info.get('duration', 0)
         m, s     = divmod(int(duration), 60)
         return jsonify({
-            'title':     info.get('title', 'Unknown Title'),
-            'thumbnail': info.get('thumbnail', ''),
-            'duration':  f'{m}:{s:02d}',
-            'uploader':  info.get('uploader', '') or info.get('channel', ''),
-            'url':       url,
+            'title':        info.get('title', 'Unknown Title'),
+            'thumbnail':    info.get('thumbnail', ''),
+            'duration':     f'{m}:{s:02d}',
+            'duration_sec': int(duration),
+            'uploader':     info.get('uploader', '') or info.get('channel', ''),
+            'url':          url,
         })
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'Request timed out. Please try again.'}), 504

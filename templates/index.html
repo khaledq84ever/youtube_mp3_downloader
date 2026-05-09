@@ -13,99 +13,169 @@
   <meta name="twitter:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter" />
   <meta name="twitter:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required." />
   <link rel="canonical" href="https://youtube-mp3-downloader-production-c1e2.up.railway.app/" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap&font-display=swap" rel="stylesheet" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
     :root {
-      --bg: #0b0b0f;
+      --bg:      #0b0b0f;
       --surface: #13131a;
-      --surface2: #1c1c27;
-      --border: #2a2a3a;
-      --accent: #7c5cfc;
+      --surface2:#1c1c27;
+      --border:  #2a2a3a;
+      --accent:  #7c5cfc;
       --accent2: #5b8af5;
       --success: #22d3a5;
-      --danger: #ff4757;
-      --warn: #f59e0b;
-      --text: #f0f0f8;
-      --muted: #7c7c9a;
-      --radius: 14px;
+      --danger:  #ff4757;
+      --text:    #f0f0f8;
+      --muted:   #7c7c9a;
+      --radius:  14px;
     }
 
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
+    /* Hero glow */
+    body::before {
+      content: ''; position: fixed; top: -10%; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 500px;
+      background: radial-gradient(ellipse, rgba(124,92,252,0.10) 0%, transparent 68%);
+      pointer-events: none; z-index: 0;
+    }
+    header, main, footer { position: relative; z-index: 1; }
+
     /* ── Header ── */
-    header { padding: clamp(20px, 4vw, 32px) 24px 0; text-align: center; }
+    header { padding: clamp(20px,4vw,32px) 24px 0; text-align: center; }
     .logo { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
     .logo-play {
-      font-size: clamp(1.2rem, 3.5vw, 1.5rem);
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;
-    }
-    .logo-text { font-size: clamp(1.2rem, 3.5vw, 1.5rem); font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
-    .logo-text span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      font-size: clamp(1.2rem,3.5vw,1.5rem);
+      background: linear-gradient(135deg,var(--accent),var(--accent2));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .tagline { margin-top: 6px; color: var(--muted); font-size: clamp(0.78rem, 2.2vw, 0.85rem); }
+    .logo-text {
+      font-size: clamp(1.2rem,3.5vw,1.5rem); font-weight: 800;
+      letter-spacing: -0.5px; color: var(--text);
+    }
+    .logo-text span {
+      background: linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
 
     /* ── Main ── */
-    main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: clamp(28px, 5vw, 44px) 20px 48px; }
+    main {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; padding: clamp(28px,5vw,44px) 20px 48px;
+    }
 
     h1 {
-      font-size: clamp(1.45rem, 5vw, 2.5rem); font-weight: 800;
-      text-align: center; line-height: 1.25;
-      letter-spacing: clamp(-0.5px, -0.02em, -1px); max-width: 560px;
+      font-size: clamp(1.5rem,5vw,2.5rem); font-weight: 800;
+      text-align: center; line-height: 1.2;
+      letter-spacing: clamp(-0.5px,-0.02em,-1px); max-width: 580px;
     }
     h1 span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background: linear-gradient(135deg,var(--accent),var(--accent2));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .subtitle { margin-top: 8px; margin-bottom: 4px; color: var(--muted); font-size: clamp(0.82rem, 2.5vw, 0.95rem); text-align: center; }
-
+    .subtitle {
+      margin-top: 8px; margin-bottom: 4px;
+      color: var(--muted); font-size: clamp(0.82rem,2.5vw,0.93rem); text-align: center;
+    }
 
     /* ── Input card ── */
     .input-card {
-      margin-top: 12px; background: var(--surface);
+      margin-top: 14px; background: var(--surface);
       border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 8px; display: flex; gap: 8px;
+      padding: 8px; display: flex; gap: 6px; align-items: center;
+      transition: border-color 0.2s;
     }
+    .input-card:focus-within { border-color: var(--accent); }
+
     .url-input {
       flex: 1; background: transparent; border: none; outline: none;
-      color: var(--text); font-family: inherit;
-      font-size: 1rem; /* 16px — prevents iOS Safari auto-zoom */
-      padding: 12px 14px; min-width: 0;
+      color: var(--text); font-family: inherit; font-size: 1rem;
+      padding: 12px 10px 12px 14px; min-width: 0;
     }
     .url-input::placeholder { color: var(--muted); font-size: 0.9rem; }
 
+    .btn-clear {
+      flex-shrink: 0; width: 30px; height: 30px; border: none;
+      background: var(--surface2); color: var(--muted); border-radius: 6px;
+      font-size: 0.8rem; cursor: pointer; display: none;
+      align-items: center; justify-content: center;
+      transition: color 0.2s, background 0.2s;
+    }
+    .btn-clear:hover { color: var(--text); background: var(--border); }
+
+    .btn-paste {
+      flex-shrink: 0; padding: 8px 14px; border: 1px solid var(--border);
+      border-radius: 9px; background: var(--surface2); color: var(--muted);
+      font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s; white-space: nowrap; min-height: 38px;
+    }
+    .btn-paste:hover { border-color: var(--accent); color: var(--text); }
+
     .btn-primary {
-      flex-shrink: 0; padding: 12px 24px; border: none; border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff; font-family: inherit; font-size: clamp(0.85rem, 2.5vw, 0.95rem); font-weight: 600;
-      cursor: pointer; transition: opacity 0.2s, transform 0.1s; white-space: nowrap;
-      min-height: 44px; /* touch target */
+      flex-shrink: 0; padding: 12px 22px; border: none; border-radius: 10px;
+      background: linear-gradient(135deg,var(--accent),var(--accent2));
+      color: #fff; font-family: inherit; font-size: clamp(0.85rem,2.5vw,0.95rem);
+      font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; white-space: nowrap; min-height: 44px;
     }
     .btn-primary:hover { opacity: 0.9; }
     .btn-primary:active { transform: scale(0.98); }
     .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    .error-msg { margin-top: 12px; color: var(--danger); font-size: clamp(0.8rem, 2.2vw, 0.85rem); display: none; }
+    /* ── Error ── */
+    .error-wrap {
+      margin-top: 12px; display: none;
+      background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.25);
+      border-radius: 10px; padding: 12px 14px;
+      display: none; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .error-msg { color: var(--danger); font-size: clamp(0.8rem,2.2vw,0.85rem); flex: 1; }
+    .btn-retry {
+      flex-shrink: 0; padding: 6px 14px; border: 1px solid var(--danger);
+      border-radius: 8px; background: transparent; color: var(--danger);
+      font-family: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-retry:hover { background: var(--danger); color: #fff; }
 
+    /* ── Quality selector ── */
+    .quality-selector {
+      margin-top: 10px; display: grid;
+      grid-template-columns: repeat(3, 1fr); gap: 6px;
+    }
+    .q-btn {
+      padding: 10px 8px 9px; border: 1px solid var(--border);
+      border-radius: 10px; background: var(--surface); color: var(--muted);
+      font-family: inherit; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .q-btn:hover { border-color: var(--accent); color: var(--text); }
+    .q-title { font-size: clamp(0.72rem,2vw,0.82rem); font-weight: 700; line-height: 1.2; }
+    .q-sub   { font-size: clamp(0.6rem,1.6vw,0.68rem); font-weight: 500; color: var(--muted); }
+    .q-btn.active { border-color: var(--accent); background: rgba(124,92,252,0.14); box-shadow: 0 0 0 1px var(--accent); }
+    .q-btn.active .q-title { color: var(--accent); }
+    .q-btn.active .q-sub   { color: var(--accent); opacity: 0.75; }
+    .q-btn.mp4-btn.active  { border-color: var(--accent2); background: rgba(91,138,245,0.14); box-shadow: 0 0 0 1px var(--accent2); }
+    .q-btn.mp4-btn.active .q-title { color: var(--accent2); }
+    .q-btn.mp4-btn.active .q-sub   { color: var(--accent2); opacity: 0.75; }
 
-    /* ── Video result card ── */
+    /* ── Video card ── */
     .video-card {
-      margin-top: 20px; background: var(--surface); border: 1px solid var(--border);
+      margin-top: 18px; background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); overflow: hidden; display: none;
       animation: fadeUp 0.3s ease;
     }
@@ -120,132 +190,100 @@
     }
     .video-meta { flex: 1; min-width: 0; }
     .video-title {
-      font-size: clamp(0.88rem, 2.5vw, 0.95rem); font-weight: 600; overflow: hidden;
+      font-size: clamp(0.88rem,2.5vw,0.95rem); font-weight: 600; overflow: hidden;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       line-height: 1.4;
     }
-    .video-sub { margin-top: 4px; font-size: clamp(0.72rem, 2vw, 0.78rem); color: var(--muted); }
+    .video-sub { margin-top: 3px; font-size: clamp(0.7rem,2vw,0.77rem); color: var(--muted); }
+    .video-badges { margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap; }
     .quality-badge {
-      display: inline-block; margin-top: 5px;
       padding: 2px 7px; border-radius: 4px;
       background: rgba(124,92,252,0.18); color: var(--accent);
-      font-size: clamp(0.65rem, 1.8vw, 0.72rem); font-weight: 700; letter-spacing: 0.03em;
+      font-size: clamp(0.62rem,1.7vw,0.7rem); font-weight: 700; letter-spacing: 0.03em;
+    }
+    .size-badge {
+      padding: 2px 7px; border-radius: 4px;
+      background: var(--surface2); color: var(--muted);
+      font-size: clamp(0.62rem,1.7vw,0.7rem); font-weight: 600;
     }
 
     .card-actions { padding: 0 14px 14px; }
-
     .progress-wrap {
-      height: 5px; background: var(--surface2); border-radius: 99px;
+      height: 6px; background: var(--surface2); border-radius: 99px;
       overflow: hidden; margin-bottom: 8px; display: none;
     }
     .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      border-radius: 99px; width: 0%; transition: width 0.5s ease;
+      height: 100%; border-radius: 99px; width: 0%;
+      background: linear-gradient(90deg,var(--accent),var(--accent2));
+      transition: width 0.5s ease;
     }
-    .status-text { font-size: clamp(0.75rem, 2vw, 0.8rem); color: var(--muted); margin-bottom: 10px; display: none; }
+    .status-text { font-size: clamp(0.75rem,2vw,0.8rem); color: var(--muted); margin-bottom: 10px; display: none; }
 
-    /* ── Download button + actions ── */
+    /* ── Action buttons ── */
     .download-actions { display: flex; flex-direction: column; gap: 8px; }
 
     @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,165,0.4); }
-      50%       { box-shadow: 0 0 0 8px rgba(34,211,165,0); }
+      0%,100% { box-shadow: 0 0 0 0 rgba(34,211,165,0.45); }
+      50%      { box-shadow: 0 0 0 10px rgba(34,211,165,0); }
     }
     .btn-download {
       width: 100%; padding: 15px 14px; border: none; border-radius: 10px;
-      background: linear-gradient(135deg, var(--success), #18b893);
-      color: #fff; font-family: inherit; font-size: clamp(0.95rem, 3vw, 1.05rem); font-weight: 700;
-      cursor: pointer; display: none; align-items: center; justify-content: center;
-      gap: 8px; text-decoration: none; transition: opacity 0.2s; min-height: 48px;
+      background: linear-gradient(135deg,var(--success),#18b893);
+      color: #fff; font-family: inherit; font-size: clamp(0.95rem,3vw,1.05rem);
+      font-weight: 700; cursor: pointer; display: none;
+      align-items: center; justify-content: center;
+      gap: 8px; text-decoration: none; transition: opacity 0.2s; min-height: 50px;
     }
     .btn-download:hover { opacity: 0.9; }
     .btn-download.pulse { animation: pulse-glow 1.6s ease-in-out infinite; }
     .btn-download svg { width: 18px; height: 18px; flex-shrink: 0; }
 
+    .btn-row { display: flex; gap: 8px; }
     .btn-copy-link {
-      width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 10px;
+      flex: 1; padding: 11px; border: 1px solid var(--border); border-radius: 10px;
       background: var(--surface2); color: var(--muted); font-family: inherit;
-      font-size: clamp(0.78rem, 2.2vw, 0.84rem); font-weight: 600; cursor: pointer; display: none;
+      font-size: clamp(0.78rem,2.2vw,0.84rem); font-weight: 600; cursor: pointer; display: none;
       align-items: center; justify-content: center; gap: 6px;
       transition: border-color 0.2s, color 0.2s; min-height: 44px;
     }
     .btn-copy-link:hover { border-color: var(--accent); color: var(--text); }
     .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
 
+    .btn-share {
+      flex-shrink: 0; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface2); color: var(--muted); font-family: inherit;
+      font-size: clamp(0.78rem,2.2vw,0.84rem); font-weight: 600; cursor: pointer; display: none;
+      align-items: center; justify-content: center; gap: 5px;
+      transition: border-color 0.2s, color 0.2s; min-height: 44px;
+    }
+    .btn-share:hover { border-color: var(--accent2); color: var(--text); }
+
     .btn-reset {
       width: 100%; padding: 11px; border: 1px dashed var(--border); border-radius: 10px;
       background: transparent; color: var(--muted); font-family: inherit;
-      font-size: clamp(0.78rem, 2.2vw, 0.84rem); font-weight: 600; cursor: pointer;
-      transition: border-color 0.2s, color 0.2s; min-height: 44px;
+      font-size: clamp(0.78rem,2.2vw,0.84rem); font-weight: 600; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s; min-height: 44px; display: none;
     }
     .btn-reset:hover { border-color: var(--accent); color: var(--text); }
 
-
-
     /* ── Footer ── */
     footer {
-      text-align: center; padding: 24px 20px;
+      text-align: center; padding: 22px 20px;
       border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      gap: 16px; flex-wrap: wrap;
+      gap: 14px; flex-wrap: wrap;
     }
-    .footer-brand {
-      font-size: clamp(0.82rem, 2.2vw, 0.9rem); font-weight: 700;
-      letter-spacing: 0.04em; color: var(--text);
-    }
-    .footer-brand span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .footer-divider { color: var(--border); font-size: 1rem; }
-    .footer-copy {
-      font-size: clamp(0.7rem, 1.8vw, 0.75rem); color: var(--muted); font-weight: 400;
-    }
+    .footer-brand { font-size: clamp(0.82rem,2.2vw,0.9rem); font-weight: 700; letter-spacing: 0.04em; color: var(--text); }
+    .footer-brand span { background: linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .footer-divider { color: var(--border); }
+    .footer-copy { font-size: clamp(0.68rem,1.8vw,0.74rem); color: var(--muted); }
     .footer-handle {
-      font-size: clamp(0.78rem, 2vw, 0.84rem); font-weight: 700;
-      letter-spacing: 0.02em;
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      font-size: clamp(0.78rem,2vw,0.84rem); font-weight: 700; letter-spacing: 0.02em;
+      background: linear-gradient(135deg,var(--accent2),var(--accent));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       text-decoration: none; transition: opacity 0.2s;
     }
     .footer-handle:hover { opacity: 0.75; }
-
-    /* ── Quality selector ── */
-    .quality-selector {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-    .q-btn {
-      padding: 10px 8px 9px; border: 1px solid var(--border);
-      border-radius: 10px; background: var(--surface); color: var(--muted);
-      font-family: inherit; cursor: pointer;
-      transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      text-align: center;
-    }
-    .q-btn:hover { border-color: var(--accent); color: var(--text); }
-    .q-title {
-      font-size: clamp(0.72rem, 2vw, 0.82rem); font-weight: 700; line-height: 1.2;
-    }
-    .q-sub {
-      font-size: clamp(0.6rem, 1.6vw, 0.68rem); font-weight: 500;
-      color: var(--muted); line-height: 1;
-    }
-    .q-btn.active {
-      border-color: var(--accent); background: rgba(124,92,252,0.14);
-      box-shadow: 0 0 0 1px var(--accent);
-    }
-    .q-btn.active .q-title { color: var(--accent); }
-    .q-btn.active .q-sub   { color: var(--accent); opacity: 0.7; }
-    .q-btn.mp4-btn.active {
-      border-color: var(--accent2); background: rgba(91,138,245,0.14);
-      box-shadow: 0 0 0 1px var(--accent2);
-    }
-    .q-btn.mp4-btn.active .q-title { color: var(--accent2); }
-    .q-btn.mp4-btn.active .q-sub   { color: var(--accent2); opacity: 0.7; }
 
     /* ── Mobile ── */
     @media (max-width: 768px) {
@@ -254,12 +292,16 @@
       header { padding: 18px 16px 0; }
     }
     @media (max-width: 540px) {
-      .input-card { flex-direction: column; padding: 10px; gap: 6px; }
-      .btn-primary { width: 100%; padding: 14px; }
+      .input-card { flex-wrap: wrap; padding: 8px; }
+      .url-input { width: 100%; order: 0; padding: 10px 8px; }
+      .btn-paste  { order: 1; flex: 1; }
+      .btn-primary { order: 2; flex: 1; }
+      .btn-clear { order: 3; }
       .video-card-inner { flex-direction: column; align-items: flex-start; }
       .video-thumb { width: 100%; height: 140px; }
       .quality-selector { gap: 5px; }
       .q-btn { padding: 9px 4px 8px; }
+      .btn-paste { display: none; } /* hidden on very small — clipboard paste works on focus */
     }
   </style>
 </head>
@@ -276,13 +318,15 @@
   <h1>YouTube to <span>MP3</span> &amp; <span>MP4</span> Converter</h1>
   <p class="subtitle">Works with any public YouTube video, Short, or Live</p>
 
-  <!-- ── Single panel ── -->
   <div id="panel-single" style="width:100%;max-width:680px">
+
     <div class="input-card">
       <input type="url" class="url-input" id="urlInput"
-        placeholder="https://www.youtube.com/watch?v=..."
+        placeholder="Paste a YouTube link…"
         autocomplete="off" autocorrect="off" autocapitalize="off"
         spellcheck="false" inputmode="url" />
+      <button class="btn-clear" id="btnClear" onclick="clearInput()" title="Clear">✕</button>
+      <button class="btn-paste" id="btnPaste" onclick="pasteUrl()">Paste</button>
       <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
     </div>
 
@@ -314,8 +358,11 @@
       </button>
     </div>
 
-    <p class="error-msg" id="singleError"></p>
-
+    <!-- Error -->
+    <div class="error-wrap" id="errorWrap">
+      <span class="error-msg" id="singleError"></span>
+      <button class="btn-retry" id="btnRetry" onclick="handleConvert()">Try again</button>
+    </div>
 
     <!-- Video result -->
     <div class="video-card" id="videoCard">
@@ -323,8 +370,11 @@
         <img class="video-thumb" id="videoThumb" src="" alt="" />
         <div class="video-meta">
           <div class="video-title" id="videoTitle"></div>
-          <div class="video-sub" id="videoSub"></div>
-          <span class="quality-badge" id="qualityBadge">320K MP3</span>
+          <div class="video-sub"   id="videoSub"></div>
+          <div class="video-badges">
+            <span class="quality-badge" id="qualityBadge">320K MP3</span>
+            <span class="size-badge"    id="sizeBadge" style="display:none"></span>
+          </div>
         </div>
       </div>
       <div class="card-actions">
@@ -341,21 +391,26 @@
             </svg>
             Download MP3
           </a>
-          <button class="btn-copy-link" id="btnCopyLink" onclick="copyDownloadLink()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
-              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-            Copy download link
-          </button>
-          <button class="btn-reset" id="btnReset" onclick="resetForm()" style="display:none">
-            ↩ Convert another video
-          </button>
+          <div class="btn-row">
+            <button class="btn-copy-link" id="btnCopyLink" onclick="copyDownloadLink()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+                <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copy link
+            </button>
+            <button class="btn-share" id="btnShare" onclick="shareDownload()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share
+            </button>
+          </div>
+          <button class="btn-reset" id="btnReset" onclick="resetForm()">↩ Convert another video</button>
         </div>
       </div>
     </div>
   </div>
-
-
 </main>
 
 <footer>
@@ -369,10 +424,19 @@
 <script>
   let pollTimer = null;
   let currentDownloadUrl = null;
-  let selectedFmt = 'mp3';
-  let selectedQ   = '320K';
+  let selectedFmt = localStorage.getItem('fmt') || 'mp3';
+  let selectedQ   = localStorage.getItem('q')   || '320K';
 
   const $ = id => document.getElementById(id);
+
+  // ── Restore saved quality on load ──
+  (function restoreQuality() {
+    const btn = document.querySelector(`.q-btn[data-fmt="${selectedFmt}"][data-q="${selectedQ}"]`);
+    if (btn) {
+      document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  })();
 
   // ── Quality selector ──
   function selectQuality(btn) {
@@ -380,16 +444,49 @@
     btn.classList.add('active');
     selectedFmt = btn.dataset.fmt;
     selectedQ   = btn.dataset.q;
+    localStorage.setItem('fmt', selectedFmt);
+    localStorage.setItem('q',   selectedQ);
   }
 
-  // ── Single convert ──
+  // ── Paste / Clear ──
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        $('urlInput').value = text;
+        updateClearBtn();
+        if (text.includes('youtube.com') || text.includes('youtu.be')) handleConvert();
+      }
+    } catch { $('urlInput').focus(); }
+  }
+
+  function clearInput() {
+    $('urlInput').value = '';
+    $('btnClear').style.display = 'none';
+    $('urlInput').focus();
+  }
+
+  function updateClearBtn() {
+    $('btnClear').style.display = $('urlInput').value ? 'flex' : 'none';
+  }
+
+  // ── File size estimate ──
+  function estimateSize(durationSec, fmt, q) {
+    if (!durationSec) return null;
+    const min = durationSec / 60;
+    if (fmt === 'mp4') return null; // varies too much
+    const kbps = { '128K': 128, '192K': 192, '320K': 320 }[q] || 320;
+    const mb = (kbps * 1000 / 8 * durationSec / 1024 / 1024);
+    return mb < 1 ? `~${(mb*1024).toFixed(0)} KB` : `~${mb.toFixed(1)} MB`;
+  }
+
+  // ── Error / Retry ──
   function showSingleError(msg) {
-    const el = $('singleError');
-    el.textContent = msg;
-    el.style.display = 'block';
+    $('singleError').textContent = msg;
+    $('errorWrap').style.display = 'flex';
   }
   function hideSingleError() {
-    $('singleError').style.display = 'none';
+    $('errorWrap').style.display = 'none';
   }
 
   function setConverting(on) {
@@ -398,136 +495,150 @@
     $('urlInput').disabled = on;
   }
 
+  // ── Convert ──
   async function handleConvert() {
     clearInterval(pollTimer);
     const url = $('urlInput').value.trim();
     if (!url) { showSingleError('Please paste a YouTube URL'); return; }
 
     hideSingleError();
-    $('videoCard').style.display = 'none';
-    $('btnDownload').style.display = 'none';
-    $('btnCopyLink').style.display = 'none';
+    $('videoCard').style.display    = 'none';
+    $('btnDownload').style.display  = 'none';
+    $('btnCopyLink').style.display  = 'none';
+    $('btnShare').style.display     = 'none';
+    $('btnReset').style.display     = 'none';
     $('progressWrap').style.display = 'none';
-    $('statusText').style.display = 'none';
+    $('statusText').style.display   = 'none';
+    $('sizeBadge').style.display    = 'none';
     currentDownloadUrl = null;
     setConverting(true);
 
     try {
+      $('statusText').textContent = 'Fetching video info…';
+      $('statusText').style.display = 'block';
+
       const infoRes = await fetch('/info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       const info = await infoRes.json();
-      if (!infoRes.ok) {
-        showSingleError(info.error || 'Could not fetch video info');
-        setConverting(false);
-        return;
-      }
+      $('statusText').style.display = 'none';
 
-      $('videoThumb').src = info.thumbnail;
+      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info'); setConverting(false); return; }
+
+      $('videoThumb').src        = info.thumbnail;
       $('videoTitle').textContent = info.title;
-      $('videoSub').textContent = `${info.uploader}  ·  ${info.duration}`;
+      $('videoSub').textContent   = `${info.uploader}  ·  ${info.duration}`;
+
       const badgeMap = { '720': 'MP4 720p', '1080': 'MP4 1080p', 'best': 'MP4 Best' };
-      $('qualityBadge').textContent = selectedFmt === 'mp4' ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
+      $('qualityBadge').textContent = selectedFmt === 'mp4'
+        ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
+
+      const sz = estimateSize(info.duration_sec, selectedFmt, selectedQ);
+      if (sz) { $('sizeBadge').textContent = sz; $('sizeBadge').style.display = 'inline-block'; }
+
       $('videoCard').style.display = 'block';
 
       const startRes = await fetch('/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: info.url || url, title: info.title, uploader: info.uploader, format: selectedFmt, quality: selectedQ })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: info.url || url, title: info.title,
+          uploader: info.uploader, format: selectedFmt, quality: selectedQ })
       });
       const startData = await startRes.json();
-      if (!startRes.ok) {
-        showSingleError(startData.error || 'Failed to start conversion');
-        setConverting(false);
-        return;
-      }
+      if (!startRes.ok) { showSingleError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
 
       pollJob(startData.job_id);
     } catch {
+      $('statusText').style.display = 'none';
       showSingleError('Network error. Please try again.');
       setConverting(false);
     }
   }
 
+  // ── Poll ──
+  const STATUS_MSGS = ['Converting…', 'Processing audio…', 'Almost done…'];
+
   function pollJob(jobId) {
-    const progressWrap = $('progressWrap');
-    const progressBar  = $('progressBar');
-    const statusText   = $('statusText');
+    $('progressWrap').style.display = 'block';
+    $('statusText').style.display   = 'block';
+    $('statusText').textContent     = 'Starting conversion…';
 
-    if (progressWrap) progressWrap.style.display = 'block';
-    if (statusText) { statusText.style.display = 'block'; statusText.textContent = 'Converting…'; }
+    let fake = 3, msgIdx = 0;
+    $('progressBar').style.width = fake + '%';
 
-    let fake = 5;
-    progressBar.style.width = fake + '%';
     const grow = setInterval(() => {
-      if (fake < 30) { fake += Math.random() * 4; progressBar.style.width = fake + '%'; }
-    }, 1200);
+      if (fake < 25) { fake += Math.random() * 3; $('progressBar').style.width = fake + '%'; }
+    }, 1500);
+
+    const msgCycle = setInterval(() => {
+      if ($('statusText').textContent.startsWith('Downloading')) return;
+      msgIdx = (msgIdx + 1) % STATUS_MSGS.length;
+      $('statusText').textContent = STATUS_MSGS[msgIdx];
+    }, 4000);
 
     let attempts = 0;
     pollTimer = setInterval(async () => {
-      if (++attempts > 150) {
-        clearInterval(pollTimer); clearInterval(grow);
-        showSingleError('Timed out. Try again.'); setConverting(false);
+      if (++attempts > 240) {
+        clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+        showSingleError('Timed out. The video may be too long. Try again.'); setConverting(false);
         return;
       }
       try {
-        const res = await fetch(`/status/${jobId}`);
+        const res  = await fetch(`/status/${jobId}`);
         const data = await res.json();
 
-        // Real progress from backend
         if (data.progress != null && data.progress > fake) {
           clearInterval(grow);
           fake = data.progress;
-          progressBar.style.width = fake + '%';
-          if (data.progress < 95) {
-            statusText.textContent = `Downloading… ${data.progress}%`;
-          }
+          $('progressBar').style.width = fake + '%';
+          if (data.progress < 95)
+            $('statusText').textContent = `Downloading… ${data.progress}%`;
         }
 
         if (data.status === 'done') {
-          clearInterval(pollTimer); clearInterval(grow);
-          progressBar.style.width = '100%';
-          statusText.textContent = 'Done! Starting download…';
+          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+          $('progressBar').style.width = '100%';
+          $('statusText').textContent  = '✓ Done! Starting download…';
+
           setTimeout(() => {
-            progressWrap.style.display = 'none';
-            statusText.style.display = 'none';
+            $('progressWrap').style.display = 'none';
+            $('statusText').style.display   = 'none';
+
             const dlUrl = `/download/${jobId}`;
             currentDownloadUrl = dlUrl;
 
+            // Auto-trigger
             const tmp = document.createElement('a');
-            tmp.href = dlUrl;
-            tmp.download = data.filename || 'audio.mp3';
-            document.body.appendChild(tmp);
-            tmp.click();
-            document.body.removeChild(tmp);
+            tmp.href = dlUrl; tmp.download = data.filename || 'audio.mp3';
+            document.body.appendChild(tmp); tmp.click(); document.body.removeChild(tmp);
 
+            // Download button
             const dl = $('btnDownload');
-            dl.href = dlUrl;
-            dl.download = data.filename || 'audio.mp3';
+            dl.href = dlUrl; dl.download = data.filename || 'audio.mp3';
             const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
             dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
             dl.style.display = 'flex';
             dl.classList.add('pulse');
-            setTimeout(() => dl.classList.remove('pulse'), 6000);
+            setTimeout(() => dl.classList.remove('pulse'), 7000);
 
             $('btnCopyLink').style.display = 'flex';
+            if (navigator.share) $('btnShare').style.display = 'flex';
             $('btnReset').style.display = 'block';
             setConverting(false);
           }, 400);
+
         } else if (data.status === 'error') {
-          clearInterval(pollTimer); clearInterval(grow);
-          progressWrap.style.display = 'none';
-          statusText.style.display = 'none';
-          showSingleError(data.error || 'Conversion failed.');
+          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+          $('progressWrap').style.display = 'none';
+          $('statusText').style.display   = 'none';
+          showSingleError(data.error || 'Conversion failed. Please try again.');
           setConverting(false);
         }
       } catch {}
     }, 2000);
   }
 
-  // ── Copy download link ──
+  // ── Copy link ──
   async function copyDownloadLink() {
     if (!currentDownloadUrl) return;
     const full = location.origin + currentDownloadUrl;
@@ -536,38 +647,49 @@
       $('btnCopyLink').textContent = '✓ Copied!';
       $('btnCopyLink').classList.add('copied');
       setTimeout(() => {
-        $('btnCopyLink').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy download link`;
+        $('btnCopyLink').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy link`;
         $('btnCopyLink').classList.remove('copied');
       }, 2000);
-    } catch {
-      prompt('Copy this link:', full);
-    }
+    } catch { prompt('Copy this link:', full); }
   }
 
-  // ── Reset form ──
+  // ── Web Share ──
+  async function shareDownload() {
+    if (!navigator.share || !currentDownloadUrl) return;
+    try {
+      await navigator.share({
+        title: $('videoTitle').textContent || 'Download',
+        url: location.origin + currentDownloadUrl
+      });
+    } catch {}
+  }
+
+  // ── Reset ──
   function resetForm() {
     clearInterval(pollTimer);
     $('urlInput').value = '';
-    $('videoCard').style.display    = 'none';
-    $('btnDownload').style.display  = 'none';
-    $('btnCopyLink').style.display  = 'none';
-    $('btnReset').style.display     = 'none';
-    $('singleError').style.display  = 'none';
-    $('progressWrap').style.display = 'none';
-    $('statusText').style.display   = 'none';
+    updateClearBtn();
+    ['videoCard','btnDownload','btnCopyLink','btnShare','btnReset',
+     'errorWrap','progressWrap','statusText'].forEach(id => {
+      const el = $(id);
+      if (el) el.style.display = 'none';
+    });
     currentDownloadUrl = null;
     setConverting(false);
     $('urlInput').focus();
   }
 
-  // ── Enter key & auto-paste ──
+  // ── Input events ──
+  $('urlInput').addEventListener('input',   updateClearBtn);
   $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
-  $('urlInput').addEventListener('focus', async () => {
+  $('urlInput').addEventListener('focus',   async () => {
     if ($('urlInput').value) return;
     try {
       const text = await navigator.clipboard.readText();
-      if (text && (text.includes('youtube.com') || text.includes('youtu.be')))
+      if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
         $('urlInput').value = text;
+        updateClearBtn();
+      }
     } catch {}
   });
 </script>
