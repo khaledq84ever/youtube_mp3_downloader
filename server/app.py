@@ -5,7 +5,6 @@ import re
 import tempfile
 import time
 import uuid
-import zipfile
 from urllib.parse import quote, unquote
 
 from flask import Flask, render_template, request, send_file, redirect, url_for
@@ -13,7 +12,6 @@ import yt_dlp
 
 app = Flask(__name__)
 LOCAL_DOWNLOAD_FOLDER = 'temp'
-ALLOWED_EXTENSIONS = {'txt'}
 
 COOKIES_FILE = os.path.join(tempfile.gettempdir(), 'yt_cookies.txt')
 _env_cookies_file = None
@@ -135,31 +133,6 @@ def download():
             user_msg = f"Download failed: {msg[:300]}"
         return redirect(url_for('index', error=user_msg))
 
-@app.route('/batch_download', methods=['POST'])
-def batch_download():
-    try:
-        os.makedirs(LOCAL_DOWNLOAD_FOLDER, exist_ok=True)
-        urls = []
-        if 'file' in request.files:
-            f = request.files['file']
-            if f and allowed_file(f.filename):
-                urls = [l.decode('utf-8').strip() for l in f.readlines() if l.strip()]
-        if not urls:
-            return redirect(url_for('index', error="No URLs provided."))
-        cleanup_temp_folder_if_needed()
-        zip_name = str(uuid.uuid4())[:8] + '_music.zip'
-        zip_path = os.path.join(LOCAL_DOWNLOAD_FOLDER, zip_name)
-        with zipfile.ZipFile(zip_path, 'w') as zf:
-            for url in urls:
-                try:
-                    mp3, title = download_audio(url)
-                    zf.write(mp3, os.path.basename(unquote(mp3)))
-                except Exception as e:
-                    print(f"Skipped {url}: {e}")
-        return send_file(os.path.abspath(zip_path), as_attachment=True, download_name=zip_name)
-    except Exception as e:
-        return redirect(url_for('index', error=f"Batch failed: {str(e)[:200]}"))
-
 # ── Core download logic ─────────────────────────────────────────────────────
 
 def download_audio(url):
@@ -178,9 +151,6 @@ def download_audio(url):
 
 def is_valid_youtube_url(url):
     return re.match(r'^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$', url)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def cleanup_temp_folder_if_needed():
     if not os.path.exists(LOCAL_DOWNLOAD_FOLDER):
