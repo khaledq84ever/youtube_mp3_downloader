@@ -48,22 +48,6 @@ a{text-decoration:none;color:inherit;}
 .feature h3{font-size:0.88rem;font-weight:700;margin-bottom:0.3rem;}
 .feature p{font-size:0.75rem;color:#666;}
 
-/* COOKIES */
-.cookies-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:1.5rem;max-width:640px;margin:0 auto 3rem;}
-.cookies-toggle{width:100%;background:none;border:none;color:#555;font-size:0.85rem;font-family:'Inter',sans-serif;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:0;}
-.cookies-toggle:hover{color:#888;}
-.cookies-body{display:none;margin-top:1.25rem;}
-.cookies-body.open{display:block;}
-.step{background:#0f0f0f;border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:0.82rem;color:#888;}
-.step b{color:#ccc;}
-kbd{background:#2a2a2a;border:1px solid #444;border-radius:4px;padding:1px 6px;font-size:0.78rem;color:#ddd;}
-textarea{width:100%;background:#0f0f0f;border:2px solid #333;border-radius:10px;padding:0.75rem;font-size:0.82rem;font-family:monospace;color:#ccc;resize:vertical;outline:none;margin-bottom:0.75rem;}
-textarea:focus{border-color:#ff0000;}
-.btn-save{width:100%;background:#ff0000;color:#fff;border:none;border-radius:10px;padding:0.75rem;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
-.btn-save:hover{background:#cc0000;}
-.divider{border:none;border-top:1px solid #2a2a2a;margin:1.25rem 0;}
-.cookies-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:0.75rem;}
-
 /* FOOTER */
 footer{text-align:center;padding:2rem 1rem;color:#444;font-size:0.8rem;border-top:1px solid #1a1a1a;}
 footer a{color:#555;}
@@ -71,7 +55,7 @@ footer a{color:#555;}
 @media(max-width:500px){
   .btn-convert{padding:0 1rem;font-size:0.85rem;}
   .hero{padding:2.5rem 1rem 1.5rem;}
-  .form-card,.batch-card,.cookies-card{padding:1.25rem;}
+  .form-card{padding:1.25rem;}
 }
 </style>
 </head>
@@ -134,50 +118,11 @@ footer a{color:#555;}
   </div>
 </div>
 
-<!-- Cookies -->
-<div class="cookies-card">
-  <button class="cookies-toggle" onclick="toggleCookies(this)">
-    <span>🔒 Fix blocked downloads — add YouTube cookies</span>
-    <span>▼</span>
-  </button>
-  <div class="cookies-body" id="cookies-body" {% if has_cookies %}style="display:block"{% endif %}>
-    <p style="font-size:0.82rem;color:#666;margin-bottom:1rem;">YouTube blocks some downloads from servers. Add your browser cookies once to unlock all videos.</p>
-
-    <div class="cookies-label">Method 1 — Paste from Browser</div>
-    <div class="step"><b>Step 1:</b> Open <a href="https://youtube.com" target="_blank" style="color:#ff6b6b">youtube.com</a> while logged in</div>
-    <div class="step"><b>Step 2:</b> Press <kbd>F12</kbd> → Network tab → click any request → Headers → find <code style="color:#ff6b6b">Cookie:</code> → right-click → Copy value</div>
-    <div class="step"><b>Step 3:</b> Paste below and save</div>
-    <form action="/set-cookies" method="post">
-      <textarea name="cookiestring" rows="3" placeholder="CONSENT=YES; SID=abc123; SSID=xyz..."></textarea>
-      <button type="submit" class="btn-save">Save Cookies</button>
-    </form>
-
-    <div class="divider"></div>
-
-    <div class="cookies-label">Method 2 — Upload cookies.txt file</div>
-    <form action="/set-cookies" method="post" enctype="multipart/form-data">
-      <div class="batch-row" style="margin-bottom:0;">
-        <input type="file" class="file-input" name="cookiefile" accept=".txt"/>
-        <button type="submit" class="btn-batch">Upload</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <footer>
   &copy; 2026 YT MP3 Converter &mdash; For personal use only &mdash;
   <a href="https://www.youtube.com/t/terms" target="_blank">YouTube Terms</a>
 </footer>
 
-<script>
-function toggleCookies(btn) {
-  const body = document.getElementById('cookies-body');
-  body.style.display = body.style.display === 'block' ? 'none' : 'block';
-}
-{% if error_message and ('blocked' in error_message or 'bot' in error_message or 'cookies' in error_message|lower) %}
-document.getElementById('cookies-body').style.display = 'block';
-{% endif %}
-</script>
 
 </body>
 </html>
