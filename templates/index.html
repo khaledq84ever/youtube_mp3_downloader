@@ -4,7 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3956390078338144" crossorigin="anonymous"></script>
-  <title>▶ YT MP3 — Free YouTube to MP3 Converter</title>
+  <title>YT MP3 — Free YouTube to MP3 &amp; MP4 Converter</title>
+  <meta name="description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required. Supports Shorts, Live, and all YouTube links." />
+  <meta property="og:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter" />
+  <meta property="og:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter" />
+  <meta name="twitter:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required." />
+  <link rel="canonical" href="https://youtube-mp3-downloader-production-c1e2.up.railway.app/" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap&font-display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -165,6 +173,14 @@
     .btn-copy-link:hover { border-color: var(--accent); color: var(--text); }
     .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
 
+    .btn-reset {
+      width: 100%; padding: 11px; border: 1px dashed var(--border); border-radius: 10px;
+      background: transparent; color: var(--muted); font-family: inherit;
+      font-size: clamp(0.78rem, 2.2vw, 0.84rem); font-weight: 600; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s; min-height: 44px;
+    }
+    .btn-reset:hover { border-color: var(--accent); color: var(--text); }
+
 
 
     /* ── Footer ── */
@@ -257,7 +273,8 @@
 </header>
 
 <main>
-  <h1>Download any YouTube video<br/>as <span>MP3</span> or <span>MP4</span></h1>
+  <h1>YouTube to <span>MP3</span> &amp; <span>MP4</span> Converter</h1>
+  <p class="subtitle">Works with any public YouTube video, Short, or Live</p>
 
   <!-- ── Single panel ── -->
   <div id="panel-single" style="width:100%;max-width:680px">
@@ -273,15 +290,15 @@
     <div class="quality-selector">
       <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)">
         <span class="q-title">MP3 128K</span>
-        <span class="q-sub">Smaller file</span>
+        <span class="q-sub">~1 MB/min</span>
       </button>
       <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)">
         <span class="q-title">MP3 192K</span>
-        <span class="q-sub">Balanced</span>
+        <span class="q-sub">~1.5 MB/min</span>
       </button>
       <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)">
         <span class="q-title">MP3 320K ★</span>
-        <span class="q-sub">Best audio</span>
+        <span class="q-sub">~2.5 MB/min</span>
       </button>
       <button class="q-btn mp4-btn" data-fmt="mp4" data-q="720" onclick="selectQuality(this)">
         <span class="q-title">MP4 720p</span>
@@ -330,6 +347,9 @@
             </svg>
             Copy download link
           </button>
+          <button class="btn-reset" id="btnReset" onclick="resetForm()" style="display:none">
+            ↩ Convert another video
+          </button>
         </div>
       </div>
     </div>
@@ -347,7 +367,6 @@
 </footer>
 
 <script>
-  let cookieId = null;
   let pollTimer = null;
   let currentDownloadUrl = null;
   let selectedFmt = 'mp3';
@@ -416,7 +435,7 @@
       const startRes = await fetch('/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: info.url || url, cookie_id: cookieId, title: info.title, uploader: info.uploader, format: selectedFmt, quality: selectedQ })
+        body: JSON.stringify({ url: info.url || url, title: info.title, uploader: info.uploader, format: selectedFmt, quality: selectedQ })
       });
       const startData = await startRes.json();
       if (!startRes.ok) {
@@ -494,6 +513,7 @@
             setTimeout(() => dl.classList.remove('pulse'), 6000);
 
             $('btnCopyLink').style.display = 'flex';
+            $('btnReset').style.display = 'block';
             setConverting(false);
           }, 400);
         } else if (data.status === 'error') {
@@ -522,6 +542,22 @@
     } catch {
       prompt('Copy this link:', full);
     }
+  }
+
+  // ── Reset form ──
+  function resetForm() {
+    clearInterval(pollTimer);
+    $('urlInput').value = '';
+    $('videoCard').style.display    = 'none';
+    $('btnDownload').style.display  = 'none';
+    $('btnCopyLink').style.display  = 'none';
+    $('btnReset').style.display     = 'none';
+    $('singleError').style.display  = 'none';
+    $('progressWrap').style.display = 'none';
+    $('statusText').style.display   = 'none';
+    currentDownloadUrl = null;
+    setConverting(false);
+    $('urlInput').focus();
   }
 
   // ── Enter key & auto-paste ──
