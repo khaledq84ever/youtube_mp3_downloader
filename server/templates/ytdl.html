@@ -53,6 +53,7 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
+    /* Subtle grid */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -63,6 +64,7 @@
       pointer-events: none; z-index: 0;
     }
 
+    /* Top glow */
     body::after {
       content: '';
       position: fixed; top: -15%; left: 50%;
@@ -74,6 +76,7 @@
 
     header, main, footer { position: relative; z-index: 1; }
 
+    /* ── Header ── */
     header {
       padding: clamp(20px,4vw,36px) 24px 0;
       text-align: center;
@@ -130,12 +133,14 @@
       50% { opacity: 0.25; }
     }
 
+    /* ── Main ── */
     main {
       flex: 1;
       display: flex; flex-direction: column; align-items: center;
       padding: clamp(36px,6vw,60px) 16px 56px;
     }
 
+    /* ── Hero ── */
     .hero {
       text-align: center;
       max-width: 620px; width: 100%;
@@ -181,11 +186,13 @@
 
     .chip .ci { color: var(--success); }
 
+    /* ── Converter ── */
     .converter {
       margin-top: 40px;
       width: 100%; max-width: var(--max-w);
     }
 
+    /* Input card */
     .input-card {
       background: var(--surface);
       border: 1.5px solid var(--border);
@@ -250,6 +257,7 @@
     .btn-primary:active { transform: scale(0.98); }
     .btn-primary:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; }
 
+    /* ── Quality selector ── */
     .quality-label {
       margin-top: 16px; margin-bottom: 8px;
       font-size: 0.72rem; font-weight: 800;
@@ -298,6 +306,7 @@
     .q-btn.mp4-btn.active .q-title { color: #7db8fb; }
     .q-btn.mp4-btn.active .q-sub   { color: #7db8fb; }
 
+    /* ── Error ── */
     .error-wrap {
       margin-top: 12px;
       background: rgba(239,68,68,0.07);
@@ -321,6 +330,7 @@
 
     .btn-retry:hover { background: var(--danger); color: #fff; }
 
+    /* ── Video card ── */
     .video-card {
       margin-top: 20px;
       background: var(--surface);
@@ -410,6 +420,7 @@
       margin-bottom: 10px; display: none;
     }
 
+    /* ── Action buttons ── */
     .download-actions { display: flex; flex-direction: column; gap: 9px; }
 
     @keyframes pulse-glow {
@@ -475,6 +486,7 @@
 
     .btn-reset:hover { border-color: var(--accent); color: var(--text); }
 
+    /* ── Footer ── */
     footer {
       padding: 24px 20px;
       border-top: 1px solid var(--border);
@@ -504,10 +516,12 @@
 
     .footer-handle:hover { opacity: 0.72; }
 
+    /* ── Desktop hover tweaks ── */
     @media (hover: hover) {
       .q-btn:hover { background: var(--surface2); }
     }
 
+    /* ── Responsive ── */
     @media (max-width: 768px) {
       main   { padding: 28px 14px 44px; }
       header { padding: 18px 16px 0; }
@@ -546,7 +560,7 @@
 <main>
   <div class="hero">
     <h1>Convert YouTube to<br/><span class="grad">MP3 &amp; MP4</span></h1>
-    <p class="subtitle">Paste any YouTube link — get instant high&#8209;quality audio or video</p>
+    <p class="subtitle">Paste any YouTube link — get instant high‑quality audio or video</p>
     <div class="chips">
       <span class="chip"><span class="ci">✓</span> 100% Free</span>
       <span class="chip"><span class="ci">✓</span> No Signup</span>
@@ -596,11 +610,13 @@
       </button>
     </div>
 
+    <!-- Error -->
     <div class="error-wrap" id="errorWrap">
       <span class="error-msg" id="singleError"></span>
       <button class="btn-retry" id="btnRetry" onclick="handleConvert()">Try again</button>
     </div>
 
+    <!-- Video result -->
     <div class="video-card" id="videoCard">
       <div class="video-card-inner">
         <img class="video-thumb" id="videoThumb" src="" alt="" />
@@ -665,6 +681,7 @@
 
   const $ = id => document.getElementById(id);
 
+  // ── Restore saved quality on load ──
   (function restoreQuality() {
     const btn = document.querySelector(`.q-btn[data-fmt="${selectedFmt}"][data-q="${selectedQ}"]`);
     if (btn) {
@@ -673,6 +690,7 @@
     }
   })();
 
+  // ── Quality selector ──
   function selectQuality(btn) {
     document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -682,6 +700,7 @@
     localStorage.setItem('q',   selectedQ);
   }
 
+  // ── Paste / Clear ──
   async function pasteUrl() {
     try {
       const text = await navigator.clipboard.readText();
@@ -703,6 +722,7 @@
     $('btnClear').style.display = $('urlInput').value ? 'flex' : 'none';
   }
 
+  // ── File size estimate ──
   function estimateSize(durationSec, fmt, q) {
     if (!durationSec) return null;
     if (fmt === 'mp4') return null;
@@ -711,8 +731,9 @@
     return mb < 1 ? `~${(mb*1024).toFixed(0)} KB` : `~${mb.toFixed(1)} MB`;
   }
 
-  function showSingleError(msg, url) {
-    $('singleError').textContent = msg || 'Something went wrong. Please try again.';
+  // ── Error / Retry ──
+  function showSingleError(msg) {
+    $('singleError').textContent = msg;
     $('errorWrap').style.display = 'flex';
   }
   function hideSingleError() {
@@ -725,6 +746,7 @@
     $('urlInput').disabled = on;
   }
 
+  // ── Convert ──
   async function handleConvert() {
     clearInterval(pollTimer);
     const url = $('urlInput').value.trim();
@@ -753,7 +775,7 @@
       const info = await infoRes.json();
       $('statusText').style.display = 'none';
 
-      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info', url); setConverting(false); return; }
+      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info'); setConverting(false); return; }
 
       $('videoThumb').src         = info.thumbnail;
       $('videoTitle').textContent = info.title;
@@ -768,8 +790,15 @@
 
       $('videoCard').style.display = 'block';
 
-      // Stream directly to browser — download starts immediately at server speed
-      startStreamDownload(info.url || url, info.title, info.uploader);
+      const startRes = await fetch('/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: info.url || url, title: info.title,
+          uploader: info.uploader, format: selectedFmt, quality: selectedQ })
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) { showSingleError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
+
+      pollJob(startData.job_id);
     } catch {
       $('statusText').style.display = 'none';
       showSingleError('Network error. Please try again.');
@@ -777,47 +806,88 @@
     }
   }
 
-  const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // ── Poll ──
+  const STATUS_MSGS = ['Converting…', 'Processing audio…', 'Almost done…'];
 
-  async function startStreamDownload(videoUrl, title) {
+  function pollJob(jobId) {
     $('progressWrap').style.display = 'block';
     $('statusText').style.display   = 'block';
-    $('progressBar').style.width    = '15%';
-    $('statusText').textContent     = 'Preparing download…';
+    $('statusText').textContent     = 'Starting conversion…';
 
-    const ext      = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
-    const safe     = (title || 'download').replace(/[^\w\s\-]/g, '').trim() || 'download';
-    const params   = new URLSearchParams({ url: videoUrl, format: selectedFmt, quality: selectedQ, filename: safe });
-    const streamUrl = `/stream-direct?${params}`;
-    currentDownloadUrl = streamUrl;
+    let fake = 3, msgIdx = 0;
+    $('progressBar').style.width = fake + '%';
 
-    // Show download button immediately — browser handles the actual download progress natively
-    $('progressBar').style.width    = '100%';
-    $('progressWrap').style.display = 'none';
-    $('statusText').style.display   = 'none';
+    const grow = setInterval(() => {
+      if (fake < 25) { fake += Math.random() * 3; $('progressBar').style.width = fake + '%'; }
+    }, 1500);
 
-    const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-    const dl = $('btnDownload');
-    dl.href     = streamUrl;
-    dl.download = `${safe}.${ext}`;
-    dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
-    dl.style.display = 'flex';
-    dl.classList.add('pulse');
-    setTimeout(() => dl.classList.remove('pulse'), 7000);
+    const msgCycle = setInterval(() => {
+      if ($('statusText').textContent.startsWith('Downloading')) return;
+      msgIdx = (msgIdx + 1) % STATUS_MSGS.length;
+      $('statusText').textContent = STATUS_MSGS[msgIdx];
+    }, 4000);
 
-    $('btnCopyLink').style.display = 'flex';
-    if (navigator.share) $('btnShare').style.display = 'flex';
-    $('btnReset').style.display = 'block';
-    setConverting(false);
+    let attempts = 0;
+    pollTimer = setInterval(async () => {
+      if (++attempts > 240) {
+        clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+        showSingleError('Timed out. The video may be too long. Try again.'); setConverting(false);
+        return;
+      }
+      try {
+        const res  = await fetch(`/status/${jobId}`);
+        const data = await res.json();
 
-    // Trigger the download immediately
-    try {
-      const a = document.createElement('a');
-      a.href = streamUrl; a.download = `${safe}.${ext}`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    } catch(e) {}
+        if (data.progress != null && data.progress > fake) {
+          clearInterval(grow);
+          fake = data.progress;
+          $('progressBar').style.width = fake + '%';
+          if (data.progress < 95)
+            $('statusText').textContent = `Downloading… ${data.progress}%`;
+        }
+
+        if (data.status === 'done') {
+          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+          $('progressBar').style.width = '100%';
+          $('statusText').textContent  = '✓ Done! Starting download…';
+
+          setTimeout(() => {
+            $('progressWrap').style.display = 'none';
+            $('statusText').style.display   = 'none';
+
+            const dlUrl = `/download/${jobId}`;
+            currentDownloadUrl = dlUrl;
+
+            const tmp = document.createElement('a');
+            tmp.href = dlUrl; tmp.download = data.filename || 'audio.mp3';
+            document.body.appendChild(tmp); tmp.click(); document.body.removeChild(tmp);
+
+            const dl = $('btnDownload');
+            dl.href = dlUrl; dl.download = data.filename || 'audio.mp3';
+            const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
+            dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
+            dl.style.display = 'flex';
+            dl.classList.add('pulse');
+            setTimeout(() => dl.classList.remove('pulse'), 7000);
+
+            $('btnCopyLink').style.display = 'flex';
+            if (navigator.share) $('btnShare').style.display = 'flex';
+            $('btnReset').style.display = 'block';
+            setConverting(false);
+          }, 400);
+
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+          $('progressWrap').style.display = 'none';
+          $('statusText').style.display   = 'none';
+          showSingleError(data.error || 'Conversion failed. Please try again.');
+          setConverting(false);
+        }
+      } catch {}
+    }, 2000);
   }
 
+  // ── Copy link ──
   async function copyDownloadLink() {
     if (!currentDownloadUrl) return;
     const full = location.origin + currentDownloadUrl;
@@ -832,6 +902,7 @@
     } catch { prompt('Copy this link:', full); }
   }
 
+  // ── Web Share ──
   async function shareDownload() {
     if (!navigator.share || !currentDownloadUrl) return;
     try {
@@ -842,6 +913,7 @@
     } catch {}
   }
 
+  // ── Reset ──
   function resetForm() {
     clearInterval(pollTimer);
     $('urlInput').value = '';
@@ -856,6 +928,7 @@
     $('urlInput').focus();
   }
 
+  // ── Input events ──
   $('urlInput').addEventListener('input',   updateClearBtn);
   $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
   $('urlInput').addEventListener('focus',   async () => {
