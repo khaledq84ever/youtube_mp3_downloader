@@ -349,7 +349,8 @@ def do_convert(job_id, url, title=None, uploader=None,
         if proc.returncode != 0:
             full_output = '\n'.join(output_lines)
             _set_job(job_id, {'status': 'error',
-                               'error': parse_ytdlp_error(full_output)})
+                               'error': parse_ytdlp_error(full_output),
+                               'debug': full_output[-800:]})
             return
 
         files = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
@@ -531,7 +532,7 @@ def get_status(job_id):
         job = jobs.get(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
-    return jsonify({k: job.get(k) for k in ('status', 'error', 'filename', 'progress')})
+    return jsonify({k: job.get(k) for k in ('status', 'error', 'filename', 'progress', 'debug')})
 
 
 @app.route('/download/<job_id>')
