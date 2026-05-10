@@ -668,15 +668,10 @@ def download_file(job_id):
     return send_file(path, as_attachment=True, download_name=safe, mimetype=mime)
 
 
-# ── Direct streaming endpoint (no disk storage, starts immediately) ───────────
+# ── Download endpoint (download to temp file, validate, then serve) ───────────
 
 @app.route('/stream-direct', methods=['GET', 'POST'])
 def stream_direct():
-    """
-    Stream audio/video directly to the browser without storing on disk.
-    yt-dlp stdout is piped straight into the HTTP response.
-    The user's download starts immediately at the server's connection speed.
-    """
     if not _check_rate(_client_ip()):
         return jsonify({'error': 'Too many requests.'}), 429
 
@@ -693,72 +688,86 @@ def stream_direct():
     if not is_valid_url(url):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
 
-    if fmt == 'mp4':
-        q = {'720': '720', '1080': '1080', 'best': '9999'}.get(quality, '720')
-        fmt_str  = f'best[height<={q}][ext=mp4]/bestvideo[height<={q}][ext=mp4]+bestaudio[ext=m4a]/best[height<={q}]'
-        mime     = 'video/mp4'
-        ext      = 'mp4'
-        cmd = ([YTDLP, '-f', fmt_str, '--no-playlist', '--geo-bypass', '--no-part',
-                '--extractor-args', 'youtube:player_client=android,web,ios',
-                '-o', '-']
-               + _proxy_args() + _cookies_args() + [url])
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    ext    = 'mp4' if fmt == 'mp4' else 'mp3'
+    safe   = re.sub(r'[^\w\s\-\.]', '', filename).strip() or ('video' if fmt == 'mp4' else 'audio')
+    mime   = 'video/mp4' if fmt == 'mp4' else 'audio/mpeg'
 
-        @stream_with_context
-        def generate_mp4():
-            try:
-                while True:
-                    chunk = proc.stdout.read(131072)
-                    if not chunk:
-                        break
-                    yield chunk
-            finally:
-                proc.kill()
+    file_id          = str(uuid.uuid4())
+    output_template  = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
+    target           = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+    tmp_id           = f'_sd_{file_id}'
 
-        safe = re.sub(r'[^\w\s\-\.]', '', filename).strip() or 'video'
-        return Response(
-            generate_mp4(),
-            mimetype=mime,
-            headers={'Content-Disposition': f'attachment; filename="{safe}.{ext}"'}
-        )
+    def _cleanup():
+        for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
+            try: os.remove(f)
+            except: pass
 
-    else:  # mp3 — pipe yt-dlp audio through ffmpeg
-        ffmpeg_dir = _find_ffmpeg_dir()
-        ffmpeg_bin = os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir else shutil.which('ffmpeg') or 'ffmpeg'
-        kbps = {'128K': '128', '192K': '192', '320K': '320'}.get(quality, '320')
+    # ── Step 1: try yt-dlp ───────────────────────────────────────────────────
+    cmd = build_cmd(url, output_template, quality, fmt)
+    returncode, stderr_text = _run_ytdlp(cmd, tmp_id)
 
-        ytdlp_cmd = ([YTDLP, '-f', 'bestaudio[ext=m4a]/bestaudio', '--no-playlist',
-                      '--geo-bypass', '--no-part',
-                      '--extractor-args', 'youtube:player_client=android,web,ios',
-                      '-o', '-']
-                     + _proxy_args() + _cookies_args() + [url])
-        ffmpeg_cmd = [ffmpeg_bin, '-i', 'pipe:0',
-                      '-vn', '-ar', '44100', '-ac', '2',
-                      '-b:a', f'{kbps}k', '-f', 'mp3', 'pipe:1']
+    if returncode != 0:
+        err_msg = parse_ytdlp_error(stderr_text)
+        if err_msg == '__BOT_DETECTED__' and fmt == 'mp3':
+            # ── Step 2: Piped API fallback ───────────────────────────────────
+            video_id = _extract_video_id(url)
+            if video_id:
+                with jobs_lock:
+                    jobs[tmp_id] = {'status': 'processing', 'progress': 0,
+                                    'file': None, 'filename': None, 'error': None}
+                ok = piped_download(tmp_id, video_id, url, None, None, quality, fmt)
+                with jobs_lock:
+                    job = jobs.pop(tmp_id, {})
+                if ok and job.get('file') and os.path.exists(job['file']):
+                    target = job['file']
+                else:
+                    _cleanup()
+                    return jsonify({'error': 'Video unavailable. Please try again.'}), 503
+            else:
+                _cleanup()
+                return jsonify({'error': 'Video unavailable. Please try again.'}), 503
+        else:
+            _cleanup()
+            msg = err_msg if err_msg != '__BOT_DETECTED__' else 'Video unavailable. Please try again.'
+            return jsonify({'error': msg}), 503
 
-        ytdlp_proc  = subprocess.Popen(ytdlp_cmd,  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        ffmpeg_proc = subprocess.Popen(ffmpeg_cmd,  stdin=ytdlp_proc.stdout,
-                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        ytdlp_proc.stdout.close()
+    # ── Step 3: ensure output is the right format ────────────────────────────
+    if not os.path.exists(target):
+        all_files    = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
+        audio_exts   = {'.webm', '.m4a', '.ogg', '.opus', '.aac', '.mp4'}
+        candidates   = [f for f in all_files
+                        if os.path.splitext(f)[1].lower() in audio_exts]
+        if not candidates:
+            _cleanup()
+            return jsonify({'error': 'Output file not found. Please try again.'}), 500
+        source = candidates[0]
+        if fmt == 'mp3':
+            ffmpeg_dir = _find_ffmpeg_dir()
+            ffmpeg_bin = (os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir
+                          else shutil.which('ffmpeg') or 'ffmpeg')
+            kbps = (quality or '320K').rstrip('Kk')
+            res = subprocess.run(
+                [ffmpeg_bin, '-i', source, '-vn', '-ar', '44100', '-ac', '2',
+                 '-b:a', f'{kbps}k', target, '-y'],
+                capture_output=True, timeout=300)
+            try: os.remove(source)
+            except: pass
+            if res.returncode != 0 or not os.path.exists(target):
+                _cleanup()
+                return jsonify({'error': 'Conversion failed. Please try again.'}), 500
+        else:
+            target = source  # already mp4
 
-        @stream_with_context
-        def generate_mp3():
-            try:
-                while True:
-                    chunk = ffmpeg_proc.stdout.read(131072)
-                    if not chunk:
-                        break
-                    yield chunk
-            finally:
-                ytdlp_proc.kill()
-                ffmpeg_proc.kill()
+    # ── Step 4: validate and serve ───────────────────────────────────────────
+    if not os.path.exists(target) or os.path.getsize(target) < 1024:
+        _cleanup()
+        return jsonify({'error': 'Conversion produced an empty file. Please try again.'}), 500
 
-        safe = re.sub(r'[^\w\s\-\.]', '', filename).strip() or 'audio'
-        return Response(
-            generate_mp3(),
-            mimetype='audio/mpeg',
-            headers={'Content-Disposition': f'attachment; filename="{safe}.mp3"'}
-        )
+    # Schedule cleanup after serving
+    threading.Thread(target=lambda: (time.sleep(300), _cleanup()), daemon=True).start()
+
+    return send_file(target, as_attachment=True,
+                     download_name=f'{safe}.{ext}', mimetype=mime)
 
 
 if __name__ == '__main__':
