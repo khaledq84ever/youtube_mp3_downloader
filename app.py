@@ -4,11 +4,6 @@ import subprocess, os, uuid, json, re, glob, threading, time, shutil, zipfile
 import urllib.parse
 from collections import defaultdict
 
-try:
-    import static_ffmpeg
-    static_ffmpeg.add_paths()
-except Exception:
-    pass
 
 app = Flask(__name__)
 CORS(app)
@@ -30,16 +25,6 @@ _rate_store   = defaultdict(list)
 _rate_lock    = threading.Lock()
 
 
-# ── Startup: keep yt-dlp fresh ─────────────────────────────────────────────
-
-def _update_ytdlp():
-    try:
-        subprocess.run([YTDLP, '--update-to', 'stable'],
-                       capture_output=True, timeout=90)
-    except Exception:
-        pass
-
-threading.Thread(target=_update_ytdlp, daemon=True).start()
 
 
 # ── Job persistence ────────────────────────────────────────────────────────
@@ -162,6 +147,9 @@ def _find_ffmpeg_dir():
         return os.path.dirname(nix_matches[0])
     return None
 
+_FFMPEG_DIR  = _find_ffmpeg_dir()
+_ARIA2C_PATH = shutil.which('aria2c')
+
 def _set_job(job_id, updates):
     with jobs_lock:
         jobs[job_id].update(updates)
@@ -200,23 +188,24 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
         elif quality == '1080':
             fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
         else:
-            # 'best' — no height cap, true maximum quality
             fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline', '--no-warnings',
-               '--concurrent-fragments', '8',
+               '--concurrent-fragments', '16',
                '--throttled-rate', '500K']
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline', '--no-warnings',
-               '--concurrent-fragments', '8',
-               '--throttled-rate', '500K',
-               '--postprocessor-args', 'ffmpeg:-threads 2']
+               '--concurrent-fragments', '16',
+               '--throttled-rate', '500K']
 
-    ffmpeg_dir = _find_ffmpeg_dir()
-    if ffmpeg_dir:
-        cmd += ['--ffmpeg-location', ffmpeg_dir]
+    if _ARIA2C_PATH:
+        cmd += ['--external-downloader', 'aria2c',
+                '--external-downloader-args', 'aria2c:-x 16 -s 16 -k 1M --min-split-size=1M']
+
+    if _FFMPEG_DIR:
+        cmd += ['--ffmpeg-location', _FFMPEG_DIR]
 
     if not use_info_json:
         cmd += ['--extractor-args', 'youtube:player_client=android,web']
