@@ -211,8 +211,9 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
                '--no-playlist', '--newline',
                '--retries', '10', '--fragment-retries', '10',
                '--concurrent-fragments', frags,
-               '--http-chunk-size', '0',
-               '--throttled-rate', '500K']
+               '--http-chunk-size', '0']
+        if not PROXY:
+            cmd += ['--throttled-rate', '500K']
 
     if PROXY:
         cmd += ['--proxy', PROXY]
@@ -260,97 +261,119 @@ _DL_PROGRESS_RE  = re.compile(r'\[download\]\s+([\d.]+)%')
 _ARIA2_PROGRESS_RE = re.compile(r'\((\d+)%\)')
 _FF_TIME_RE      = re.compile(r'time=(\d+):(\d+):([\d.]+)')
 
+_RETRY_ERRORS = ('http error 403', 'forbidden', 'http error 5',
+                 'connection', 'network', 'timed out')
+
 def do_convert(job_id, url, title=None, uploader=None,
                quality='320K', fmt='mp3', info_path=None, duration_sec=0):
     _set_job(job_id, {'status': 'processing', 'progress': 0})
 
-    file_id = str(uuid.uuid4())
-    output_template = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
-
-    # Don't use cached info JSON with proxy — streaming URLs are IP-signed at fetch time
-    use_info = bool(not PROXY and info_path and os.path.exists(info_path))
-    source   = info_path if use_info else url
-
-    cmd = build_cmd(source, output_template, quality, fmt, use_info)
+    max_attempts = 3 if PROXY else 1
 
     try:
-        proc = subprocess.Popen(cmd,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                text=True, errors='replace')
-        in_ffmpeg = False
-        output_lines = []
+        for attempt in range(max_attempts):
+            file_id = str(uuid.uuid4())
+            output_template = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
 
-        for line in proc.stdout:
-            line = line.rstrip()
-            output_lines.append(line)
+            # Only use cached info JSON on first attempt without proxy
+            # (proxy streaming URLs are IP-signed; cached URLs stale on retry)
+            use_info = bool(attempt == 0 and not PROXY
+                            and info_path and os.path.exists(info_path))
+            source = info_path if use_info else url
 
-            # Download progress (yt-dlp native)
-            m = _DL_PROGRESS_RE.search(line)
-            if m and not in_ffmpeg:
-                pct = min(int(float(m.group(1))), 90)
-                with jobs_lock:
-                    if jobs.get(job_id, {}).get('status') == 'processing':
-                        jobs[job_id]['progress'] = int(pct * 0.55)
-                continue
+            cmd = build_cmd(source, output_template, quality, fmt, use_info)
 
-            # Download progress (aria2c)
-            m = _ARIA2_PROGRESS_RE.search(line)
-            if m and not in_ffmpeg:
-                pct = int(m.group(1))
-                with jobs_lock:
-                    if jobs.get(job_id, {}).get('status') == 'processing':
-                        jobs[job_id]['progress'] = int(pct * 0.55)
-                continue
+            try:
+                proc = subprocess.Popen(cmd,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        text=True, errors='replace')
+                in_ffmpeg = False
+                output_lines = []
 
-            # FFmpeg phase begins
-            if '[ExtractAudio]' in line or '[Merger]' in line or '[VideoRemuxer]' in line:
-                in_ffmpeg = True
-                with jobs_lock:
-                    if jobs.get(job_id, {}).get('status') == 'processing':
-                        jobs[job_id]['progress'] = 60
+                for line in proc.stdout:
+                    line = line.rstrip()
+                    output_lines.append(line)
 
-            # FFmpeg real-time progress (time=HH:MM:SS.xx)
-            if in_ffmpeg and duration_sec > 0:
-                m = _FF_TIME_RE.search(line)
-                if m:
-                    elapsed = (int(m.group(1)) * 3600 +
-                               int(m.group(2)) * 60 +
-                               float(m.group(3)))
-                    ffpct = min(elapsed / duration_sec, 1.0)
-                    with jobs_lock:
-                        if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id]['progress'] = int(60 + ffpct * 38)
+                    # Download progress (yt-dlp native)
+                    m = _DL_PROGRESS_RE.search(line)
+                    if m and not in_ffmpeg:
+                        pct = min(int(float(m.group(1))), 90)
+                        with jobs_lock:
+                            if jobs.get(job_id, {}).get('status') == 'processing':
+                                jobs[job_id]['progress'] = int(pct * 0.55)
+                        continue
 
-        proc.wait()
+                    # Download progress (aria2c)
+                    m = _ARIA2_PROGRESS_RE.search(line)
+                    if m and not in_ffmpeg:
+                        pct = int(m.group(1))
+                        with jobs_lock:
+                            if jobs.get(job_id, {}).get('status') == 'processing':
+                                jobs[job_id]['progress'] = int(pct * 0.55)
+                        continue
 
-        if proc.returncode != 0:
-            full_output = '\n'.join(output_lines)
-            _set_job(job_id, {'status': 'error',
-                               'error': parse_ytdlp_error(full_output)})
-            return
+                    # FFmpeg phase begins
+                    if '[ExtractAudio]' in line or '[Merger]' in line or '[VideoRemuxer]' in line:
+                        in_ffmpeg = True
+                        with jobs_lock:
+                            if jobs.get(job_id, {}).get('status') == 'processing':
+                                jobs[job_id]['progress'] = 60
 
-        files = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
-                 if not f.endswith(('.part', '.ytdl', '.json'))]
-        if not files:
-            _set_job(job_id, {'status': 'error',
-                               'error': 'Output file not found. Please try again.'})
-            return
+                    # FFmpeg real-time progress (time=HH:MM:SS.xx)
+                    if in_ffmpeg and duration_sec > 0:
+                        m = _FF_TIME_RE.search(line)
+                        if m:
+                            elapsed = (int(m.group(1)) * 3600 +
+                                       int(m.group(2)) * 60 +
+                                       float(m.group(3)))
+                            ffpct = min(elapsed / duration_sec, 1.0)
+                            with jobs_lock:
+                                if jobs.get(job_id, {}).get('status') == 'processing':
+                                    jobs[job_id]['progress'] = int(60 + ffpct * 38)
 
-        ext      = 'mp4' if fmt == 'mp4' else 'mp3'
-        filename = make_filename(title or 'download', uploader or '', ext)
-        _set_job(job_id, {'status': 'done', 'file': files[0],
-                           'filename': filename, 'progress': 100})
-        schedule_cleanup(job_id, files[0])
+                proc.wait()
 
-    except subprocess.TimeoutExpired:
-        try: proc.kill()
-        except Exception: pass
+                if proc.returncode != 0:
+                    full_output = '\n'.join(output_lines)
+                    err_lower   = full_output.lower()
+                    # Retry from scratch on transient errors (fresh proxy IP = fresh CDN URL)
+                    if attempt < max_attempts - 1 and any(e in err_lower for e in _RETRY_ERRORS):
+                        _set_job(job_id, {'progress': 0})
+                        continue
+                    _set_job(job_id, {'status': 'error',
+                                       'error': parse_ytdlp_error(full_output)})
+                    return
+
+                files = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
+                         if not f.endswith(('.part', '.ytdl', '.json'))]
+                if not files:
+                    _set_job(job_id, {'status': 'error',
+                                       'error': 'Output file not found. Please try again.'})
+                    return
+
+                ext      = 'mp4' if fmt == 'mp4' else 'mp3'
+                filename = make_filename(title or 'download', uploader or '', ext)
+                _set_job(job_id, {'status': 'done', 'file': files[0],
+                                   'filename': filename, 'progress': 100})
+                schedule_cleanup(job_id, files[0])
+                return  # success — exit retry loop
+
+            except subprocess.TimeoutExpired:
+                try: proc.kill()
+                except Exception: pass
+                _set_job(job_id, {'status': 'error',
+                                   'error': 'Download timed out. The video may be too long.'})
+                return
+            except Exception:
+                _set_job(job_id, {'status': 'error',
+                                   'error': 'Conversion failed. Please try again.'})
+                return
+
+        # All retries exhausted
         _set_job(job_id, {'status': 'error',
-                           'error': 'Download timed out. The video may be too long.'})
-    except Exception:
-        _set_job(job_id, {'status': 'error',
-                           'error': 'Conversion failed. Please try again.'})
+                           'error': 'Download failed after multiple attempts. Please try again.'})
+
     finally:
         with url_jobs_lock:
             url_jobs.pop(url, None)
