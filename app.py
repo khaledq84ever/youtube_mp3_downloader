@@ -13,14 +13,15 @@ YTDLP          = os.environ.get('YTDLP_PATH', 'yt-dlp')
 PROXY          = os.environ.get('YTDLP_PROXY', '')
 FILE_TTL       = 1800
 INFO_TTL       = 900
-RATE_LIMIT     = 10
+RATE_LIMIT     = 15
 MAX_CONCURRENT = 4
 DISK_MIN_MB    = 300
-PLAYER_CLIENTS = ['android', 'web', 'ios', 'mweb']
+
+# tv_embedded + web_embedded bypass 429 on cloud IPs best; android/ios as fallback
+PLAYER_CLIENTS = ['tv_embedded', 'web_embedded', 'android', 'ios']
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 # ── State ─────────────────────────────────────────────────────────────────────
 jobs          = {}
@@ -68,8 +69,8 @@ _load_jobs()
 
 
 # ── URL helpers ───────────────────────────────────────────────────────────────
-_YT_URL_RE  = re.compile(r'^https?://(www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/', re.IGNORECASE)
-_VID_ID_RE  = re.compile(r'(?:v=|/(?:shorts|live|embed|v)/|youtu\.be/)([a-zA-Z0-9_-]{11})')
+_YT_URL_RE = re.compile(r'^https?://(www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/', re.IGNORECASE)
+_VID_ID_RE = re.compile(r'(?:v=|/(?:shorts|live|embed|v)/|youtu\.be/)([a-zA-Z0-9_-]{11})')
 
 def is_valid_url(url):
     return bool(_YT_URL_RE.match(url.strip()))
@@ -114,7 +115,7 @@ def parse_ytdlp_error(stderr):
     if 'http error 403' in err or 'forbidden' in err:
         return 'Access denied by YouTube. Please try again in a moment.'
     if 'http error 429' in err or 'too many requests' in err:
-        return 'Too many requests to YouTube. Please wait a moment and try again.'
+        return 'YouTube rate-limited this request. Please try again in 30 seconds.'
     if 'sign in' in err or 'confirm your age' in err:
         return 'This video requires sign-in. Please try another video.'
     if 'http error 5' in err or 'connection' in err or 'network' in err:
@@ -264,32 +265,31 @@ def _client_ip():
 
 # ── Build yt-dlp command ──────────────────────────────────────────────────────
 def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
-              use_info_json=False, player_client='android'):
-    frags = '1' if PROXY else '16'
+              use_info_json=False, player_client='tv_embedded'):
+    frags = '1' if PROXY else '8'
 
     if fmt == 'mp4':
         if quality == '720':
-            fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
+            fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]'
         elif quality == '1080':
-            fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
+            fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]'
         else:
             fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4', '--remux-video', 'mp4',
-               '--no-playlist', '--newline', '--retries', '5', '--fragment-retries', '5',
+               '--no-playlist', '--newline', '--retries', '3', '--fragment-retries', '3',
                '--concurrent-fragments', frags, '--http-chunk-size', '0']
     else:
-        cmd = [YTDLP, '-x', '--audio-format', 'mp3', '--audio-quality', quality or '320K',
-               '--no-playlist', '--newline', '--retries', '5', '--fragment-retries', '5',
+        cmd = [YTDLP, '-f', 'bestaudio/best',
+               '-x', '--audio-format', 'mp3', '--audio-quality', quality or '320K',
+               '--no-playlist', '--newline', '--retries', '3', '--fragment-retries', '3',
                '--concurrent-fragments', frags, '--http-chunk-size', '0']
-        if not PROXY:
-            cmd += ['--throttled-rate', '500K']
 
     if PROXY:
         cmd += ['--proxy', PROXY]
     if _ARIA2C_PATH and not PROXY:
         cmd += ['--external-downloader', 'aria2c',
                 '--external-downloader-args',
-                'aria2c:-x 16 -s 16 -k 1M --console-log-level=notice']
+                'aria2c:-x 8 -s 8 -k 1M --console-log-level=notice']
     if _FFMPEG_DIR:
         cmd += ['--ffmpeg-location', _FFMPEG_DIR]
 
@@ -309,7 +309,14 @@ _DL_RE    = re.compile(r'\[download\]\s+([\d.]+)%')
 _ARIA2_RE = re.compile(r'\((\d+)%\)')
 _ETA_RE   = re.compile(r'ETA:(\d+)([smh])')
 _FF_RE    = re.compile(r'time=(\d+):(\d+):([\d.]+)')
-_RETRY_ERRORS = ('http error 403', 'forbidden', 'http error 5', 'connection', 'network', 'timed out')
+
+# Errors that trigger retry with next player client
+_RETRY_ERRORS = (
+    'http error 403', 'forbidden',
+    'http error 429', 'too many requests', 'ratelimit',
+    'http error 50', 'connection', 'network', 'timed out', 'timeout',
+    'sign in to confirm', 'bot', 'captcha',
+)
 
 
 # ── FFmpeg progress simulation ────────────────────────────────────────────────
@@ -345,7 +352,7 @@ def do_convert(job_id, url, title=None, uploader=None,
 
 
 def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration_sec):
-    _set_job(job_id, {'status': 'processing', 'progress': 0})
+    _set_job(job_id, {'status': 'processing', 'progress': 2})
 
     if free_mb() < DISK_MIN_MB:
         evict_old_files()
@@ -354,14 +361,14 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
                                'error': 'Server storage full. Try again in a moment.'})
             return
 
-    max_attempts = 3 if PROXY else 2
-
-    for attempt in range(max_attempts):
-        client   = PLAYER_CLIENTS[attempt % len(PLAYER_CLIENTS)]
+    for attempt in range(len(PLAYER_CLIENTS)):
+        client   = PLAYER_CLIENTS[attempt]
         file_id  = str(uuid.uuid4())
         out_tmpl = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
         use_info = bool(attempt == 0 and not PROXY and info_path and os.path.exists(info_path))
         source   = info_path if use_info else url
+
+        logging.info(f'job={job_id} attempt={attempt} client={client}')
 
         try:
             cmd  = build_cmd(source, out_tmpl, quality, fmt, use_info, client)
@@ -381,7 +388,8 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
                     pct = min(int(float(m.group(1))), 90)
                     with jobs_lock:
                         if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id]['progress'] = int(pct * 0.55)
+                            cur = jobs[job_id].get('progress', 0)
+                            jobs[job_id]['progress'] = max(cur, int(pct * 0.55) + 2)
                     continue
 
                 m = _ARIA2_RE.search(line)
@@ -393,7 +401,8 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
                         eta = int(em.group(1)) * {'s':1,'m':60,'h':3600}[em.group(2)]
                     with jobs_lock:
                         if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id]['progress'] = int(pct * 0.55)
+                            cur = jobs[job_id].get('progress', 0)
+                            jobs[job_id]['progress'] = max(cur, int(pct * 0.55) + 2)
                             if eta: jobs[job_id]['eta'] = eta
                     continue
 
@@ -401,7 +410,8 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
                     in_ffmpeg = True
                     with jobs_lock:
                         if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id].update(progress=60, eta=None)
+                            cur = jobs[job_id].get('progress', 0)
+                            jobs[job_id].update(progress=max(cur, 60), eta=None)
                     if duration_sec > 0 and ffmpeg_th is None:
                         ffmpeg_th = threading.Thread(
                             target=_ffmpeg_progress, args=(job_id, duration_sec), daemon=True)
@@ -414,18 +424,25 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
                         ffpct   = min(elapsed / duration_sec, 1.0)
                         with jobs_lock:
                             if jobs.get(job_id, {}).get('status') == 'processing':
-                                jobs[job_id]['progress'] = int(60 + ffpct * 38)
+                                cur = jobs[job_id].get('progress', 60)
+                                jobs[job_id]['progress'] = max(cur, int(60 + ffpct * 38))
 
             proc.wait()
 
             if proc.returncode != 0:
-                combined  = '\n'.join(output_buf[-30:])
+                combined  = '\n'.join(output_buf[-40:])
                 err_lower = combined.lower()
-                if attempt < max_attempts - 1 and any(e in err_lower for e in _RETRY_ERRORS):
+                logging.warning(f'job={job_id} attempt={attempt} rc={proc.returncode} tail={combined[-300:]}')
+
+                if attempt < len(PLAYER_CLIENTS) - 1 and any(e in err_lower for e in _RETRY_ERRORS):
                     for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
                         try: os.remove(f)
                         except: pass
-                    time.sleep(1); continue
+                    wait = 5 if ('429' in err_lower or 'too many' in err_lower or 'bot' in err_lower) else 2
+                    logging.info(f'job={job_id} retrying in {wait}s with {PLAYER_CLIENTS[attempt+1]}')
+                    time.sleep(wait)
+                    continue
+
                 _set_job(job_id, {'status': 'error', 'error': parse_ytdlp_error(combined)})
                 return
 
@@ -441,23 +458,24 @@ def _run_convert(job_id, url, title, uploader, quality, fmt, info_path, duration
             _set_job(job_id, {'status': 'done', 'file': files[0],
                                'filename': filename, 'progress': 100, 'eta': None})
             schedule_cleanup(job_id, files[0])
+            logging.info(f'job={job_id} DONE file={files[0]}')
             return
 
         except subprocess.TimeoutExpired:
             try: proc.kill()
             except Exception: pass
-            if attempt < max_attempts - 1: time.sleep(1); continue
+            if attempt < len(PLAYER_CLIENTS) - 1: time.sleep(2); continue
             _set_job(job_id, {'status': 'error',
                                'error': 'Download timed out. The video may be too long.'})
             return
         except Exception as e:
             logging.error(f'job={job_id} attempt={attempt}: {e}')
-            if attempt < max_attempts - 1: time.sleep(1); continue
+            if attempt < len(PLAYER_CLIENTS) - 1: time.sleep(2); continue
             _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
             return
 
     _set_job(job_id, {'status': 'error',
-                       'error': 'Download failed after multiple attempts. Please try again.'})
+                       'error': 'YouTube is blocking downloads right now. Please try again in a few minutes.'})
 
 
 # ── Security headers ──────────────────────────────────────────────────────────
@@ -514,13 +532,13 @@ def get_info():
     if is_playlist_only(url):
         return jsonify({'error': "That's a playlist URL. Please paste a single video link."}), 400
 
-    for attempt, client in enumerate(PLAYER_CLIENTS[:3]):
+    for attempt, client in enumerate(PLAYER_CLIENTS):
         try:
             cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
                    '--extractor-args', f'youtube:player_client={client}']
             if PROXY: cmd += ['--proxy', PROXY]
             cmd += [url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
 
             if result.returncode == 0 and result.stdout.strip():
                 info         = json.loads(result.stdout)
@@ -552,18 +570,23 @@ def get_info():
                     'info_id':      info_id,
                 })
 
-            err = parse_ytdlp_error(result.stderr)
-            if attempt < 2 and ('403' in (result.stderr or '') or
-                                 'network' in (result.stderr or '').lower()):
+            err_text = (result.stderr or '').lower()
+            logging.warning(f'/info attempt={attempt} client={client} err={result.stderr[-300:] if result.stderr else ""}')
+
+            if attempt < len(PLAYER_CLIENTS) - 1 and any(e in err_text for e in
+                    ('403', '429', 'too many', 'network', 'connection', 'sign in', 'bot', 'captcha')):
+                wait = 4 if ('429' in err_text or 'too many' in err_text) else 1
+                time.sleep(wait)
                 continue
-            return jsonify({'error': err}), 400
+
+            return jsonify({'error': parse_ytdlp_error(result.stderr)}), 400
 
         except subprocess.TimeoutExpired:
-            if attempt < 2: continue
+            if attempt < len(PLAYER_CLIENTS) - 1: continue
             return jsonify({'error': 'Request timed out. Please try again.'}), 504
         except Exception as e:
             logging.error(f'/info attempt={attempt}: {e}')
-            if attempt < 2: continue
+            if attempt < len(PLAYER_CLIENTS) - 1: continue
             return jsonify({'error': 'Failed to fetch video info. Please try again.'}), 500
 
     return jsonify({'error': 'Could not fetch video info. Please try again.'}), 500
@@ -649,7 +672,6 @@ def download_file(job_id, filename=None):
     disposition = make_disposition(stored_name)
     file_size   = os.path.getsize(path)
 
-    # Range request support for mobile seek/resume
     range_hdr = request.headers.get('Range', '')
     m = re.match(r'bytes=(\d+)-(\d*)', range_hdr)
     if m:

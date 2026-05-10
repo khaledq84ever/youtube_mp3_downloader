@@ -672,14 +672,8 @@
             const isMp4  = fname.endsWith('.mp4');
             const label  = isMp4 ? 'Download MP4' : 'Download MP3';
 
-            // Auto-trigger
-            if (isIOS) {
-              window.location.href = dlUrl;
-            } else {
-              const a = document.createElement('a');
-              a.href = dlUrl; a.download = fname;
-              document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            }
+            // Auto-trigger download
+            window.location.href = dlUrl;
 
             // In-card button
             const dl = $('btnDownload');
@@ -774,26 +768,17 @@
   }
 
   // ── Sticky download click ──────────────────────────────────────────────────
-  $('stickyDlBtn').addEventListener('click', async function(e) {
+  $('stickyDlBtn').addEventListener('click', function(e) {
     if (!currentDownloadUrl) return;
     e.preventDefault();
-    if (isIOS) { window.location.href = currentDownloadUrl; return; }
-    const a = document.createElement('a');
-    a.href = currentDownloadUrl;
-    a.download = $('btnDownload').getAttribute('download') || 'download';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    window.location.href = currentDownloadUrl;
   });
 
   // ── Download button ────────────────────────────────────────────────────────
-  $('btnDownload').addEventListener('click', async function(e) {
+  $('btnDownload').addEventListener('click', function(e) {
     if (!currentDownloadUrl) return;
     e.preventDefault();
-    if (isIOS) { window.location.href = currentDownloadUrl; return; }
-    try {
-      const res = await fetch(currentDownloadUrl, { method: 'HEAD' });
-      if (!res.ok) { showSingleError('File expired. Please convert again.'); return; }
-      window.location.href = currentDownloadUrl;
-    } catch { showSingleError('Download failed. Please try again.'); }
+    window.location.href = currentDownloadUrl;
   });
 
   // ── Input events ───────────────────────────────────────────────────────────
