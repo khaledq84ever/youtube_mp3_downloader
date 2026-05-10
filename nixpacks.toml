@@ -2,7 +2,7 @@
 nixPkgs = ["python311", "ffmpeg", "aria2"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install -r requirements.txt", "pip install -U yt-dlp"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 360"
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --worker-class gevent --worker-connections 100 --timeout 360 --graceful-timeout 30"
