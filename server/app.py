@@ -245,13 +245,19 @@ def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
             ffmpeg_dir = _find_ffmpeg_dir()
             ffmpeg_bin = os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir else shutil.which('ffmpeg') or 'ffmpeg'
             mp3_out = out.replace('.mp3', '_conv.mp3')
+            kbps = (quality or '320K').rstrip('Kk')
             res = subprocess.run(
                 [ffmpeg_bin, '-i', out, '-vn', '-ar', '44100', '-ac', '2',
-                 '-b:a', f'{quality or "320"}k', mp3_out, '-y'],
+                 '-b:a', f'{kbps}k', mp3_out, '-y'],
                 capture_output=True, timeout=300)
             if res.returncode == 0 and os.path.exists(mp3_out):
                 os.remove(out)
                 out = mp3_out
+            else:
+                # ffmpeg conversion failed — don't serve raw audio as MP3
+                if os.path.exists(out):
+                    os.remove(out)
+                return False
 
         if not os.path.exists(out) or os.path.getsize(out) < 1024:
             return False
