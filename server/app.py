@@ -443,18 +443,47 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                                'error': 'Video unavailable. Please try again.' if err_msg == '__BOT_DETECTED__' else err_msg})
             return
 
-        files = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
-        if not files:
+        ext  = 'mp4' if fmt == 'mp4' else 'mp3'
+        target = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+
+        if not os.path.exists(target):
+            # yt-dlp left audio in native format — convert it ourselves
+            all_files = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
+            audio_exts = {'.webm', '.m4a', '.ogg', '.opus', '.aac', '.mp4'}
+            candidates = [f for f in all_files
+                          if os.path.splitext(f)[1].lower() in audio_exts]
+            if not candidates:
+                _set_job(job_id, {'status': 'error',
+                                   'error': 'Output file not found. Please try again.'})
+                return
+            source = candidates[0]
+            ffmpeg_dir = _find_ffmpeg_dir()
+            ffmpeg_bin = (os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir
+                          else shutil.which('ffmpeg') or 'ffmpeg')
+            kbps = (quality or '320K').rstrip('Kk')
+            res = subprocess.run(
+                [ffmpeg_bin, '-i', source, '-vn', '-ar', '44100', '-ac', '2',
+                 '-b:a', f'{kbps}k', target, '-y'],
+                capture_output=True, timeout=300)
+            try:
+                os.remove(source)
+            except Exception:
+                pass
+            if res.returncode != 0 or not os.path.exists(target):
+                _set_job(job_id, {'status': 'error',
+                                   'error': 'Conversion failed. Please try again.'})
+                return
+
+        if os.path.getsize(target) < 1024:
             _set_job(job_id, {'status': 'error',
-                               'error': 'Output file not found. Please try again.'})
+                               'error': 'Output file is empty. Please try again.'})
             return
 
-        ext      = 'mp4' if fmt == 'mp4' else 'mp3'
         filename = make_filename(prefetched_title or 'download',
                                  prefetched_uploader or '', ext)
-        _set_job(job_id, {'status': 'done', 'file': files[0],
+        _set_job(job_id, {'status': 'done', 'file': target,
                            'filename': filename, 'progress': 100})
-        schedule_cleanup(job_id, files[0])
+        schedule_cleanup(job_id, target)
 
     except Exception:
         _set_job(job_id, {'status': 'error',
