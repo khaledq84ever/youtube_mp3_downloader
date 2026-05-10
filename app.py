@@ -203,13 +203,15 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline',
                '--retries', '10', '--fragment-retries', '10',
-               '--concurrent-fragments', frags]
+               '--concurrent-fragments', frags,
+               '--http-chunk-size', '0']
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline',
                '--retries', '10', '--fragment-retries', '10',
                '--concurrent-fragments', frags,
+               '--http-chunk-size', '0',
                '--throttled-rate', '500K']
 
     if PROXY:
