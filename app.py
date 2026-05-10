@@ -112,7 +112,15 @@ def parse_ytdlp_error(stderr):
         return 'Live streams cannot be downloaded. Try after the stream ends.'
     if 'copyright' in err:
         return 'This video is unavailable due to copyright restrictions.'
-    return 'Video unavailable or region-blocked. Please try another video.'
+    if 'http error 403' in err or 'forbidden' in err:
+        return 'Access denied by YouTube. Please try again in a moment.'
+    if 'http error 429' in err or 'too many requests' in err:
+        return 'Too many requests to YouTube. Please wait a moment and try again.'
+    if 'sign in' in err or 'confirm your age' in err:
+        return 'This video requires sign-in. Please try another video.'
+    if 'http error 5' in err or 'connection' in err or 'network' in err:
+        return 'Network error during download. Please try again.'
+    return 'Download failed. Please try again.'
 
 
 # ── Filename / ffmpeg helpers ──────────────────────────────────────────────
@@ -183,6 +191,8 @@ def schedule_delete(path, ttl):
 
 def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
               use_info_json=False):
+    frags = '1' if PROXY else '16'   # rotating proxy can't handle parallel fragments
+
     if fmt == 'mp4':
         if quality == '720':
             fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
@@ -192,20 +202,19 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
             fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline', '--no-warnings',
-               '--concurrent-fragments', '16',
+               '--concurrent-fragments', frags,
                '--throttled-rate', '500K']
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline', '--no-warnings',
-               '--concurrent-fragments', '16',
+               '--concurrent-fragments', frags,
                '--throttled-rate', '500K']
 
     if PROXY:
         cmd += ['--proxy', PROXY]
 
     if _ARIA2C_PATH and not PROXY:
-        # aria2c doesn't inherit yt-dlp proxy settings, skip when proxy is set
         cmd += ['--external-downloader', 'aria2c',
                 '--external-downloader-args', 'aria2c:-x 16 -s 16 -k 1M --min-split-size=1M']
 
@@ -266,9 +275,11 @@ def do_convert(job_id, url, title=None, uploader=None,
                                 stderr=subprocess.STDOUT,
                                 text=True, errors='replace')
         in_ffmpeg = False
+        output_lines = []
 
         for line in proc.stdout:
             line = line.rstrip()
+            output_lines.append(line)
 
             # Download progress (yt-dlp native)
             m = _DL_PROGRESS_RE.search(line)
@@ -310,8 +321,9 @@ def do_convert(job_id, url, title=None, uploader=None,
         proc.wait()
 
         if proc.returncode != 0:
+            full_output = '\n'.join(output_lines)
             _set_job(job_id, {'status': 'error',
-                               'error': 'Download failed. Video may be unavailable or age-restricted.'})
+                               'error': parse_ytdlp_error(full_output)})
             return
 
         files = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
