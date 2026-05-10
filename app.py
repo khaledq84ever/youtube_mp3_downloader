@@ -500,8 +500,8 @@ def download_file(job_id, filename=None):
     if not os.path.exists(path):
         return jsonify({'error': 'File expired. Please convert again.'}), 410
     safe = re.sub(r'[^\w\s\-\.\(\)]', '', stored_name).strip() or 'audio.mp3'
-    mime = 'video/mp4' if safe.endswith('.mp4') else 'audio/mpeg'
-    return send_file(path, as_attachment=True, download_name=safe, mimetype=mime)
+    return send_file(path, as_attachment=True, download_name=safe,
+                     mimetype='application/octet-stream')
 
 
 if __name__ == '__main__':

@@ -853,11 +853,7 @@
 
     // Desktop: auto-trigger. Mobile: programmatic click is blocked — user taps the button.
     if (!IS_MOBILE) {
-      try {
-        const a = document.createElement('a');
-        a.href = dlUrl; a.download = fname;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      } catch(e) {}
+      try { window.location.href = dlUrl; } catch(e) {}
     }
   }
 
@@ -988,10 +984,7 @@
         showSingleError('File expired. Please convert again.');
         return;
       }
-      const a = document.createElement('a');
-      a.href = currentDownloadUrl;
-      a.download = $('btnDownload').getAttribute('download') || 'download';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      window.location.href = currentDownloadUrl;
     } catch {
       showSingleError('Download failed. Please try again.');
     }
