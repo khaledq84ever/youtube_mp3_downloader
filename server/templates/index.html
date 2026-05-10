@@ -768,7 +768,6 @@
 
       $('videoCard').style.display = 'block';
 
-      // Stream directly to browser — download starts immediately at server speed
       startStreamDownload(info.url || url, info.title, info.uploader);
     } catch {
       $('statusText').style.display = 'none';
@@ -777,45 +776,85 @@
     }
   }
 
-  const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  async function startStreamDownload(videoUrl, title) {
+  async function startStreamDownload(videoUrl, title, uploader) {
     $('progressWrap').style.display = 'block';
     $('statusText').style.display   = 'block';
-    $('progressBar').style.width    = '15%';
-    $('statusText').textContent     = 'Preparing download…';
-
-    const ext      = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
-    const safe     = (title || 'download').replace(/[^\w\s\-]/g, '').trim() || 'download';
-    const params   = new URLSearchParams({ url: videoUrl, format: selectedFmt, quality: selectedQ, filename: safe });
-    const streamUrl = `/stream-direct?${params}`;
-    currentDownloadUrl = streamUrl;
-
-    // Show download button immediately — browser handles the actual download progress natively
-    $('progressBar').style.width    = '100%';
-    $('progressWrap').style.display = 'none';
-    $('statusText').style.display   = 'none';
-
-    const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-    const dl = $('btnDownload');
-    dl.href     = streamUrl;
-    dl.download = `${safe}.${ext}`;
-    dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
-    dl.style.display = 'flex';
-    dl.classList.add('pulse');
-    setTimeout(() => dl.classList.remove('pulse'), 7000);
-
-    $('btnCopyLink').style.display = 'flex';
-    if (navigator.share) $('btnShare').style.display = 'flex';
-    $('btnReset').style.display = 'block';
+    $('progressBar').style.width    = '5%';
+    $('statusText').textContent     = 'Starting conversion…';
     setConverting(false);
+    $('btnReset').style.display = 'block';
 
-    // Trigger the download immediately
+    let startData;
     try {
-      const a = document.createElement('a');
-      a.href = streamUrl; a.download = `${safe}.${ext}`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    } catch(e) {}
+      const res = await fetch('/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: videoUrl, title, uploader,
+                               quality: selectedQ, format: selectedFmt })
+      });
+      startData = await res.json();
+      if (!res.ok) { showSingleError(startData.error || 'Failed to start conversion.'); return; }
+    } catch {
+      showSingleError('Network error. Please try again.');
+      return;
+    }
+
+    pollJob(startData.job_id, title);
+  }
+
+  function pollJob(jobId, title) {
+    clearInterval(pollTimer);
+    const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
+    const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
+    let msgIdx  = 0;
+    const msgs  = ['Converting…', 'Processing audio…', 'Almost done…'];
+
+    pollTimer = setInterval(async () => {
+      try {
+        const res  = await fetch(`/status/${jobId}`);
+        const data = await res.json();
+
+        if (data.progress != null) {
+          $('progressBar').style.width = `${Math.max(5, data.progress)}%`;
+          if (data.progress > 0 && data.progress < 100)
+            $('statusText').textContent = `Converting… ${data.progress}%`;
+        } else {
+          $('statusText').textContent = msgs[msgIdx++ % msgs.length];
+        }
+
+        if (data.status === 'done') {
+          clearInterval(pollTimer);
+          $('progressBar').style.width    = '100%';
+          $('progressWrap').style.display = 'none';
+          $('statusText').style.display   = 'none';
+
+          const dlUrl = `/download/${jobId}`;
+          currentDownloadUrl = dlUrl;
+
+          const dl = $('btnDownload');
+          dl.href     = dlUrl;
+          dl.download = data.filename || `audio.${ext}`;
+          dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
+          dl.style.display = 'flex';
+          dl.classList.add('pulse');
+          setTimeout(() => dl.classList.remove('pulse'), 7000);
+
+          $('btnCopyLink').style.display = 'flex';
+          if (navigator.share) $('btnShare').style.display = 'flex';
+
+          try {
+            const a = document.createElement('a');
+            a.href = dlUrl; a.download = data.filename || `audio.${ext}`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          } catch(e) {}
+
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer);
+          $('progressWrap').style.display = 'none';
+          $('statusText').style.display   = 'none';
+          showSingleError(data.error || 'Conversion failed. Please try again.');
+        }
+      } catch { /* network hiccup — keep polling */ }
+    }, 2000);
   }
 
   async function copyDownloadLink() {
