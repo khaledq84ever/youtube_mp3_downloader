@@ -10,6 +10,7 @@ CORS(app)
 
 DOWNLOAD_DIR = '/tmp/ytdl_cache'
 YTDLP        = os.environ.get('YTDLP_PATH', 'yt-dlp')
+PROXY        = os.environ.get('YTDLP_PROXY', '')   # e.g. socks5://user:pass@host:port
 FILE_TTL     = 1800   # 30 min
 INFO_TTL     = 900    # 15 min for cached info JSON
 JOB_TIMEOUT  = 480    # 8 min
@@ -200,7 +201,11 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
                '--concurrent-fragments', '16',
                '--throttled-rate', '500K']
 
-    if _ARIA2C_PATH:
+    if PROXY:
+        cmd += ['--proxy', PROXY]
+
+    if _ARIA2C_PATH and not PROXY:
+        # aria2c doesn't inherit yt-dlp proxy settings, skip when proxy is set
         cmd += ['--external-downloader', 'aria2c',
                 '--external-downloader-args', 'aria2c:-x 16 -s 16 -k 1M --min-split-size=1M']
 
@@ -392,10 +397,12 @@ def get_info():
         return jsonify({'error': "That's a playlist URL. Please paste a single video link."}), 400
 
     try:
-        result = subprocess.run(
-            [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
-             '--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web', url],
-            capture_output=True, text=True, timeout=30)
+        info_cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
+                    '--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web']
+        if PROXY:
+            info_cmd += ['--proxy', PROXY]
+        info_cmd += [url]
+        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return jsonify({'error': parse_ytdlp_error(result.stderr)}), 400
 
