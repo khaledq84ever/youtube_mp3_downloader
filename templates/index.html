@@ -903,7 +903,7 @@
         const data = await res.json();
 
         if (data.progress != null && data.progress > fake) {
-          clearInterval(grow);
+          clearInterval(growTimer);
           fake = data.progress;
           $('progressBar').style.width = fake + '%';
           if (data.progress < 95)

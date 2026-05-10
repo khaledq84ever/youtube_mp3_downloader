@@ -207,8 +207,9 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
     if _FFMPEG_DIR:
         cmd += ['--ffmpeg-location', _FFMPEG_DIR]
 
+    cmd += ['--geo-bypass']
     if not use_info_json:
-        cmd += ['--extractor-args', 'youtube:player_client=android,web']
+        cmd += ['--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web']
 
     cmd += ['-o', output_template]
 
@@ -392,8 +393,8 @@ def get_info():
 
     try:
         result = subprocess.run(
-            [YTDLP, '--dump-json', '--no-playlist',
-             '--extractor-args', 'youtube:player_client=android,web', url],
+            [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
+             '--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web', url],
             capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return jsonify({'error': parse_ytdlp_error(result.stderr)}), 400
