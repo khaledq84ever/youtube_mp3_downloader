@@ -489,15 +489,16 @@ def get_status(job_id):
 
 
 @app.route('/download/<job_id>')
-def download_file(job_id):
+@app.route('/download/<job_id>/<path:filename>')
+def download_file(job_id, filename=None):
     with jobs_lock:
         job = jobs.get(job_id)
     if not job or job['status'] != 'done':
         return jsonify({'error': 'File not ready — please convert again.'}), 404
-    path, filename = job['file'], job['filename']
+    path, stored_name = job['file'], job['filename']
     if not os.path.exists(path):
         return jsonify({'error': 'File expired. Please convert again.'}), 410
-    safe = re.sub(r'[^\w\s\-\.\(\)]', '', filename).strip() or 'audio.mp3'
+    safe = re.sub(r'[^\w\s\-\.\(\)]', '', stored_name).strip() or 'audio.mp3'
     mime = 'video/mp4' if safe.endswith('.mp4') else 'audio/mpeg'
     return send_file(path, as_attachment=True, download_name=safe, mimetype=mime)
 

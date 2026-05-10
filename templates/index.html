@@ -831,12 +831,13 @@
     $('progressWrap').style.display = 'none';
     $('statusText').style.display   = 'none';
 
-    const dlUrl = `/download/${jobId}`;
+    const fname  = data.filename || 'audio.mp3';
+    const dlUrl  = `/download/${jobId}/${encodeURIComponent(fname)}`;
     currentDownloadUrl = dlUrl;
 
     const dl = $('btnDownload');
     dl.href     = dlUrl;
-    dl.download = data.filename || 'audio.mp3';
+    dl.download = fname;
     // Use actual filename extension, not stale selectedFmt (user may have changed it)
     const isMp4 = (data.filename || '').endsWith('.mp4');
     const label = isMp4 ? 'Download MP4' : 'Download MP3';
@@ -854,7 +855,7 @@
     if (!IS_MOBILE) {
       try {
         const a = document.createElement('a');
-        a.href = dlUrl; a.download = data.filename || 'audio.mp3';
+        a.href = dlUrl; a.download = fname;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       } catch(e) {}
     }
