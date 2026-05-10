@@ -191,50 +191,26 @@ def schedule_delete(path, ttl):
 
 def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
               use_info_json=False):
-    if PROXY:
-        # Progressive (non-DASH) formats: single HTTP request, proxy IP stays consistent
-        if fmt == 'mp4':
-            if quality == '720':
-                fmt_str = ('bestvideo[protocol=https][height<=720][ext=mp4]'
-                           '+bestaudio[protocol=https][ext=m4a]'
-                           '/bestvideo[height<=720]+bestaudio/best[height<=720]')
-            elif quality == '1080':
-                fmt_str = ('bestvideo[protocol=https][height<=1080][ext=mp4]'
-                           '+bestaudio[protocol=https][ext=m4a]'
-                           '/bestvideo[height<=1080]+bestaudio/best[height<=1080]')
-            else:
-                fmt_str = ('bestvideo[protocol=https][ext=mp4]'
-                           '+bestaudio[protocol=https][ext=m4a]'
-                           '/bestvideo+bestaudio/best')
-            cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
-                   '--no-playlist', '--newline', '--no-warnings']
+    frags = '1' if PROXY else '16'
+
+    if fmt == 'mp4':
+        if quality == '720':
+            fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
+        elif quality == '1080':
+            fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
         else:
-            # m4a progressive is format 140 on YouTube — single-file, no DASH
-            fmt_str = ('bestaudio[protocol=https][ext=m4a]'
-                       '/bestaudio[protocol=https]'
-                       '/bestaudio[ext=m4a]/bestaudio')
-            cmd = [YTDLP, '-x', '--audio-format', 'mp3',
-                   '--audio-quality', quality or '320K',
-                   '--format', fmt_str,
-                   '--no-playlist', '--newline', '--no-warnings']
+            fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+        cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
+               '--no-playlist', '--newline',
+               '--retries', '10', '--fragment-retries', '10',
+               '--concurrent-fragments', frags]
     else:
-        if fmt == 'mp4':
-            if quality == '720':
-                fmt_str = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
-            elif quality == '1080':
-                fmt_str = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
-            else:
-                fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
-            cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
-                   '--no-playlist', '--newline', '--no-warnings',
-                   '--concurrent-fragments', '16',
-                   '--throttled-rate', '500K']
-        else:
-            cmd = [YTDLP, '-x', '--audio-format', 'mp3',
-                   '--audio-quality', quality or '320K',
-                   '--no-playlist', '--newline', '--no-warnings',
-                   '--concurrent-fragments', '16',
-                   '--throttled-rate', '500K']
+        cmd = [YTDLP, '-x', '--audio-format', 'mp3',
+               '--audio-quality', quality or '320K',
+               '--no-playlist', '--newline',
+               '--retries', '10', '--fragment-retries', '10',
+               '--concurrent-fragments', frags,
+               '--throttled-rate', '500K']
 
     if PROXY:
         cmd += ['--proxy', PROXY]
@@ -248,7 +224,7 @@ def build_cmd(url_or_info, output_template, quality='320K', fmt='mp3',
 
     cmd += ['--geo-bypass']
     if not use_info_json:
-        cmd += ['--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web']
+        cmd += ['--extractor-args', 'youtube:player_client=android,web']
 
     cmd += ['-o', output_template]
 
@@ -349,8 +325,7 @@ def do_convert(job_id, url, title=None, uploader=None,
         if proc.returncode != 0:
             full_output = '\n'.join(output_lines)
             _set_job(job_id, {'status': 'error',
-                               'error': parse_ytdlp_error(full_output),
-                               'debug': full_output[-800:]})
+                               'error': parse_ytdlp_error(full_output)})
             return
 
         files = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
@@ -437,11 +412,11 @@ def get_info():
 
     try:
         info_cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
-                    '--extractor-args', 'youtube:player_client=tv_embedded,ios,android,web']
+                    '--extractor-args', 'youtube:player_client=android,web']
         if PROXY:
             info_cmd += ['--proxy', PROXY]
         info_cmd += [url]
-        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=45)
         if result.returncode != 0:
             return jsonify({'error': parse_ytdlp_error(result.stderr)}), 400
 
@@ -532,7 +507,7 @@ def get_status(job_id):
         job = jobs.get(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
-    return jsonify({k: job.get(k) for k in ('status', 'error', 'filename', 'progress', 'debug')})
+    return jsonify({k: job.get(k) for k in ('status', 'error', 'filename', 'progress')})
 
 
 @app.route('/download/<job_id>')
