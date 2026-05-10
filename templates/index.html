@@ -561,6 +561,13 @@
   <div class="hero">
     <h1>Convert YouTube to<br/><span class="grad">MP3 &amp; MP4</span></h1>
     <p class="subtitle">Paste any YouTube link — get instant high‑quality audio or video</p>
+    <div class="chips">
+      <span class="chip"><span class="ci">✓</span> 100% Free</span>
+      <span class="chip"><span class="ci">✓</span> No Signup</span>
+      <span class="chip"><span class="ci">✓</span> 320 kbps MP3</span>
+      <span class="chip"><span class="ci">✓</span> Up to 4K MP4</span>
+      <span class="chip"><span class="ci">✓</span> Shorts &amp; Live</span>
+    </div>
   </div>
 
   <div class="converter" id="panel-single">
@@ -668,15 +675,24 @@
 
 <script>
   let pollTimer = null;
+  let growTimer = null;
+  let visHandler = null;
   let currentDownloadUrl = null;
-  let selectedFmt = localStorage.getItem('fmt') || 'mp3';
-  let selectedQ   = localStorage.getItem('q')   || '320K';
+
+  // Format always defaults to MP3 on every page load — never persisted.
+  // Quality is remembered per format so switching back restores last choice.
+  let selectedFmt = 'mp3';
+  let selectedQ   = localStorage.getItem('mp3_q') || '320K';
+
+  // Remove stale keys left by older versions of this page
+  localStorage.removeItem('fmt');
+  localStorage.removeItem('q');
 
   const $ = id => document.getElementById(id);
 
-  // ── Restore saved quality on load ──
+  // ── Restore saved quality for MP3 (always starts on MP3) ──
   (function restoreQuality() {
-    const btn = document.querySelector(`.q-btn[data-fmt="${selectedFmt}"][data-q="${selectedQ}"]`);
+    const btn = document.querySelector(`.q-btn[data-fmt="mp3"][data-q="${selectedQ}"]`);
     if (btn) {
       document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -689,8 +705,8 @@
     btn.classList.add('active');
     selectedFmt = btn.dataset.fmt;
     selectedQ   = btn.dataset.q;
-    localStorage.setItem('fmt', selectedFmt);
-    localStorage.setItem('q',   selectedQ);
+    // Save quality per format so switching back restores last choice
+    localStorage.setItem(selectedFmt === 'mp4' ? 'mp4_q' : 'mp3_q', selectedQ);
   }
 
   // ── Paste / Clear ──
@@ -725,8 +741,8 @@
   }
 
   // ── Error / Retry ──
-  function showSingleError(msg) {
-    $('singleError').textContent = msg;
+  function showSingleError(msg, url) {
+    $('singleError').textContent = msg || 'Something went wrong. Please try again.';
     $('errorWrap').style.display = 'flex';
   }
   function hideSingleError() {
@@ -742,8 +758,14 @@
   // ── Convert ──
   async function handleConvert() {
     clearInterval(pollTimer);
+    clearInterval(growTimer); growTimer = null;
+    if (visHandler) { document.removeEventListener('visibilitychange', visHandler); visHandler = null; }
     const url = $('urlInput').value.trim();
     if (!url) { showSingleError('Please paste a YouTube URL'); return; }
+    // Capture format/quality now — before any async calls — so user changing
+    // buttons while /info is loading can't corrupt this conversion's request.
+    const convertFmt = selectedFmt;
+    const convertQ   = selectedQ;
 
     hideSingleError();
     $('videoCard').style.display    = 'none';
@@ -768,25 +790,26 @@
       const info = await infoRes.json();
       $('statusText').style.display = 'none';
 
-      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info'); setConverting(false); return; }
+      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info', url); setConverting(false); return; }
 
       $('videoThumb').src         = info.thumbnail;
       $('videoTitle').textContent = info.title;
       $('videoSub').textContent   = `${info.uploader}  ·  ${info.duration}`;
 
       const badgeMap = { '720': 'MP4 720p', '1080': 'MP4 1080p', 'best': 'MP4 Best' };
-      $('qualityBadge').textContent = selectedFmt === 'mp4'
-        ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
+      $('qualityBadge').textContent = convertFmt === 'mp4'
+        ? (badgeMap[convertQ] || 'MP4') : `MP3 ${convertQ}`;
 
-      const sz = estimateSize(info.duration_sec, selectedFmt, selectedQ);
+      const sz = estimateSize(info.duration_sec, convertFmt, convertQ);
       if (sz) { $('sizeBadge').textContent = sz; $('sizeBadge').style.display = 'inline-block'; }
 
       $('videoCard').style.display = 'block';
 
       const startRes = await fetch('/start', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: info.url || url, title: info.title,
-          uploader: info.uploader, format: selectedFmt, quality: selectedQ })
+        body: JSON.stringify({ url: url, title: info.title,
+          info_id: info.info_id, duration_sec: info.duration_sec,
+          uploader: info.uploader, format: convertFmt, quality: convertQ })
       });
       const startData = await startRes.json();
       if (!startRes.ok) { showSingleError(startData.error || 'Failed to start conversion'); setConverting(false); return; }
@@ -801,30 +824,77 @@
 
   // ── Poll ──
   const STATUS_MSGS = ['Converting…', 'Processing audio…', 'Almost done…'];
+  const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  function showDone(jobId, data) {
+    $('progressBar').style.width    = '100%';
+    $('progressWrap').style.display = 'none';
+    $('statusText').style.display   = 'none';
+
+    const dlUrl = `/download/${jobId}`;
+    currentDownloadUrl = dlUrl;
+
+    const dl = $('btnDownload');
+    dl.href     = dlUrl;
+    dl.download = data.filename || 'audio.mp3';
+    // Use actual filename extension, not stale selectedFmt (user may have changed it)
+    const isMp4 = (data.filename || '').endsWith('.mp4');
+    const label = isMp4 ? 'Download MP4' : 'Download MP3';
+    dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
+    dl.style.display = 'flex';
+    dl.classList.add('pulse');
+    setTimeout(() => dl.classList.remove('pulse'), 7000);
+
+    $('btnCopyLink').style.display = 'flex';
+    if (navigator.share) $('btnShare').style.display = 'flex';
+    $('btnReset').style.display = 'block';
+    setConverting(false);
+
+    // Desktop: auto-trigger. Mobile: programmatic click is blocked — user taps the button.
+    if (!IS_MOBILE) {
+      try {
+        const a = document.createElement('a');
+        a.href = dlUrl; a.download = data.filename || 'audio.mp3';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } catch(e) {}
+    }
+  }
 
   function pollJob(jobId) {
     $('progressWrap').style.display = 'block';
     $('statusText').style.display   = 'block';
     $('statusText').textContent     = 'Starting conversion…';
 
-    let fake = 3, msgIdx = 0;
+    let fake = 3, attempts = 0, finished = false, elapsed = 0;
     $('progressBar').style.width = fake + '%';
+    $('statusText').textContent  = 'Starting…';
 
-    const grow = setInterval(() => {
-      if (fake < 25) { fake += Math.random() * 3; $('progressBar').style.width = fake + '%'; }
-    }, 1500);
+    growTimer = setInterval(() => {
+      elapsed++;
+      if (fake < 90) {
+        const inc = fake < 30 ? Math.random() * 2.5 : Math.random() * 0.4;
+        fake = Math.min(fake + inc, 90);
+        $('progressBar').style.width = fake + '%';
+      }
+      const s = elapsed * 2;
+      const mins = s >= 60 ? `${Math.floor(s/60)}m ` : '';
+      $('statusText').textContent = `Converting… ${mins}${s % 60}s`;
+    }, 2000);
 
-    const msgCycle = setInterval(() => {
-      if ($('statusText').textContent.startsWith('Downloading')) return;
-      msgIdx = (msgIdx + 1) % STATUS_MSGS.length;
-      $('statusText').textContent = STATUS_MSGS[msgIdx];
-    }, 4000);
+    function stopAll() {
+      clearInterval(pollTimer);
+      clearInterval(growTimer);
+      growTimer = null;
+      if (visHandler) document.removeEventListener('visibilitychange', visHandler);
+      visHandler = null;
+    }
 
-    let attempts = 0;
-    pollTimer = setInterval(async () => {
-      if (++attempts > 240) {
-        clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
-        showSingleError('Timed out. The video may be too long. Try again.'); setConverting(false);
+    async function tick() {
+      if (finished) return;
+      if (++attempts > 900) {
+        stopAll();
+        showSingleError('Timed out. The video may be too long. Try again.');
+        setConverting(false);
         return;
       }
       try {
@@ -840,44 +910,27 @@
         }
 
         if (data.status === 'done') {
-          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
-          $('progressBar').style.width = '100%';
-          $('statusText').textContent  = '✓ Done! Starting download…';
-
-          setTimeout(() => {
-            $('progressWrap').style.display = 'none';
-            $('statusText').style.display   = 'none';
-
-            const dlUrl = `/download/${jobId}`;
-            currentDownloadUrl = dlUrl;
-
-            const tmp = document.createElement('a');
-            tmp.href = dlUrl; tmp.download = data.filename || 'audio.mp3';
-            document.body.appendChild(tmp); tmp.click(); document.body.removeChild(tmp);
-
-            const dl = $('btnDownload');
-            dl.href = dlUrl; dl.download = data.filename || 'audio.mp3';
-            const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-            dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
-            dl.style.display = 'flex';
-            dl.classList.add('pulse');
-            setTimeout(() => dl.classList.remove('pulse'), 7000);
-
-            $('btnCopyLink').style.display = 'flex';
-            if (navigator.share) $('btnShare').style.display = 'flex';
-            $('btnReset').style.display = 'block';
-            setConverting(false);
-          }, 400);
-
+          finished = true;
+          stopAll();
+          showDone(jobId, data);
         } else if (data.status === 'error') {
-          clearInterval(pollTimer); clearInterval(grow); clearInterval(msgCycle);
+          finished = true;
+          stopAll();
           $('progressWrap').style.display = 'none';
           $('statusText').style.display   = 'none';
-          showSingleError(data.error || 'Conversion failed. Please try again.');
+          showSingleError(data.error || 'Conversion failed. Please try again.', $('urlInput').value.trim());
           setConverting(false);
         }
       } catch {}
-    }, 2000);
+    }
+
+    // Immediately check when screen wakes / tab becomes visible again
+    visHandler = function() {
+      if (!finished && document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', visHandler);
+
+    pollTimer = setInterval(tick, 1000); // 1s (was 2s)
   }
 
   // ── Copy link ──
@@ -909,6 +962,8 @@
   // ── Reset ──
   function resetForm() {
     clearInterval(pollTimer);
+    clearInterval(growTimer); growTimer = null;
+    if (visHandler) { document.removeEventListener('visibilitychange', visHandler); visHandler = null; }
     $('urlInput').value = '';
     updateClearBtn();
     ['videoCard','btnDownload','btnCopyLink','btnShare','btnReset',
@@ -916,10 +971,30 @@
       const el = $(id);
       if (el) el.style.display = 'none';
     });
+    $('progressBar').style.width = '0%';
     currentDownloadUrl = null;
     setConverting(false);
     $('urlInput').focus();
   }
+
+  // ── Download button: show error if file expired instead of silent failure ──
+  $('btnDownload').addEventListener('click', async function(e) {
+    if (!currentDownloadUrl) return;
+    e.preventDefault();
+    try {
+      const res = await fetch(currentDownloadUrl, { method: 'HEAD' });
+      if (!res.ok) {
+        showSingleError('File expired. Please convert again.');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = currentDownloadUrl;
+      a.download = $('btnDownload').getAttribute('download') || 'download';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch {
+      showSingleError('Download failed. Please try again.');
+    }
+  });
 
   // ── Input events ──
   $('urlInput').addEventListener('input',   updateClearBtn);
