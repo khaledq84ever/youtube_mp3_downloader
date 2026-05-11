@@ -2,5 +2,6 @@
 builder = "DOCKERFILE"
 
 [deploy]
-healthcheckPath = "/health"
+startCommand = "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --worker-class gthread --threads 16 --timeout 360 --graceful-timeout 30"
+healthcheckPath = "/ping"
 healthcheckTimeout = 30

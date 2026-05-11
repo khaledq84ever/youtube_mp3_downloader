@@ -6,14 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY server/requirements.txt ./requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && pip install -U yt-dlp
 
-COPY server/ ./
+COPY . .
 
 EXPOSE 8080
 
-CMD gunicorn app:app \
+CMD gunicorn wsgi:app \
     --bind 0.0.0.0:${PORT:-8080} \
     --workers 1 \
     --worker-class gthread \
