@@ -827,12 +827,13 @@
           $('progressWrap').style.display = 'none';
           $('statusText').style.display   = 'none';
 
-          const dlUrl = `/download/${jobId}`;
+          const fname   = data.filename || `audio.${ext}`;
+          const dlUrl   = `/download/${jobId}/${encodeURIComponent(fname)}`;
           currentDownloadUrl = dlUrl;
 
           const dl = $('btnDownload');
           dl.href     = dlUrl;
-          dl.download = data.filename || `audio.${ext}`;
+          dl.download = fname;
           dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
           dl.style.display = 'flex';
           dl.classList.add('pulse');
@@ -843,7 +844,7 @@
 
           try {
             const a = document.createElement('a');
-            a.href = dlUrl; a.download = data.filename || `audio.${ext}`;
+            a.href = dlUrl; a.download = fname;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
           } catch(e) {}
 
