@@ -392,6 +392,8 @@ def schedule_cleanup(job_id, path):
     threading.Thread(target=_cleanup, daemon=True).start()
 
 def build_cmd(url, output_template, quality='320K', fmt='mp3'):
+    # android_vr uses a different API path that sometimes bypasses datacenter IP blocks
+    clients = 'android_vr,android,ios,tv_embedded,web_embedded'
     if fmt == 'mp4':
         if quality == '720':
             fmt_str = 'best[height<=720][ext=mp4]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
@@ -401,12 +403,12 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3'):
             fmt_str = 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', 'youtube:player_client=android,web,ios'] + _proxy_args() + _cookies_args()
+               '--extractor-args', f'youtube:player_client={clients}'] + _proxy_args() + _cookies_args()
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', 'youtube:player_client=android,web,ios'] + _proxy_args() + _cookies_args()
+               '--extractor-args', f'youtube:player_client={clients}'] + _proxy_args() + _cookies_args()
     ffmpeg_dir = _find_ffmpeg_dir()
     if ffmpeg_dir:
         cmd += ['--ffmpeg-location', ffmpeg_dir]
@@ -572,25 +574,36 @@ def index():
 
 @app.route('/health')
 def health():
-    piped_ok = False
+    piped_ok  = False
+    oembed_ok = False
     try:
         data = piped_get_streams('dQw4w9WgXcQ')
         piped_ok = bool(data and not data.get('error'))
     except Exception:
         pass
+    try:
+        oe = _oembed_info('dQw4w9WgXcQ')
+        oembed_ok = bool(oe and oe.get('title'))
+    except Exception:
+        pass
     ffmpeg_ok = bool(_find_ffmpeg_dir())
     ytdlp_ok  = False
+    ytdlp_ver = ''
     try:
         r = subprocess.run([YTDLP, '--version'], capture_output=True, timeout=5)
-        ytdlp_ok = r.returncode == 0
+        ytdlp_ok  = r.returncode == 0
+        ytdlp_ver = r.stdout.strip()
     except Exception:
         pass
     return jsonify({
-        'status':   'ok',
-        'piped':    piped_ok,
-        'ffmpeg':   ffmpeg_ok,
-        'yt_dlp':   ytdlp_ok,
+        'status':          'ok',
+        'piped':           piped_ok,
+        'oembed':          oembed_ok,
+        'ffmpeg':          ffmpeg_ok,
+        'yt_dlp':          ytdlp_ok,
+        'yt_dlp_version':  ytdlp_ver,
         'piped_instances': _piped_ranked,
+        'info_source':     'piped' if piped_ok else ('oembed' if oembed_ok else 'yt-dlp'),
     })
 
 @app.route('/manifest.json')
@@ -625,9 +638,41 @@ def sitemap():
             f'</urlset>')
     return xml, 200, {'Content-Type': 'application/xml'}
 
+def _oembed_info(video_id):
+    """YouTube oEmbed — works on any IP, no bot detection."""
+    try:
+        yt_url = f'https://www.youtube.com/watch?v={video_id}'
+        req = urllib.request.Request(
+            f'https://www.youtube.com/oembed?url={urllib.parse.quote(yt_url)}&format=json',
+            headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            d = json.loads(r.read())
+        if d.get('title'):
+            return d
+    except Exception:
+        pass
+    return None
+
+def _yt_duration_from_page(video_id):
+    """Scrape duration from YouTube watch page — fallback when Piped is down."""
+    try:
+        req = urllib.request.Request(
+            f'https://www.youtube.com/watch?v={video_id}',
+            headers={'User-Agent': 'Mozilla/5.0',
+                     'Accept-Language': 'en-US,en;q=0.9'})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            html = r.read(80000).decode('utf-8', errors='ignore')
+        m = re.search(r'"lengthSeconds"\s*:\s*"?(\d+)"?', html)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 0
+
 def _yt_info(url, extra_args=None):
+    clients = 'android_vr,android,ios,tv_embedded,web_embedded'
     cmd = ([YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
-             '--extractor-args', 'youtube:player_client=android,web,ios', url]
+             '--extractor-args', f'youtube:player_client={clients}', url]
            + _proxy_args() + _cookies_args() + (extra_args or []))
     return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
@@ -644,7 +689,7 @@ def get_info():
 
     video_id = _extract_video_id(url)
 
-    # ── Step 1: Piped first (instant, no 402 issues) ──────────────────────────
+    # ── Step 1: Piped (best — includes duration) ──────────────────────────────
     if video_id:
         try:
             pd = piped_get_streams(video_id)
@@ -662,7 +707,23 @@ def get_info():
         except Exception:
             pass
 
-    # ── Step 2: yt-dlp fallback ───────────────────────────────────────────────
+    # ── Step 2: YouTube oEmbed + page scrape for duration ────────────────────
+    if video_id:
+        oe = _oembed_info(video_id)
+        if oe:
+            dur = _yt_duration_from_page(video_id)
+            m, s = divmod(dur, 60)
+            thumb = f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg'
+            return jsonify({
+                'title':        oe.get('title', 'Unknown Title'),
+                'thumbnail':    oe.get('thumbnail_url') or thumb,
+                'duration':     f'{m}:{s:02d}' if dur else '?:??',
+                'duration_sec': dur,
+                'uploader':     oe.get('author_name', ''),
+                'url':          url,
+            })
+
+    # ── Step 3: yt-dlp fallback ───────────────────────────────────────────────
     try:
         result   = None
         last_err = '__BOT_DETECTED__'
