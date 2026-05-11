@@ -173,6 +173,10 @@ _ALL_PIPED = [
     'https://pipedapi.moomoo.me',
     'https://watchapi.whatever.social',
     'https://api.piped.projectsegfau.lt',
+    'https://pipedapi.drgns.space',
+    'https://piped-api.codespace.live',
+    'https://piped.syncpundit.io',
+    'https://pa.il.ax',
 ]
 
 _ALL_INVIDIOUS = [
@@ -188,6 +192,10 @@ _ALL_INVIDIOUS = [
     'https://iv.melmac.space',
     'https://invidious.projectsegfau.lt',
     'https://inv.tux.pizza',
+    'https://invidious.privacyredirect.com',
+    'https://yt.drgnz.club',
+    'https://invidious.drgns.space',
+    'https://vid.puffyan.us',
 ]
 
 _working_piped     = []
@@ -528,6 +536,67 @@ def invidious_download(job_id, video_id, url, title, uploader, quality, fmt):
         return False
 
 
+def cobalt_download(job_id, url, title, uploader, quality, fmt):
+    try:
+        _set_job(job_id, {'progress': 3})
+        body = json.dumps({
+            'url': url,
+            'audioFormat': 'mp3' if fmt != 'mp4' else 'mp4',
+            'filenameStyle': 'basic',
+            'quality': '1080' if fmt == 'mp4' else '320',
+        }).encode()
+        req = urllib.request.Request(
+            'https://api.cobalt.tools/',
+            data=body,
+            headers={
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0',
+            },
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read())
+
+        status = data.get('status')
+        stream_url = None
+        if status in ('stream', 'tunnel', 'redirect'):
+            stream_url = data.get('url')
+        elif status == 'picker':
+            items = data.get('picker', [])
+            if items:
+                stream_url = items[0].get('url')
+
+        if not stream_url:
+            return False
+
+        file_id = str(uuid.uuid4())
+        ext = 'mp4' if fmt == 'mp4' else 'mp3'
+        out = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+
+        if fmt == 'mp3':
+            raw = os.path.join(DOWNLOAD_DIR, f'{file_id}_raw.m4a')
+            _download_stream(job_id, stream_url, raw, 10, 80)
+            if not os.path.exists(raw) or os.path.getsize(raw) < 1024:
+                return False
+            if not _ffmpeg_to_mp3(raw, out, quality):
+                return False
+            try: os.remove(raw)
+            except: pass
+        else:
+            _download_stream(job_id, stream_url, out, 10, 85)
+
+        if not os.path.exists(out) or os.path.getsize(out) < 1024:
+            return False
+
+        fname = make_filename(title or 'video', uploader or '', ext)
+        _set_job(job_id, {'status': 'done', 'file': out, 'filename': fname, 'progress': 100})
+        schedule_cleanup(job_id, out)
+        return True
+    except Exception:
+        return False
+
+
 def pytube_download(job_id, url, title, uploader, quality, fmt):
     if not _PYTUBE_OK:
         return False
@@ -588,7 +657,7 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
 # ── yt-dlp backend ────────────────────────────────────────────────────────────
 
 def build_cmd(url, output_template, quality='320K', fmt='mp3'):
-    clients = 'tv_embedded,android_vr,android,ios,web'
+    clients = 'mweb,tv_embedded,web_creator,android,web'
     if fmt == 'mp4':
         q = quality or 'best'
         if q == '720':
@@ -731,7 +800,12 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
             schedule_cleanup(job_id, target)
             return
 
-        # 4. Invidious last resort
+        # 4. Cobalt.tools API
+        _set_job(job_id, {'progress': 0})
+        if cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
+            return
+
+        # 5. Invidious last resort
         if video_id and invidious_download(job_id, video_id, url,
                                            prefetched_title, prefetched_uploader, quality, fmt):
             return
@@ -837,7 +911,7 @@ def sitemap():
             200, {'Content-Type': 'application/xml'})
 
 def _yt_info_cmd(url):
-    clients = 'tv_embedded,android_vr,android,ios,web'
+    clients = 'mweb,tv_embedded,web_creator,android,web'
     cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
            '--extractor-args', f'youtube:player_client={clients}',
            '--js-runtimes', 'node', url] + _proxy_args() + _cookies_args()
