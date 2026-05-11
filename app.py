@@ -1,10 +1,3 @@
-# gevent monkey-patch must be first — enables async SSE, non-blocking I/O
-try:
-    from gevent import monkey
-    monkey.patch_all(subprocess=False)
-except ImportError:
-    pass
-
 from flask import Flask, request, jsonify, send_file, render_template, Response, stream_with_context
 from flask_cors import CORS
 import subprocess, os, uuid, json, re, glob, threading, time, shutil, signal

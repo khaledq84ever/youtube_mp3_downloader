@@ -2,5 +2,3 @@ Flask==3.0.3
 flask-cors==4.0.1
 yt-dlp
 gunicorn>=21.2.0
-gevent>=23.9.1
-greenlet>=3.0.0
