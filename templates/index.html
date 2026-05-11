@@ -805,10 +805,18 @@
     clearInterval(pollTimer);
     const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
     const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-    let msgIdx  = 0;
-    const msgs  = ['Converting…', 'Processing audio…', 'Almost done…'];
+    let elapsed = 0;
+    const TIMEOUT_SEC = 90;
 
     pollTimer = setInterval(async () => {
+      elapsed += 2;
+      if (elapsed >= TIMEOUT_SEC) {
+        clearInterval(pollTimer);
+        $('progressWrap').style.display = 'none';
+        $('statusText').style.display   = 'none';
+        showSingleError('Download timed out. YouTube may be blocking this server. Please try a different video or try again later.');
+        return;
+      }
       try {
         const res  = await fetch(`/status/${jobId}`);
         const data = await res.json();
@@ -817,8 +825,8 @@
           $('progressBar').style.width = `${Math.max(5, data.progress)}%`;
           if (data.progress > 0 && data.progress < 100)
             $('statusText').textContent = `Converting… ${data.progress}%`;
-        } else {
-          $('statusText').textContent = msgs[msgIdx++ % msgs.length];
+          else if (data.progress === 0)
+            $('statusText').textContent = 'Starting download…';
         }
 
         if (data.status === 'done') {
@@ -893,6 +901,13 @@
     currentDownloadUrl = null;
     setConverting(false);
     $('urlInput').focus();
+  }
+
+  // Unregister any stale service workers from previous deployments
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    });
   }
 
   $('urlInput').addEventListener('input',   updateClearBtn);

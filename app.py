@@ -348,8 +348,21 @@ def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
 def pytube_download(job_id, url, title, uploader, quality, fmt):
     if not _PYTUBE_OK:
         return False
+    # Try multiple clients — some videos work with WEB (default), others need different client
+    _PYTUBE_CLIENTS = ['WEB', 'ANDROID_VR', 'MWEB', 'TV_EMBED']
+    yt = None
+    for client in _PYTUBE_CLIENTS:
+        try:
+            _yt = PyTube(url, client=client)
+            # Access streams to trigger extraction — raises on bot detection
+            _ = _yt.streams
+            yt = _yt
+            break
+        except Exception:
+            continue
+    if yt is None:
+        return False
     try:
-        yt = PyTube(url)
         _set_job(job_id, {'progress': 5})
 
         file_id = str(uuid.uuid4())
@@ -582,8 +595,10 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     try:
         if returncode != 0:
             err_msg = parse_ytdlp_error(stderr_text)
-            _set_job(job_id, {'status': 'error',
-                               'error': 'Video unavailable. Please try again.' if err_msg == '__BOT_DETECTED__' else err_msg})
+            friendly = ('This video cannot be downloaded from this server right now. '
+                        'Try a popular music video, or try again later.'
+                        if err_msg == '__BOT_DETECTED__' else err_msg)
+            _set_job(job_id, {'status': 'error', 'error': friendly})
             return
 
         ext    = 'mp4' if fmt == 'mp4' else 'mp3'
