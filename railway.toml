@@ -1,7 +1,6 @@
-[build]
-builder = "DOCKERFILE"
-
 [deploy]
-startCommand = "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --worker-class gthread --threads 16 --timeout 360 --graceful-timeout 30"
-healthcheckPath = "/ping"
-healthcheckTimeout = 30
+startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --worker-class gthread --threads 16 --timeout 360 --graceful-timeout 30"
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
