@@ -592,7 +592,7 @@ def health():
     try:
         r = subprocess.run([YTDLP, '--version'], capture_output=True, timeout=5)
         ytdlp_ok  = r.returncode == 0
-        ytdlp_ver = r.stdout.strip()
+        ytdlp_ver = r.stdout.strip() if isinstance(r.stdout, str) else r.stdout.decode().strip()
     except Exception:
         pass
     return jsonify({
