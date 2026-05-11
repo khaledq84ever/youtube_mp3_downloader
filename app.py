@@ -716,8 +716,18 @@ def manifest():
 
 @app.route('/sw.js')
 def service_worker():
-    # Self-destruct: unregisters any old service worker in users' browsers
-    js = "self.addEventListener('install',e=>{e.waitUntil(self.skipWaiting())});\nself.addEventListener('activate',e=>{e.waitUntil(clients.claim().then(()=>self.registration.unregister()))});\n"
+    # Self-destruct: clear all caches and unregister so stale SW never blocks again
+    js = (
+        "self.addEventListener('install',e=>{"
+        "e.waitUntil(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))"
+        ".then(()=>self.skipWaiting())))"
+        "});\n"
+        "self.addEventListener('activate',e=>{"
+        "e.waitUntil(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))"
+        ".then(()=>clients.claim())"
+        ".then(()=>self.registration.unregister()))"
+        "});\n"
+    )
     return js, 200, {'Content-Type': 'application/javascript', 'Cache-Control': 'no-store, max-age=0'}
 
 @app.route('/robots.txt')
