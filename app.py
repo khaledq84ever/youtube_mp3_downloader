@@ -786,12 +786,21 @@ def get_info():
         except Exception:
             pass
 
-    # ── Step 2: YouTube oEmbed + page scrape for duration ────────────────────
+    # ── Step 2: YouTube oEmbed + pytubefix for duration ──────────────────────
     if video_id:
         oe = _oembed_info(video_id)
         if oe:
-            dur = _yt_duration_from_page(video_id)
-            m, s = divmod(dur, 60)
+            dur = 0
+            # Try pytubefix for duration (lightweight metadata call)
+            if _PYTUBE_OK:
+                try:
+                    yt_meta = PyTube(url)
+                    dur = yt_meta.length or 0
+                except Exception:
+                    dur = _yt_duration_from_page(video_id)
+            else:
+                dur = _yt_duration_from_page(video_id)
+            m, s  = divmod(dur, 60)
             thumb = f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg'
             return jsonify({
                 'title':        oe.get('title', 'Unknown Title'),
