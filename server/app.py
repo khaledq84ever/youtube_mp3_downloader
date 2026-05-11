@@ -743,7 +743,7 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
     finally:
         with url_jobs_lock:
-            url_jobs.pop(url, None)
+            url_jobs.pop(f'{url}|{fmt}|{quality}', None)
 
 
 # ── Security headers ──────────────────────────────────────────────────────────
@@ -939,8 +939,9 @@ def start_convert():
     if is_playlist_only(url):
         return jsonify({'error': 'Please paste a single video URL, not a playlist.'}), 400
 
+    dedup_key = f'{url}|{fmt}|{quality}'
     with url_jobs_lock:
-        existing = url_jobs.get(url)
+        existing = url_jobs.get(dedup_key)
         if existing:
             with jobs_lock:
                 st = jobs.get(existing, {}).get('status')
@@ -953,7 +954,7 @@ def start_convert():
                         'error': None, 'progress': 0}
         _save_job(job_id, jobs[job_id])
     with url_jobs_lock:
-        url_jobs[url] = job_id
+        url_jobs[dedup_key] = job_id
 
     threading.Thread(
         target=do_convert,
