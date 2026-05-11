@@ -759,9 +759,25 @@ def _sec(resp):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@app.errorhandler(404)
+def _404(e):
+    routes = sorted(str(r) for r in app.url_map.iter_rules())
+    tdir = app.template_folder
+    import os as _os
+    tmpl_exists = _os.path.exists(_os.path.join(tdir, 'index.html')) if tdir else False
+    return (f'404 debug | template_folder={tdir} | index.html={tmpl_exists} | '
+            f'routes={routes}'), 404
+
+@app.route('/ping')
+def ping():
+    return 'pong', 200
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as exc:
+        return f'template error: {exc}', 500
 
 @app.route('/health')
 def health():
