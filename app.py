@@ -714,6 +714,12 @@ def manifest():
     }
     return jsonify(data)
 
+@app.route('/sw.js')
+def service_worker():
+    # Self-destruct: unregisters any old service worker in users' browsers
+    js = "self.addEventListener('install',e=>{e.waitUntil(self.skipWaiting())});\nself.addEventListener('activate',e=>{e.waitUntil(clients.claim().then(()=>self.registration.unregister()))});\n"
+    return js, 200, {'Content-Type': 'application/javascript', 'Cache-Control': 'no-store, max-age=0'}
+
 @app.route('/robots.txt')
 def robots():
     return 'User-agent: *\nAllow: /\n', 200, {'Content-Type': 'text/plain'}

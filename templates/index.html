@@ -903,10 +903,11 @@
     $('urlInput').focus();
   }
 
-  // Unregister any stale service workers from previous deployments
+  // Kill old service worker: register the new self-destructing sw.js which unregisters itself
   if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
     navigator.serviceWorker.getRegistrations().then(regs => {
-      regs.forEach(r => r.unregister());
+      regs.forEach(r => { if (!r.scope.endsWith('/')) r.unregister(); });
     });
   }
 
