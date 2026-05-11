@@ -1,0 +1,7 @@
+[build]
+buildCommand = "pip install -r server/requirements.txt && pip install -U yt-dlp"
+
+[deploy]
+startCommand = "gunicorn server.app:app --bind 0.0.0.0:$PORT --workers 1 --worker-class gthread --threads 16 --timeout 360 --graceful-timeout 30"
+healthcheckPath = "/health"
+healthcheckTimeout = 30

@@ -16,7 +16,8 @@ try:
 except ImportError:
     _PYTUBE_OK = False
 
-app = Flask(__name__)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(_HERE, 'templates'))
 CORS(app)
 
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
