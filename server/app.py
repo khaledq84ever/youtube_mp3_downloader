@@ -662,6 +662,20 @@ def manifest():
 def robots():
     return 'User-agent: *\nAllow: /\n', 200, {'Content-Type': 'text/plain'}
 
+@app.route('/health')
+def health():
+    with _sources_lock:
+        piped = list(_working_piped)
+        inv   = list(_working_invidious)
+        probed = _last_probe > 0
+    return jsonify({
+        'status':             'ok',
+        'probed':             probed,
+        'working_piped':      piped,
+        'working_invidious':  inv,
+        'last_probe_ago_sec': int(time.time() - _last_probe) if _last_probe else None,
+    })
+
 @app.route('/ads.txt')
 def ads_txt():
     return 'google.com, pub-3956390078338144, DIRECT, f08c47fec0942fa0\n', 200, {'Content-Type': 'text/plain'}
