@@ -13,11 +13,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD gunicorn wsgi:app \
-    --bind 0.0.0.0:${PORT:-8080} \
-    --workers 1 \
-    --worker-class gthread \
-    --threads 16 \
-    --timeout 360 \
-    --graceful-timeout 30 \
-    --log-level info
+CMD ["gunicorn", "app:app", "-c", "gunicorn.conf.py"]
