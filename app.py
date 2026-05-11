@@ -11,6 +11,12 @@ try:
 except Exception:
     pass
 
+try:
+    from pytubefix import YouTube as PyTube
+    _PYTUBE_OK = True
+except ImportError:
+    _PYTUBE_OK = False
+
 app = Flask(__name__)
 CORS(app)
 
@@ -337,6 +343,70 @@ def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
         return False
 
 
+# ── PyTubefix download (page-based extraction, different from InnerTube API) ──
+
+def pytube_download(job_id, url, title, uploader, quality, fmt):
+    if not _PYTUBE_OK:
+        return False
+    try:
+        yt = PyTube(url)
+        _set_job(job_id, {'progress': 5})
+
+        file_id = str(uuid.uuid4())
+        ext     = 'mp4' if fmt == 'mp4' else 'mp3'
+
+        if fmt == 'mp4':
+            # Get best video stream with audio
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').last()
+            if not stream:
+                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').last()
+            if not stream:
+                return False
+            out_path = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp4')
+            _set_job(job_id, {'progress': 10})
+            stream.download(output_path=DOWNLOAD_DIR, filename=f'{file_id}.mp4')
+        else:
+            # Get highest bitrate audio stream
+            stream = yt.streams.filter(only_audio=True).order_by('abr').last()
+            if not stream:
+                return False
+            raw_ext  = stream.mime_type.split('/')[-1]  # webm, mp4, etc.
+            raw_path = os.path.join(DOWNLOAD_DIR, f'{file_id}_raw.{raw_ext}')
+            out_path = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp3')
+            _set_job(job_id, {'progress': 10})
+            stream.download(output_path=DOWNLOAD_DIR, filename=f'{file_id}_raw.{raw_ext}')
+            _set_job(job_id, {'progress': 75})
+
+            if not os.path.exists(raw_path) or os.path.getsize(raw_path) < 1024:
+                return False
+
+            # Convert to MP3 with ffmpeg
+            ffmpeg_dir = _find_ffmpeg_dir()
+            ffmpeg_bin = os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir else shutil.which('ffmpeg') or 'ffmpeg'
+            kbps = (quality or '320K').rstrip('Kk')
+            res = subprocess.run(
+                [ffmpeg_bin, '-i', raw_path, '-vn', '-ar', '44100', '-ac', '2',
+                 '-b:a', f'{kbps}k', out_path, '-y'],
+                capture_output=True, timeout=300)
+            try: os.remove(raw_path)
+            except: pass
+            if res.returncode != 0 or not os.path.exists(out_path):
+                return False
+
+        if not os.path.exists(out_path) or os.path.getsize(out_path) < 1024:
+            return False
+
+        vid_title  = title or yt.title or 'download'
+        vid_author = uploader or yt.author or ''
+        filename   = make_filename(vid_title, vid_author, ext)
+        _set_job(job_id, {'status': 'done', 'file': out_path, 'filename': filename, 'progress': 100})
+        schedule_cleanup(job_id, out_path)
+        return True
+
+    except Exception:
+        return False
+
+
 # ── Filename / ffmpeg helpers ─────────────────────────────────────────────────
 
 _NOISE_RE = re.compile(
@@ -483,7 +553,14 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 url_jobs.pop(url, None)
             return
 
-    # ── Step 2: yt-dlp fallback ───────────────────────────────────────────────
+    # ── Step 2: PyTubefix (page-based, different extraction path) ─────────────
+    _set_job(job_id, {'progress': 0})
+    if pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
+        with url_jobs_lock:
+            url_jobs.pop(url, None)
+        return
+
+    # ── Step 3: yt-dlp fallback ───────────────────────────────────────────────
     returncode, stderr_text = -1, ''
     for attempt in range(2):
         cmd = build_cmd(url, output_template, quality, fmt)
@@ -599,11 +676,13 @@ def health():
         'status':          'ok',
         'piped':           piped_ok,
         'oembed':          oembed_ok,
+        'pytubefix':       _PYTUBE_OK,
         'ffmpeg':          ffmpeg_ok,
         'yt_dlp':          ytdlp_ok,
         'yt_dlp_version':  ytdlp_ver,
         'piped_instances': _piped_ranked,
         'info_source':     'piped' if piped_ok else ('oembed' if oembed_ok else 'yt-dlp'),
+        'dl_source':       'piped' if piped_ok else ('pytubefix' if _PYTUBE_OK else 'yt-dlp'),
     })
 
 @app.route('/manifest.json')
