@@ -148,30 +148,125 @@ def parse_ytdlp_error(stderr):
     return '__BOT_DETECTED__'
 
 
-# ── Piped API fallback (bypasses YouTube bot detection) ───────────────────────
+# ── Source discovery — Piped + Invidious (self-healing every 30 min) ──────────
 
-_PIPED_INSTANCES = [
+_ALL_PIPED = [
     'https://pipedapi.kavin.rocks',
     'https://piped-api.garudalinux.org',
     'https://api.piped.yt',
+    'https://pipedapi.reallyaweso.me',
+    'https://pipedapi.darkness.services',
+    'https://piped-api.privacy.com.de',
+    'https://api.piped.privacydev.net',
+    'https://pipedapi.ngn.tf',
+    'https://pipedapi.tokhmi.xyz',
+    'https://pipedapi.moomoo.me',
+    'https://piped.video/api',
+    'https://watchapi.whatever.social',
+    'https://api.piped.yt',
 ]
+
+_ALL_INVIDIOUS = [
+    'https://invidious.io.lol',
+    'https://yewtu.be',
+    'https://inv.nadeko.net',
+    'https://invidious.fdn.fr',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.privacydev.net',
+    'https://iv.datura.network',
+    'https://invidious.perennialte.ch',
+    'https://invidious.lunar.icu',
+    'https://iv.melmac.space',
+    'https://invidious.projectsegfau.lt',
+    'https://inv.tux.pizza',
+]
+
+_working_piped     = []
+_working_invidious = []
+_sources_lock      = threading.Lock()
+_last_probe        = 0.0
+PROBE_INTERVAL     = 1800  # 30 min
+_PROBE_VIDEO       = 'dQw4w9WgXcQ'  # Rick Astley — always up
+
+def _probe_sources():
+    global _working_piped, _working_invidious, _last_probe
+    piped_ok, inv_ok = [], []
+
+    for inst in _ALL_PIPED:
+        try:
+            req = urllib.request.Request(
+                f'{inst}/streams/{_PROBE_VIDEO}',
+                headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
+            t0 = time.time()
+            with urllib.request.urlopen(req, timeout=6) as r:
+                data = json.loads(r.read())
+            if not data.get('error') and data.get('audioStreams'):
+                piped_ok.append((time.time() - t0, inst))
+        except Exception:
+            pass
+
+    for inst in _ALL_INVIDIOUS:
+        try:
+            req = urllib.request.Request(
+                f'{inst}/api/v1/videos/{_PROBE_VIDEO}?fields=adaptiveFormats',
+                headers={'User-Agent': 'Mozilla/5.0'})
+            t0 = time.time()
+            with urllib.request.urlopen(req, timeout=6) as r:
+                data = json.loads(r.read())
+            if data.get('adaptiveFormats'):
+                inv_ok.append((time.time() - t0, inst))
+        except Exception:
+            pass
+
+    with _sources_lock:
+        _working_piped     = [i for _, i in sorted(piped_ok)]
+        _working_invidious = [i for _, i in sorted(inv_ok)]
+        _last_probe        = time.time()
+
+def _ensure_sources_fresh():
+    if time.time() - _last_probe > PROBE_INTERVAL:
+        threading.Thread(target=_probe_sources, daemon=True).start()
+
+# Probe at startup (non-blocking)
+threading.Thread(target=_probe_sources, daemon=True).start()
+
 
 def _extract_video_id(url):
     m = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([A-Za-z0-9_-]{11})', url)
     return m.group(1) if m else None
 
 def piped_get_streams(video_id):
-    for instance in _PIPED_INSTANCES:
+    _ensure_sources_fresh()
+    with _sources_lock:
+        instances = list(_working_piped) or _ALL_PIPED[:4]
+    for instance in instances:
         try:
             req = urllib.request.Request(
                 f'{instance}/streams/{video_id}',
-                headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'},
-            )
+                headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
             if data.get('error'):
                 continue
             return data
+        except Exception:
+            continue
+    return None
+
+def invidious_get_streams(video_id):
+    _ensure_sources_fresh()
+    with _sources_lock:
+        instances = list(_working_invidious) or _ALL_INVIDIOUS[:4]
+    for inst in instances:
+        try:
+            req = urllib.request.Request(
+                f'{inst}/api/v1/videos/{video_id}?fields=title,author,lengthSeconds,adaptiveFormats',
+                headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                data = json.loads(r.read())
+            audio = [f for f in data.get('adaptiveFormats', []) if 'audio' in f.get('type', '')]
+            if audio:
+                return data
         except Exception:
             continue
     return None
@@ -200,33 +295,30 @@ def piped_best_video(streams_data, max_quality=None):
     return best
 
 def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
-    data = piped_get_streams(video_id)
+    data   = piped_get_streams(video_id)
     if not data:
         return False
-
     file_id = str(uuid.uuid4())
     ext     = 'mp4' if fmt == 'mp4' else 'mp3'
     out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+    q_map   = {'720': 720, '1080': 1080, 'best': None}
+    stream  = piped_best_video(data, q_map.get(quality)) if fmt == 'mp4' else piped_best_audio(data)
+    if not stream or not stream.get('url'):
+        return False
+    return _stream_url_to_file(job_id, stream['url'], out, fmt, quality,
+                               title, uploader, ext, piped_data=data)
 
+def _stream_url_to_file(job_id, stream_url, out, fmt, quality, title, uploader, ext,
+                         piped_data=None, inv_data=None):
+    """Download a direct stream URL, convert to mp3 if needed. Returns True on success."""
+    req = urllib.request.Request(stream_url, headers={
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://www.youtube.com/',
+    })
+    _set_job(job_id, {'progress': 10})
+    total, done = 0, 0
     try:
-        if fmt == 'mp4':
-            q_map = {'720': 720, '1080': 1080, 'best': None}
-            stream = piped_best_video(data, q_map.get(quality))
-        else:
-            stream = piped_best_audio(data)
-
-        if not stream or not stream.get('url'):
-            return False
-
-        stream_url = stream['url']
-        req = urllib.request.Request(stream_url, headers={
-            'User-Agent': 'Mozilla/5.0',
-            'Referer': 'https://www.youtube.com/',
-        })
-
-        _set_job(job_id, {'progress': 10})
-        total, done = 0, 0
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=90) as r:
             total = int(r.headers.get('Content-Length', 0))
             with open(out, 'wb') as f:
                 while True:
@@ -240,35 +332,71 @@ def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
                         with jobs_lock:
                             if jobs.get(job_id, {}).get('status') == 'processing':
                                 jobs[job_id]['progress'] = pct
+    except Exception:
+        if os.path.exists(out):
+            os.remove(out)
+        return False
 
-        if fmt == 'mp3' and os.path.exists(out):
-            ffmpeg_dir = _find_ffmpeg_dir()
-            ffmpeg_bin = os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir else shutil.which('ffmpeg') or 'ffmpeg'
-            mp3_out = out.replace('.mp3', '_conv.mp3')
-            kbps = (quality or '320K').rstrip('Kk')
-            res = subprocess.run(
-                [ffmpeg_bin, '-i', out, '-vn', '-ar', '44100', '-ac', '2',
-                 '-b:a', f'{kbps}k', mp3_out, '-y'],
-                capture_output=True, timeout=300)
-            if res.returncode == 0 and os.path.exists(mp3_out):
-                os.remove(out)
-                out = mp3_out
-            else:
-                # ffmpeg conversion failed — don't serve raw audio as MP3
-                if os.path.exists(out):
-                    os.remove(out)
-                return False
-
-        if not os.path.exists(out) or os.path.getsize(out) < 1024:
+    if fmt == 'mp3' and os.path.exists(out):
+        ffmpeg_dir = _find_ffmpeg_dir()
+        ffmpeg_bin = os.path.join(ffmpeg_dir, 'ffmpeg') if ffmpeg_dir else shutil.which('ffmpeg') or 'ffmpeg'
+        mp3_out = out.replace('.mp3', '_conv.mp3').replace('.m4a', '_conv.mp3').replace('.webm', '_conv.mp3')
+        kbps = (quality or '320K').rstrip('Kk')
+        res = subprocess.run(
+            [ffmpeg_bin, '-i', out, '-vn', '-ar', '44100', '-ac', '2',
+             '-b:a', f'{kbps}k', mp3_out, '-y'],
+            capture_output=True, timeout=300)
+        if os.path.exists(out):
+            os.remove(out)
+        if res.returncode == 0 and os.path.exists(mp3_out):
+            out = mp3_out
+        else:
             return False
 
-        filename = make_filename(
-            title or data.get('title', f'video_{video_id}'),
-            uploader or data.get('uploader', ''), ext)
-        _set_job(job_id, {'status': 'done', 'file': out, 'filename': filename, 'progress': 100})
-        schedule_cleanup(job_id, out)
-        return True
+    if not os.path.exists(out) or os.path.getsize(out) < 1024:
+        return False
 
+    src_title    = (piped_data or inv_data or {}).get('title', f'video')
+    src_uploader = (piped_data or {}).get('uploader') or (inv_data or {}).get('author', '')
+    filename = make_filename(title or src_title, uploader or src_uploader, ext)
+    _set_job(job_id, {'status': 'done', 'file': out, 'filename': filename, 'progress': 100})
+    schedule_cleanup(job_id, out)
+    return True
+
+
+def invidious_download(job_id, video_id, url, title, uploader, quality, fmt):
+    data = invidious_get_streams(video_id)
+    if not data:
+        return False
+
+    file_id = str(uuid.uuid4())
+    ext     = 'mp4' if fmt == 'mp4' else 'mp3'
+    out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+
+    try:
+        audio_formats = [f for f in data.get('adaptiveFormats', []) if 'audio' in f.get('type', '')]
+        video_formats = [f for f in data.get('adaptiveFormats', []) if 'video' in f.get('type', '')]
+
+        if fmt == 'mp4':
+            max_h = {'720': 720, '1080': 1080}.get(quality, 99999)
+            vid_f = sorted(
+                [f for f in video_formats if f.get('qualityLabel', '').rstrip('p').isdigit()
+                 and int(f['qualityLabel'].rstrip('p')) <= max_h],
+                key=lambda f: int(f.get('qualityLabel', '0p').rstrip('p')), reverse=True)
+            if not vid_f:
+                return False
+            stream_url = vid_f[0].get('url', '')
+        else:
+            best = sorted(audio_formats, key=lambda f: f.get('bitrate', 0), reverse=True)
+            if not best:
+                return False
+            stream_url = best[0].get('url', '')
+
+        if not stream_url:
+            return False
+
+        return _stream_url_to_file(job_id, stream_url, out, fmt, quality,
+                                   title, uploader, ext, inv_data=data)
     except Exception:
         if os.path.exists(out):
             os.remove(out)
@@ -340,12 +468,14 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3'):
             fmt_str = 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', 'youtube:player_client=android,web,ios'] + _proxy_args() + _cookies_args()
+               '--extractor-args', 'youtube:player_client=tv_embedded,android,web,ios',
+               '--js-runtimes', 'node'] + _proxy_args() + _cookies_args()
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', 'youtube:player_client=android,web,ios'] + _proxy_args() + _cookies_args()
+               '--extractor-args', 'youtube:player_client=tv_embedded,android,web,ios',
+               '--js-runtimes', 'node'] + _proxy_args() + _cookies_args()
     ffmpeg_dir = _find_ffmpeg_dir()
     if ffmpeg_dir:
         cmd += ['--ffmpeg-location', ffmpeg_dir]
@@ -432,15 +562,20 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
 
     try:
         if returncode != 0:
-            err_msg = parse_ytdlp_error(stderr_text)
-            if err_msg == '__BOT_DETECTED__':
-                video_id = _extract_video_id(url)
-                if video_id and piped_download(job_id, video_id, url,
-                                               prefetched_title, prefetched_uploader,
-                                               quality, fmt):
+            err_msg  = parse_ytdlp_error(stderr_text)
+            video_id = _extract_video_id(url)
+            if err_msg == '__BOT_DETECTED__' and video_id:
+                # Fallback chain: Piped → Invidious
+                if piped_download(job_id, video_id, url,
+                                  prefetched_title, prefetched_uploader, quality, fmt):
+                    return
+                if invidious_download(job_id, video_id, url,
+                                      prefetched_title, prefetched_uploader, quality, fmt):
                     return
             _set_job(job_id, {'status': 'error',
-                               'error': 'Video unavailable. Please try again.' if err_msg == '__BOT_DETECTED__' else err_msg})
+                               'error': ('This video cannot be downloaded right now. '
+                                         'Try again in a moment — the server auto-retries different sources.')
+                               if err_msg == '__BOT_DETECTED__' else err_msg})
             return
 
         ext  = 'mp4' if fmt == 'mp4' else 'mp3'
@@ -543,7 +678,8 @@ def sitemap():
 
 def _yt_info(url, extra_args=None):
     cmd = ([YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
-             '--extractor-args', 'youtube:player_client=android,web,ios', url]
+             '--extractor-args', 'youtube:player_client=tv_embedded,android,web,ios',
+             '--js-runtimes', 'node', url]
            + _proxy_args() + _cookies_args() + (extra_args or []))
     return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
@@ -570,9 +706,9 @@ def get_info():
 
         if result.returncode != 0:
             if last_err == '__BOT_DETECTED__':
-                # Piped API fallback
                 video_id = _extract_video_id(url)
                 if video_id:
+                    # Piped fallback
                     pd = piped_get_streams(video_id)
                     if pd and not pd.get('error'):
                         dur = int(pd.get('duration', 0))
@@ -583,6 +719,23 @@ def get_info():
                             'duration':     f'{m}:{s:02d}',
                             'duration_sec': dur,
                             'uploader':     pd.get('uploader', ''),
+                            'url':          url,
+                        })
+                    # Invidious fallback
+                    iv = invidious_get_streams(video_id)
+                    if iv:
+                        dur = int(iv.get('lengthSeconds', 0))
+                        m, s = divmod(dur, 60)
+                        thumb = next(
+                            (t['url'] for t in iv.get('videoThumbnails', [])
+                             if t.get('quality') in ('maxresdefault', 'sddefault', 'high', 'medium')),
+                            '')
+                        return jsonify({
+                            'title':        iv.get('title', 'Unknown Title'),
+                            'thumbnail':    thumb,
+                            'duration':     f'{m}:{s:02d}',
+                            'duration_sec': dur,
+                            'uploader':     iv.get('author', ''),
                             'url':          url,
                         })
             err_text = 'Video unavailable. Please try again in a moment.' if last_err == '__BOT_DETECTED__' else last_err
