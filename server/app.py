@@ -122,7 +122,51 @@ class ProxyRotator:
         handler = urllib.request.ProxyHandler({'http': p, 'https': p})
         return urllib.request.build_opener(handler)
 
-_proxy_rotator = ProxyRotator(_PROXY_LIST)
+_proxy_rotator   = ProxyRotator(_PROXY_LIST)
+_proxy_log       = []          # live event log
+_proxy_log_lock  = threading.Lock()
+_proxy_rotations = 0           # total rotation counter
+
+_COUNTRY_MAP = {
+    'gb':'🇬🇧 UK','ca':'🇨🇦 Canada','de':'🇩🇪 Germany','fr':'🇫🇷 France',
+    'au':'🇦🇺 Australia','nl':'🇳🇱 Netherlands','it':'🇮🇹 Italy',
+    'es':'🇪🇸 Spain','be':'🇧🇪 Belgium','at':'🇦🇹 Austria',
+    'ch':'🇨🇭 Switzerland','se':'🇸🇪 Sweden','no':'🇳🇴 Norway',
+    'dk':'🇩🇰 Denmark','fi':'🇫🇮 Finland','ie':'🇮🇪 Ireland',
+    'pt':'🇵🇹 Portugal','nz':'🇳🇿 New Zealand','pl':'🇵🇱 Poland',
+    'kr':'🇰🇷 Korea','jp':'🇯🇵 Japan','br':'🇧🇷 Brazil',
+    'mx':'🇲🇽 Mexico','in':'🇮🇳 India','sg':'🇸🇬 Singapore',
+    'hk':'🇭🇰 Hong Kong','za':'🇿🇦 S.Africa','ar':'🇦🇷 Argentina',
+    'cl':'🇨🇱 Chile','us':'🇺🇸 USA',
+}
+
+def _proxy_label(proxy):
+    try:
+        user = proxy.split('@')[0].split('://')[-1].split(':')[0]
+        parts = user.split('-')
+        cc = parts[1] if len(parts) > 1 else '??'
+        num = parts[2] if len(parts) > 2 else '?'
+        country = _COUNTRY_MAP.get(cc, f'🌐 {cc.upper()}')
+        return user, country, num
+    except Exception:
+        return proxy, '🌐 Unknown', '?'
+
+def _log_proxy_event(proxy, result, detail=''):
+    global _proxy_rotations
+    user, country, num = _proxy_label(proxy)
+    with _proxy_log_lock:
+        if result in ('rotated', 'blocked'):
+            _proxy_rotations += 1
+        _proxy_log.insert(0, {
+            'time':    time.strftime('%H:%M:%S'),
+            'user':    user,
+            'country': country,
+            'num':     num,
+            'result':  result,
+            'detail':  detail[:100],
+        })
+        if len(_proxy_log) > 200:
+            _proxy_log.pop()
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -856,24 +900,25 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         for _attempt in range(len(_PROXY_LIST) + 1):
             proxy = _proxy_rotator.get()
             if proxy in tried_proxies:
-                _proxy_rotator.rotate()
-                proxy = _proxy_rotator.get()
-                if proxy in tried_proxies:
-                    break
+                break
             tried_proxies.add(proxy)
+            _log_proxy_event(proxy, 'trying', f'attempt {_attempt+1} — {fmt.upper()} {quality}')
             cmd    = build_cmd(url, tmpl, quality, fmt, proxy)
             rc, serr = _run_ytdlp(cmd, job_id)
             if rc == 0:
+                _log_proxy_event(proxy, 'success', f'{fmt.upper()} {quality} done')
                 break
             if serr == 'timeout':
+                _log_proxy_event(proxy, 'timeout', 'job timed out')
                 _set_job(job_id, {'status': 'error',
                                   'error': 'Download timed out. The video may be too long.'})
                 return
             err_type = parse_ytdlp_error(serr)
             if err_type != '__BOT__':
+                _log_proxy_event(proxy, 'error', err_type)
                 break
+            _log_proxy_event(proxy, 'blocked', 'YouTube blocked — rotating IP')
             _proxy_rotator.mark_failed(proxy)
-            _proxy_rotator.rotate()
             for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
                 try: os.remove(f)
                 except: pass
@@ -952,6 +997,122 @@ def _404(e):
 @app.route('/ping')
 def ping():
     return 'pong', 200
+
+@app.route('/proxy-status')
+def proxy_status():
+    with _proxy_rotator._lock:
+        active = len(_proxy_rotator._pool)
+        total  = len(_proxy_rotator._all)
+        idx    = _proxy_rotator._idx
+        pool   = list(_proxy_rotator._pool)
+    next_proxy = pool[idx % len(pool)] if pool else None
+    next_user, next_country, _ = _proxy_label(next_proxy) if next_proxy else ('—','—','—')
+    with _proxy_log_lock:
+        log  = list(_proxy_log[:100])
+        rots = _proxy_rotations
+    return jsonify({
+        'active': active, 'total': total,
+        'rotations': rots,
+        'next': next_user, 'next_country': next_country,
+        'log': log,
+    })
+
+_CONSOLE_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Proxy Console — YT MP3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07070f;color:#eeeeff;font-family:'Courier New',monospace;font-size:13px;min-height:100vh}
+header{background:#0e0e1c;border-bottom:1px solid #252548;padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:1rem;font-weight:900;letter-spacing:.05em;color:#8b5cf6}
+.stats{display:flex;gap:20px;flex-wrap:wrap;margin-left:auto}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px}
+.stat-val{font-size:1.3rem;font-weight:900;color:#10b981}
+.stat-val.red{color:#ef4444}
+.stat-val.blue{color:#3b82f6}
+.stat-lbl{font-size:.65rem;color:#60608a;letter-spacing:.08em;text-transform:uppercase}
+.next-box{background:#14142a;border:1px solid #252548;border-radius:8px;padding:10px 18px;margin:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.next-lbl{font-size:.7rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em}
+.next-val{color:#b39dfd;font-weight:700;font-size:.95rem}
+.next-country{color:#7db8fb;font-size:.85rem}
+.log-header{padding:10px 24px;font-size:.65rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #14142a;display:grid;grid-template-columns:70px 160px 120px 80px 1fr;gap:8px}
+.log-body{overflow-y:auto;max-height:calc(100vh - 210px)}
+.row{display:grid;grid-template-columns:70px 160px 120px 80px 1fr;gap:8px;padding:7px 24px;border-bottom:1px solid #0e0e1c;align-items:center;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;background:#1c1c38}to{opacity:1;background:transparent}}
+.row:hover{background:#0e0e1c}
+.t{color:#60608a}
+.c{color:#eeeeff}
+.u{color:#b39dfd;font-size:.8rem}
+.d{color:#60608a;font-size:.78rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.badge.success{background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)}
+.badge.trying{background:rgba(139,92,246,.12);color:#8b5cf6;border:1px solid rgba(139,92,246,.25)}
+.badge.blocked{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.badge.rotated{background:rgba(59,130,246,.12);color:#3b82f6;border:1px solid rgba(59,130,246,.25)}
+.badge.error{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.badge.timeout{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25)}
+.empty{padding:40px;text-align:center;color:#60608a}
+.dot{width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;animation:blink 2s ease-in-out infinite;margin-right:6px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span>
+  <h1>▶ YT MP3 — Proxy Console</h1>
+  <div class="stats">
+    <div class="stat"><span class="stat-val" id="sActive">—</span><span class="stat-lbl">Active IPs</span></div>
+    <div class="stat"><span class="stat-val blue" id="sTotal">—</span><span class="stat-lbl">Total Pool</span></div>
+    <div class="stat"><span class="stat-val red" id="sFailed">—</span><span class="stat-lbl">Failed</span></div>
+    <div class="stat"><span class="stat-val" id="sRot">—</span><span class="stat-lbl">Rotations</span></div>
+  </div>
+</header>
+<div class="next-box">
+  <span class="next-lbl">Next Proxy →</span>
+  <span class="next-country" id="nCountry">—</span>
+  <span class="next-val" id="nUser">—</span>
+</div>
+<div class="log-header">
+  <span>Time</span><span>Country</span><span>Username</span><span>Status</span><span>Detail</span>
+</div>
+<div class="log-body" id="logBody">
+  <div class="empty">Waiting for proxy events…</div>
+</div>
+<script>
+async function refresh(){
+  try{
+    const r=await fetch('/proxy-status');
+    const d=await r.json();
+    document.getElementById('sActive').textContent=d.active;
+    document.getElementById('sTotal').textContent=d.total;
+    document.getElementById('sFailed').textContent=d.total-d.active;
+    document.getElementById('sRot').textContent=d.rotations;
+    document.getElementById('nCountry').textContent=d.next_country;
+    document.getElementById('nUser').textContent=d.next;
+    const body=document.getElementById('logBody');
+    if(!d.log||!d.log.length){return;}
+    body.innerHTML=d.log.map(e=>`
+      <div class="row">
+        <span class="t">${e.time}</span>
+        <span class="c">${e.country}</span>
+        <span class="u">${e.user}</span>
+        <span><span class="badge ${e.result}">${e.result}</span></span>
+        <span class="d">${e.detail}</span>
+      </div>`).join('');
+  }catch(e){}
+}
+refresh();
+setInterval(refresh,2000);
+</script>
+</body>
+</html>'''
+
+@app.route('/console')
+def console():
+    return _CONSOLE_HTML, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 @app.route('/')
 def index():
