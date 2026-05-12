@@ -873,52 +873,63 @@ def _client_ip():
             .split(',')[0].strip() or request.remote_addr or 'unknown')
 
 
-# ── Main worker: Piped → PyTubefix → yt-dlp → Invidious ─────────────────────
+# ── Main worker: Piped → PyTubefix → yt-dlp → Cobalt → Invidious ────────────
 
 def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                quality='320K', fmt='mp3'):
     _set_job(job_id, {'status': 'processing', 'progress': 0})
     video_id = _extract_video_id(url)
 
+    # Always grab a fresh proxy at job start — rotates for every user
+    job_proxy = _proxy_rotator.get()
+    _log_proxy_event(job_proxy, 'rotated', f'New job → {fmt.upper()} {quality}')
+
     try:
         # 1. Piped (fastest, no bot detection)
         if video_id:
+            _log_proxy_event(job_proxy, 'trying', 'Backend: Piped API')
             if piped_download(job_id, video_id, url,
                               prefetched_title, prefetched_uploader, quality, fmt):
+                _log_proxy_event(job_proxy, 'success', 'Piped API — done ✓')
                 return
+            _log_proxy_event(job_proxy, 'blocked', 'Piped failed — switching backend')
 
-        # 2. PyTubefix (different extraction path)
+        # 2. PyTubefix
+        job_proxy = _proxy_rotator.get()
+        _log_proxy_event(job_proxy, 'rotated', 'Backend: PyTubefix')
         _set_job(job_id, {'progress': 0})
         if pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
+            _log_proxy_event(job_proxy, 'success', 'PyTubefix — done ✓')
             return
+        _log_proxy_event(job_proxy, 'blocked', 'PyTubefix failed — switching to yt-dlp')
 
-        # 3. yt-dlp — rotate through all proxies on bot errors
-        file_id  = str(uuid.uuid4())
-        tmpl     = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
-        rc, serr = -1, ''
+        # 3. yt-dlp — cycle through all proxies on bot block
+        file_id      = str(uuid.uuid4())
+        tmpl         = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
+        rc, serr     = -1, ''
         tried_proxies = set()
         for _attempt in range(len(_PROXY_LIST) + 1):
-            proxy = _proxy_rotator.get()
-            if proxy in tried_proxies:
+            job_proxy = _proxy_rotator.get()
+            if job_proxy in tried_proxies:
                 break
-            tried_proxies.add(proxy)
-            _log_proxy_event(proxy, 'trying', f'attempt {_attempt+1} — {fmt.upper()} {quality}')
-            cmd    = build_cmd(url, tmpl, quality, fmt, proxy)
-            rc, serr = _run_ytdlp(cmd, job_id)
+            tried_proxies.add(job_proxy)
+            _log_proxy_event(job_proxy, 'trying', f'yt-dlp attempt {_attempt+1}/{len(_PROXY_LIST)}')
+            cmd       = build_cmd(url, tmpl, quality, fmt, job_proxy)
+            rc, serr  = _run_ytdlp(cmd, job_id)
             if rc == 0:
-                _log_proxy_event(proxy, 'success', f'{fmt.upper()} {quality} done')
+                _log_proxy_event(job_proxy, 'success', f'yt-dlp {fmt.upper()} {quality} — done ✓')
                 break
             if serr == 'timeout':
-                _log_proxy_event(proxy, 'timeout', 'job timed out')
+                _log_proxy_event(job_proxy, 'timeout', 'yt-dlp timed out')
                 _set_job(job_id, {'status': 'error',
                                   'error': 'Download timed out. The video may be too long.'})
                 return
             err_type = parse_ytdlp_error(serr)
             if err_type != '__BOT__':
-                _log_proxy_event(proxy, 'error', err_type)
+                _log_proxy_event(job_proxy, 'error', f'yt-dlp: {err_type}')
                 break
-            _log_proxy_event(proxy, 'blocked', 'YouTube blocked — rotating IP')
-            _proxy_rotator.mark_failed(proxy)
+            _log_proxy_event(job_proxy, 'blocked', 'YouTube blocked IP — auto-rotating proxy')
+            _proxy_rotator.mark_failed(job_proxy)
             for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
                 try: os.remove(f)
                 except: pass
@@ -953,22 +964,33 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
             return
 
         # 4. Cobalt.tools API
+        job_proxy = _proxy_rotator.get()
+        _log_proxy_event(job_proxy, 'rotated', 'Backend: Cobalt.tools')
         _set_job(job_id, {'progress': 0})
         if cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
+            _log_proxy_event(job_proxy, 'success', 'Cobalt.tools — done ✓')
             return
+        _log_proxy_event(job_proxy, 'blocked', 'Cobalt failed — trying Invidious')
 
         # 5. Invidious last resort
+        job_proxy = _proxy_rotator.get()
+        _log_proxy_event(job_proxy, 'rotated', 'Backend: Invidious (last resort)')
         if video_id and invidious_download(job_id, video_id, url,
                                            prefetched_title, prefetched_uploader, quality, fmt):
+            _log_proxy_event(job_proxy, 'success', 'Invidious — done ✓')
             return
 
         err = parse_ytdlp_error(serr)
+        _log_proxy_event(job_proxy, 'error', 'All backends failed — giving up')
         _set_job(job_id, {'status': 'error',
                            'error': err if err != '__BOT__' else
                            'Video unavailable on this server. Try again — sources rotate automatically.'})
-    except Exception:
+    except Exception as ex:
+        _log_proxy_event(job_proxy if 'job_proxy' in dir() else '', 'error', f'Exception: {ex}')
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
     finally:
+        # Always rotate proxy after job finishes (success or fail)
+        _proxy_rotator.get()
         with url_jobs_lock:
             url_jobs.pop(f'{url}|{fmt}|{quality}', None)
 
@@ -1026,62 +1048,74 @@ _CONSOLE_HTML = '''<!DOCTYPE html>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#07070f;color:#eeeeff;font-family:'Courier New',monospace;font-size:13px;min-height:100vh}
-header{background:#0e0e1c;border-bottom:1px solid #252548;padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-header h1{font-size:1rem;font-weight:900;letter-spacing:.05em;color:#8b5cf6}
-.stats{display:flex;gap:20px;flex-wrap:wrap;margin-left:auto}
+header{background:#0e0e1c;border-bottom:1px solid #252548;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:.95rem;font-weight:900;letter-spacing:.05em;color:#8b5cf6}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto}
 .stat{display:flex;flex-direction:column;align-items:center;gap:2px}
-.stat-val{font-size:1.3rem;font-weight:900;color:#10b981}
-.stat-val.red{color:#ef4444}
-.stat-val.blue{color:#3b82f6}
-.stat-lbl{font-size:.65rem;color:#60608a;letter-spacing:.08em;text-transform:uppercase}
-.next-box{background:#14142a;border:1px solid #252548;border-radius:8px;padding:10px 18px;margin:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.next-lbl{font-size:.7rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em}
-.next-val{color:#b39dfd;font-weight:700;font-size:.95rem}
-.next-country{color:#7db8fb;font-size:.85rem}
-.log-header{padding:10px 24px;font-size:.65rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #14142a;display:grid;grid-template-columns:70px 160px 120px 80px 1fr;gap:8px}
-.log-body{overflow-y:auto;max-height:calc(100vh - 210px)}
-.row{display:grid;grid-template-columns:70px 160px 120px 80px 1fr;gap:8px;padding:7px 24px;border-bottom:1px solid #0e0e1c;align-items:center;animation:fadeIn .3s ease}
+.stat-val{font-size:1.2rem;font-weight:900;color:#10b981}
+.stat-val.red{color:#ef4444}.stat-val.blue{color:#3b82f6}.stat-val.gold{color:#f59e0b}
+.stat-lbl{font-size:.6rem;color:#60608a;letter-spacing:.08em;text-transform:uppercase}
+.toolbar{background:#0e0e1c;border-bottom:1px solid #14142a;padding:8px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.next-lbl{font-size:.68rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em}
+.next-country{color:#7db8fb;font-size:.82rem;font-weight:700}
+.next-val{color:#b39dfd;font-weight:700;font-size:.88rem}
+.btn{padding:6px 14px;border-radius:6px;border:none;font-family:inherit;font-size:.75rem;font-weight:700;cursor:pointer;letter-spacing:.04em}
+.btn-rotate{background:rgba(59,130,246,.18);color:#3b82f6;border:1px solid rgba(59,130,246,.35)}
+.btn-rotate:hover{background:rgba(59,130,246,.3)}
+.btn-clear{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.btn-clear:hover{background:rgba(239,68,68,.22)}
+.btn-test{background:rgba(16,185,129,.14);color:#10b981;border:1px solid rgba(16,185,129,.3)}
+.btn-test:hover{background:rgba(16,185,129,.26)}
+.auto-badge{font-size:.68rem;color:#10b981;margin-left:auto;display:flex;align-items:center;gap:5px}
+.log-header{padding:8px 20px;font-size:.6rem;color:#60608a;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid #14142a;display:grid;grid-template-columns:65px 150px 140px 75px 1fr;gap:8px}
+.log-body{overflow-y:auto;max-height:calc(100vh - 185px)}
+.row{display:grid;grid-template-columns:65px 150px 140px 75px 1fr;gap:8px;padding:6px 20px;border-bottom:1px solid #0a0a18;align-items:center;animation:fadeIn .4s ease}
 @keyframes fadeIn{from{opacity:0;background:#1c1c38}to{opacity:1;background:transparent}}
 .row:hover{background:#0e0e1c}
-.t{color:#60608a}
-.c{color:#eeeeff}
-.u{color:#b39dfd;font-size:.8rem}
-.d{color:#60608a;font-size:.78rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.t{color:#404060;font-size:.78rem}
+.c{color:#eeeeff;font-size:.82rem}
+.u{color:#b39dfd;font-size:.78rem}
+.d{color:#505070;font-size:.76rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.62rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
 .badge.success{background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)}
-.badge.trying{background:rgba(139,92,246,.12);color:#8b5cf6;border:1px solid rgba(139,92,246,.25)}
-.badge.blocked{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
-.badge.rotated{background:rgba(59,130,246,.12);color:#3b82f6;border:1px solid rgba(59,130,246,.25)}
-.badge.error{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
-.badge.timeout{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25)}
-.empty{padding:40px;text-align:center;color:#60608a}
-.dot{width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;animation:blink 2s ease-in-out infinite;margin-right:6px}
+.badge.trying{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25)}
+.badge.blocked{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+.badge.rotated{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25)}
+.badge.error{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+.badge.timeout{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+.badge.job_start{background:rgba(16,185,129,.08);color:#6ee7b7;border:1px solid rgba(16,185,129,.18)}
+.empty{padding:48px;text-align:center;color:#404060;font-size:.85rem}
+.dot{width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block;animation:blink 2s ease-in-out infinite;margin-right:6px;vertical-align:middle}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 </style>
 </head>
 <body>
 <header>
   <span class="dot"></span>
-  <h1>▶ YT MP3 — Proxy Console</h1>
+  <h1>▶ YT MP3 — Live Proxy Console</h1>
   <div class="stats">
     <div class="stat"><span class="stat-val" id="sActive">—</span><span class="stat-lbl">Active IPs</span></div>
-    <div class="stat"><span class="stat-val blue" id="sTotal">—</span><span class="stat-lbl">Total Pool</span></div>
+    <div class="stat"><span class="stat-val blue" id="sTotal">—</span><span class="stat-lbl">Pool Size</span></div>
     <div class="stat"><span class="stat-val red" id="sFailed">—</span><span class="stat-lbl">Failed</span></div>
-    <div class="stat"><span class="stat-val" id="sRot">—</span><span class="stat-lbl">Rotations</span></div>
+    <div class="stat"><span class="stat-val gold" id="sRot">—</span><span class="stat-lbl">Rotations</span></div>
   </div>
 </header>
-<div class="next-box">
-  <span class="next-lbl">Next Proxy →</span>
+<div class="toolbar">
+  <span class="next-lbl">Next IP →</span>
   <span class="next-country" id="nCountry">—</span>
   <span class="next-val" id="nUser">—</span>
+  <button class="btn btn-rotate" onclick="forceRotate()">⟳ Force Rotate</button>
+  <button class="btn btn-clear" onclick="clearLog()">✕ Clear Log</button>
+  <span class="auto-badge"><span class="dot" style="width:5px;height:5px;margin:0"></span> Auto-refresh 2s</span>
 </div>
 <div class="log-header">
   <span>Time</span><span>Country</span><span>Username</span><span>Status</span><span>Detail</span>
 </div>
 <div class="log-body" id="logBody">
-  <div class="empty">Waiting for proxy events…</div>
+  <div class="empty">⏳ Waiting for download events — try converting a video on the main page</div>
 </div>
 <script>
+let _lastLog=[];
 async function refresh(){
   try{
     const r=await fetch('/proxy-status');
@@ -1090,19 +1124,27 @@ async function refresh(){
     document.getElementById('sTotal').textContent=d.total;
     document.getElementById('sFailed').textContent=d.total-d.active;
     document.getElementById('sRot').textContent=d.rotations;
-    document.getElementById('nCountry').textContent=d.next_country;
-    document.getElementById('nUser').textContent=d.next;
-    const body=document.getElementById('logBody');
-    if(!d.log||!d.log.length){return;}
-    body.innerHTML=d.log.map(e=>`
+    document.getElementById('nCountry').textContent=d.next_country||'—';
+    document.getElementById('nUser').textContent=d.next||'—';
+    if(!d.log||!d.log.length)return;
+    if(JSON.stringify(d.log[0])===JSON.stringify(_lastLog[0]))return;
+    _lastLog=d.log;
+    document.getElementById('logBody').innerHTML=d.log.map(e=>`
       <div class="row">
         <span class="t">${e.time}</span>
         <span class="c">${e.country}</span>
         <span class="u">${e.user}</span>
         <span><span class="badge ${e.result}">${e.result}</span></span>
-        <span class="d">${e.detail}</span>
+        <span class="d" title="${e.detail}">${e.detail}</span>
       </div>`).join('');
-  }catch(e){}
+  }catch(err){}
+}
+async function forceRotate(){
+  await fetch('/proxy-rotate',{method:'POST'});
+  await refresh();
+}
+function clearLog(){
+  fetch('/proxy-clear',{method:'POST'}).then(refresh);
 }
 refresh();
 setInterval(refresh,2000);
@@ -1113,6 +1155,18 @@ setInterval(refresh,2000);
 @app.route('/console')
 def console():
     return _CONSOLE_HTML, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+@app.route('/proxy-rotate', methods=['POST'])
+def proxy_rotate():
+    p = _proxy_rotator.get()
+    _log_proxy_event(p, 'rotated', 'Manual rotate via console')
+    return jsonify({'ok': True})
+
+@app.route('/proxy-clear', methods=['POST'])
+def proxy_clear():
+    with _proxy_log_lock:
+        _proxy_log.clear()
+    return jsonify({'ok': True})
 
 @app.route('/')
 def index():
