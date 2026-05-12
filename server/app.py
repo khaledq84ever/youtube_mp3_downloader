@@ -283,8 +283,10 @@ def parse_ytdlp_error(stderr):
     err = (stderr or '').lower()
     if 'sign in' in err or 'confirm you' in err or 'bot' in err:
         return '__BOT__'
-    if '402' in err or 'payment required' in err or 'po token' in err:
+    if 'po token' in err:
         return '__BOT__'
+    if '402' in err or 'payment required' in err:
+        return '__PROXY_EXPIRED__'   # proxy subscription expired — skip, don't loop
     if 'age' in err and ('restrict' in err or 'gate' in err or '-restricted' in err):
         return 'This video is age-restricted and cannot be downloaded.'
     if 'private video' in err or ('private' in err and 'video' in err):
@@ -906,40 +908,69 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
             return
         _log_proxy_event(job_proxy, 'blocked', 'PyTubefix failed — switching to yt-dlp')
 
-        # 3. yt-dlp — cycle through proxies (capped at MAX_YTDLP_TRIES)
-        _set_job(job_id, {'progress': 5})   # show movement to user
+        # 3. yt-dlp — try WITHOUT proxy first (server IP may work), then proxies
+        _set_job(job_id, {'progress': 5})
         file_id      = str(uuid.uuid4())
         tmpl         = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
         rc, serr     = -1, ''
         tried_proxies = set()
         _job_start = time.time()
-        for _attempt in range(MAX_YTDLP_TRIES):
-            # Global job timeout — bail early if we've been running too long
+
+        # Attempt list: None (no proxy) first, then up to MAX_YTDLP_TRIES proxies
+        proxy_attempts = [None] + [None] * MAX_YTDLP_TRIES  # slots filled below
+        for _attempt in range(MAX_YTDLP_TRIES + 1):
+            # Global job timeout
             if time.time() - _job_start > GLOBAL_JOB_TTL:
                 _set_job(job_id, {'status': 'error',
                                   'error': 'Conversion timed out. Please try again.'})
                 return
-            job_proxy = _proxy_rotator.get()
-            if job_proxy in tried_proxies:
-                break
-            tried_proxies.add(job_proxy)
-            _log_proxy_event(job_proxy, 'trying', f'yt-dlp attempt {_attempt+1}/{len(_PROXY_LIST)}')
-            cmd       = build_cmd(url, tmpl, quality, fmt, job_proxy)
-            rc, serr  = _run_ytdlp(cmd, job_id)
+
+            # First attempt: no proxy
+            if _attempt == 0:
+                job_proxy = None
+                _log_proxy_event('direct', 'trying', f'yt-dlp attempt 1 — no proxy (direct IP)')
+            else:
+                job_proxy = _proxy_rotator.get()
+                if job_proxy in tried_proxies:
+                    break
+                tried_proxies.add(job_proxy)
+                _log_proxy_event(job_proxy, 'trying', f'yt-dlp attempt {_attempt+1} — proxy')
+
+            cmd      = build_cmd(url, tmpl, quality, fmt, job_proxy)
+            rc, serr = _run_ytdlp(cmd, job_id)
+
             if rc == 0:
-                _log_proxy_event(job_proxy, 'success', f'yt-dlp {fmt.upper()} {quality} — done ✓')
+                label = 'direct' if job_proxy is None else job_proxy
+                _log_proxy_event(label, 'success', f'yt-dlp {fmt.upper()} {quality} — done ✓')
                 break
+
             if serr == 'timeout':
-                _log_proxy_event(job_proxy, 'timeout', 'yt-dlp timed out')
+                label = 'direct' if job_proxy is None else job_proxy
+                _log_proxy_event(label, 'timeout', 'yt-dlp timed out')
+                if job_proxy is None and _attempt == 0:
+                    continue  # direct timed out, try proxies
                 _set_job(job_id, {'status': 'error',
                                   'error': 'Download timed out. The video may be too long.'})
                 return
+
             err_type = parse_ytdlp_error(serr)
+
+            # Proxy subscription expired — mark failed and continue to next attempt
+            if err_type == '__PROXY_EXPIRED__':
+                if job_proxy:
+                    _proxy_rotator.mark_failed(job_proxy)
+                _log_proxy_event(job_proxy or 'direct', 'error', 'Proxy expired (402) — skipping')
+                continue
+
             if err_type != '__BOT__':
-                _log_proxy_event(job_proxy, 'error', f'yt-dlp: {err_type}')
+                label = 'direct' if job_proxy is None else job_proxy
+                _log_proxy_event(label, 'error', f'yt-dlp: {err_type}')
                 break
-            _log_proxy_event(job_proxy, 'blocked', 'YouTube blocked IP — auto-rotating proxy')
-            _proxy_rotator.mark_failed(job_proxy)
+
+            label = 'direct' if job_proxy is None else job_proxy
+            _log_proxy_event(label, 'blocked', 'YouTube blocked — rotating')
+            if job_proxy:
+                _proxy_rotator.mark_failed(job_proxy)
             for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
                 try: os.remove(f)
                 except: pass
