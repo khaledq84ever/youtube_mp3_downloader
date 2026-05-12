@@ -3,6 +3,7 @@ from flask_cors import CORS
 import subprocess, os, uuid, json, re, glob, threading, time, shutil
 import urllib.parse, urllib.request
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import static_ffmpeg
@@ -70,9 +71,9 @@ threading.Thread(target=_start_bgutil_server, daemon=True).start()
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 30            # 30 s per yt-dlp attempt (was 120)
-MAX_YTDLP_TRIES = 10            # max proxy attempts for yt-dlp
-GLOBAL_JOB_TTL  = 120           # give up entire job after 120 s
+JOB_TIMEOUT     = 90            # 90 s per yt-dlp attempt
+MAX_YTDLP_TRIES = 8             # max proxy attempts for yt-dlp
+GLOBAL_JOB_TTL  = 600           # give up entire job after 10 min
 RATE_LIMIT      = 30            # per minute per IP
 COOKIES_FILE    = '/tmp/yt_cookies.txt'
 
@@ -219,10 +220,27 @@ def _log_proxy_event(proxy, result, detail=''):
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-_yt_cookies_env = os.environ.get('YOUTUBE_COOKIES', '')
-if _yt_cookies_env:
-    with open(COOKIES_FILE, 'w') as _f:
-        _f.write(_yt_cookies_env)
+def _init_cookies():
+    # 1. From Railway env var
+    env_cookies = os.environ.get('YOUTUBE_COOKIES', '')
+    if env_cookies:
+        with open(COOKIES_FILE, 'w') as f:
+            f.write(env_cookies)
+        print('[cookies] Loaded from YOUTUBE_COOKIES env var')
+        return
+    # 2. Auto-detect from common file paths
+    for path in [
+        os.path.join(_HERE, 'cookies.txt'),
+        os.path.join(os.path.dirname(_HERE), 'cookies.txt'),
+        '/app/cookies.txt',
+        '/tmp/cookies.txt',
+    ]:
+        if os.path.isfile(path) and os.path.getsize(path) > 10:
+            shutil.copy(path, COOKIES_FILE)
+            print(f'[cookies] Auto-loaded from {path}')
+            return
+
+_init_cookies()
 
 def _cookies_args():
     if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 10:
@@ -436,6 +454,31 @@ def _ensure_sources_fresh():
         threading.Thread(target=_probe_sources, daemon=True).start()
 
 threading.Thread(target=_probe_sources, daemon=True).start()
+
+
+# ── Proxy startup probe — auto-remove dead proxies ────────────────────────────
+
+def _probe_proxies():
+    test_url = 'https://www.youtube.com/robots.txt'
+
+    def _check(proxy):
+        try:
+            opener = _proxy_rotator.opener(proxy)
+            with opener.open(test_url, timeout=8) as r:
+                return proxy, r.getcode() in (200, 301, 302)
+        except Exception:
+            return proxy, False
+
+    with ThreadPoolExecutor(max_workers=20) as ex:
+        for proxy, ok in ex.map(_check, _PROXY_LIST):
+            if not ok:
+                _proxy_rotator.mark_failed(proxy)
+
+    with _proxy_rotator._lock:
+        active = len(_proxy_rotator._pool)
+    print(f'[proxy] Startup probe done: {active}/{len(_PROXY_LIST)} proxies alive')
+
+threading.Thread(target=_probe_proxies, daemon=True).start()
 
 
 # ── Piped helpers ─────────────────────────────────────────────────────────────
@@ -1100,7 +1143,7 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                            'error': err if err != '__BOT__' else
                            'Video unavailable on this server. Try again — sources rotate automatically.'})
     except Exception as ex:
-        _log_proxy_event(job_proxy if 'job_proxy' in dir() else '', 'error', f'Exception: {ex}')
+        _log_proxy_event(job_proxy if 'job_proxy' in locals() else '', 'error', f'Exception: {ex}')
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
     finally:
         # Always rotate proxy after job finishes (success or fail)
@@ -1344,9 +1387,10 @@ def sitemap():
 def _yt_info_cmd(url, proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'
     cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
+           '--socket-timeout', '15', '--retries', '2',
            '--extractor-args', f'youtube:player_client={clients}',
-           '--js-runtimes', 'node', url] + _proxy_args(proxy) + _cookies_args()
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+           url] + _proxy_args(proxy) + _cookies_args()
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=45)
 
 @app.route('/info', methods=['POST'])
 def get_info():
