@@ -23,9 +23,9 @@ CORS(app)
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 120)
-MAX_YTDLP_TRIES = 6             # max proxy attempts for yt-dlp (was 49)
-GLOBAL_JOB_TTL  = 90            # give up entire job after 90 s
+JOB_TIMEOUT     = 30            # 30 s per yt-dlp attempt (was 120)
+MAX_YTDLP_TRIES = 10            # max proxy attempts for yt-dlp
+GLOBAL_JOB_TTL  = 120           # give up entire job after 120 s
 RATE_LIMIT      = 30            # per minute per IP
 COOKIES_FILE    = '/tmp/yt_cookies.txt'
 
@@ -946,12 +946,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
 
             if serr == 'timeout':
                 label = 'direct' if job_proxy is None else job_proxy
-                _log_proxy_event(label, 'timeout', 'yt-dlp timed out')
-                if job_proxy is None and _attempt == 0:
-                    continue  # direct timed out, try proxies
-                _set_job(job_id, {'status': 'error',
-                                  'error': 'Download timed out. The video may be too long.'})
-                return
+                _log_proxy_event(label, 'timeout', 'yt-dlp timed out — trying next')
+                # Never exit on single timeout; keep rotating until global TTL
+                if job_proxy:
+                    _proxy_rotator.mark_failed(job_proxy)
+                continue
 
             err_type = parse_ytdlp_error(serr)
 
