@@ -21,11 +21,13 @@ app = Flask(__name__, template_folder=os.path.join(_HERE, 'templates'))
 CORS(app)
 
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
-YTDLP         = os.environ.get('YTDLP_PATH', 'yt-dlp')
-FILE_TTL      = 1800          # 30 min
-JOB_TIMEOUT   = 120           # 2 min per yt-dlp attempt
-RATE_LIMIT    = 30            # per minute per IP
-COOKIES_FILE  = '/tmp/yt_cookies.txt'
+YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
+FILE_TTL        = 1800          # 30 min
+JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 120)
+MAX_YTDLP_TRIES = 6             # max proxy attempts for yt-dlp (was 49)
+GLOBAL_JOB_TTL  = 90            # give up entire job after 90 s
+RATE_LIMIT      = 30            # per minute per IP
+COOKIES_FILE    = '/tmp/yt_cookies.txt'
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
 
@@ -877,7 +879,8 @@ def _client_ip():
 
 def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                quality='320K', fmt='mp3'):
-    _set_job(job_id, {'status': 'processing', 'progress': 0})
+    _set_job(job_id, {'status': 'processing', 'progress': 2})
+    _global_start = time.time()
     video_id = _extract_video_id(url)
 
     # Always grab a fresh proxy at job start — rotates for every user
@@ -903,12 +906,19 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
             return
         _log_proxy_event(job_proxy, 'blocked', 'PyTubefix failed — switching to yt-dlp')
 
-        # 3. yt-dlp — cycle through all proxies on bot block
+        # 3. yt-dlp — cycle through proxies (capped at MAX_YTDLP_TRIES)
+        _set_job(job_id, {'progress': 5})   # show movement to user
         file_id      = str(uuid.uuid4())
         tmpl         = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
         rc, serr     = -1, ''
         tried_proxies = set()
-        for _attempt in range(len(_PROXY_LIST) + 1):
+        _job_start = time.time()
+        for _attempt in range(MAX_YTDLP_TRIES):
+            # Global job timeout — bail early if we've been running too long
+            if time.time() - _job_start > GLOBAL_JOB_TTL:
+                _set_job(job_id, {'status': 'error',
+                                  'error': 'Conversion timed out. Please try again.'})
+                return
             job_proxy = _proxy_rotator.get()
             if job_proxy in tried_proxies:
                 break
@@ -1263,18 +1273,34 @@ def get_info():
         except Exception:
             pass
 
-    # 2. oEmbed (works from any IP) + duration from page
+    # 2. oEmbed (works from any IP) + duration from multiple sources
     if video_id:
         oe = _oembed_info(video_id)
         if oe:
             dur = 0
+            # Try PyTube first (fastest when it works)
             if _PYTUBE_OK:
                 try:
                     dur = PyTube(url).length or 0
                 except Exception:
-                    dur = _yt_duration_from_page(video_id)
-            else:
+                    pass
+            # Try page scrape
+            if not dur:
                 dur = _yt_duration_from_page(video_id)
+            # Try Invidious as reliable fallback for duration
+            if not dur:
+                try:
+                    for inst in (_working_invidious or _ALL_INVIDIOUS[:3]):
+                        req = urllib.request.Request(
+                            f'{inst}/api/v1/videos/{video_id}?fields=lengthSeconds',
+                            headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, timeout=5) as r:
+                            d = json.loads(r.read())
+                        if d.get('lengthSeconds'):
+                            dur = int(d['lengthSeconds'])
+                            break
+                except Exception:
+                    pass
             m, s = divmod(dur, 60)
             return jsonify({
                 'title': oe.get('title', 'Unknown Title'),
