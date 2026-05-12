@@ -94,7 +94,9 @@ class ProxyRotator:
             if not self._pool:
                 self._pool = list(self._all)
                 self._idx  = 0
-            return self._pool[self._idx % len(self._pool)]
+            proxy = self._pool[self._idx % len(self._pool)]
+            self._idx = (self._idx + 1) % len(self._pool)
+            return proxy
 
     def rotate(self):
         with self._lock:
