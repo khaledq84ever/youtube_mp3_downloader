@@ -800,8 +800,29 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
 
 # ── yt-dlp backend ────────────────────────────────────────────────────────────
 
-def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None):
-    clients = 'mweb,tv_embedded,web_creator,android,web'
+def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attempt=0):
+    # Rotate client strategies per attempt — ios+tv_embedded bypass PO-token requirement
+    client_sets = [
+        'ios,tv_embedded',             # attempt 0: most reliable, no cookies needed
+        'tv_embedded,ios',             # attempt 1: same clients, different order
+        'mweb,tv_embedded,android',   # attempt 2: mobile clients
+        'ios,web_creator,android',    # attempt 3
+        'tv_embedded,web_creator',    # attempt 4+
+    ]
+    clients = client_sets[min(attempt, len(client_sets) - 1)]
+
+    base_flags = [
+        '--no-playlist', '--newline', '--geo-bypass', '--no-part',
+        '--extractor-args', f'youtube:player_client={clients}',
+        '--socket-timeout', '15',   # per-connection timeout (not total)
+        '--retries', '2',
+    ]
+    # Add cookies if available (dramatically improves success rate)
+    base_flags += _cookies_args()
+    # Add proxy if given
+    if proxy:
+        base_flags += _proxy_args(proxy)
+
     if fmt == 'mp4':
         q = quality or 'best'
         if q == '720':
@@ -812,16 +833,11 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None):
             fmt_str = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
         else:
             fmt_str = 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-        cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
-               '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', f'youtube:player_client={clients}',
-               '--js-runtimes', 'node'] + _proxy_args(proxy) + _cookies_args()
+        cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4'] + base_flags
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
-               '--audio-quality', quality or '320K',
-               '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-               '--extractor-args', f'youtube:player_client={clients}',
-               '--js-runtimes', 'node'] + _proxy_args(proxy) + _cookies_args()
+               '--audio-quality', quality or '320K'] + base_flags
+
     d = _find_ffmpeg_dir()
     if d:
         cmd += ['--ffmpeg-location', d]
@@ -936,7 +952,7 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 tried_proxies.add(job_proxy)
                 _log_proxy_event(job_proxy, 'trying', f'yt-dlp attempt {_attempt+1} — proxy')
 
-            cmd      = build_cmd(url, tmpl, quality, fmt, job_proxy)
+            cmd      = build_cmd(url, tmpl, quality, fmt, job_proxy, attempt=_attempt)
             rc, serr = _run_ytdlp(cmd, job_id)
 
             if rc == 0:
