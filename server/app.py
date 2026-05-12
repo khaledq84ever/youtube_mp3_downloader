@@ -6,6 +6,12 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
+    from flask_compress import Compress
+    _COMPRESS_OK = True
+except ImportError:
+    _COMPRESS_OK = False
+
+try:
     import static_ffmpeg
     static_ffmpeg.add_paths()
 except Exception:
@@ -20,6 +26,13 @@ except ImportError:
 _HERE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(_HERE, 'templates'))
 CORS(app)
+if _COMPRESS_OK:
+    app.config['COMPRESS_MIMETYPES'] = ['text/html', 'text/css', 'text/javascript',
+                                        'application/javascript', 'application/json',
+                                        'image/svg+xml']
+    app.config['COMPRESS_LEVEL']     = 6
+    app.config['COMPRESS_MIN_SIZE']  = 500
+    Compress(app)
 
 # ── bgutil PO token HTTP server ───────────────────────────────────────────────
 BGUTIL_PORT      = 4416
@@ -383,40 +396,40 @@ def parse_ytdlp_error(stderr):
 
 _ALL_PIPED = [
     'https://pipedapi.kavin.rocks',
-    'https://piped-api.garudalinux.org',
-    'https://api.piped.yt',
-    'https://pipedapi.reallyaweso.me',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.r4fo.com',
+    'https://pipedapi.qdi.fi',
+    'https://pipedapi.smnz.de',
+    'https://pipedapi.ducks.party',
     'https://pipedapi.darkness.services',
-    'https://piped-api.privacy.com.de',
     'https://api.piped.privacydev.net',
-    'https://pipedapi.ngn.tf',
+    'https://pipedapi.drgns.space',
     'https://pipedapi.tokhmi.xyz',
+    'https://api.piped.yt',
+    'https://piped-api.privacy.com.de',
+    'https://pipedapi.reallyaweso.me',
+    'https://pipedapi.ngn.tf',
     'https://pipedapi.moomoo.me',
     'https://watchapi.whatever.social',
-    'https://api.piped.projectsegfau.lt',
-    'https://pipedapi.drgns.space',
-    'https://piped-api.codespace.live',
-    'https://piped.syncpundit.io',
-    'https://pa.il.ax',
 ]
 
 _ALL_INVIDIOUS = [
-    'https://invidious.io.lol',
+    'https://invidious.f5.si',
+    'https://invidious.materialio.us',
+    'https://invidious.einfach.tech',
+    'https://invidious.adminforge.de',
+    'https://invidious.flokinet.to',
+    'https://iv.duti.dev',
+    'https://invidious.nerdvpn.de',
     'https://yewtu.be',
     'https://inv.nadeko.net',
-    'https://invidious.fdn.fr',
-    'https://invidious.nerdvpn.de',
     'https://invidious.privacydev.net',
     'https://iv.datura.network',
     'https://invidious.perennialte.ch',
     'https://invidious.lunar.icu',
-    'https://iv.melmac.space',
     'https://invidious.projectsegfau.lt',
-    'https://inv.tux.pizza',
     'https://invidious.privacyredirect.com',
-    'https://yt.drgnz.club',
     'https://invidious.drgns.space',
-    'https://vid.puffyan.us',
 ]
 
 _working_piped     = []
@@ -1046,16 +1059,20 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     _log_proxy_event(job_proxy, 'rotated', f'New job → {fmt.upper()} {quality}')
 
     try:
-        # 1. Piped (fastest, no bot detection)
-        if video_id:
+        # 1. Piped — only if the probe shows working instances (skip wasted attempt otherwise)
+        with _sources_lock:
+            piped_alive = bool(_working_piped)
+        if video_id and piped_alive:
             _log_proxy_event(job_proxy, 'trying', 'Backend: Piped API')
             if piped_download(job_id, video_id, url,
                               prefetched_title, prefetched_uploader, quality, fmt):
                 _log_proxy_event(job_proxy, 'success', 'Piped API — done ✓')
                 return
             _log_proxy_event(job_proxy, 'blocked', 'Piped failed — switching backend')
+        elif video_id:
+            _log_proxy_event(job_proxy, 'trying', 'Skipping Piped (no live instances)')
 
-        # 2. PyTubefix
+        # 2. PyTubefix (currently the most reliable single source)
         job_proxy = _proxy_rotator.get()
         _log_proxy_event(job_proxy, 'rotated', 'Backend: PyTubefix')
         _set_job(job_id, {'progress': 0})
@@ -1168,13 +1185,16 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
             return
         _log_proxy_event(job_proxy, 'blocked', 'Cobalt failed — trying Invidious')
 
-        # 5. Invidious last resort
-        job_proxy = _proxy_rotator.get()
-        _log_proxy_event(job_proxy, 'rotated', 'Backend: Invidious (last resort)')
-        if video_id and invidious_download(job_id, video_id, url,
-                                           prefetched_title, prefetched_uploader, quality, fmt):
-            _log_proxy_event(job_proxy, 'success', 'Invidious — done ✓')
-            return
+        # 5. Invidious last resort — only if probe shows live instances
+        with _sources_lock:
+            inv_alive = bool(_working_invidious)
+        if video_id and inv_alive:
+            job_proxy = _proxy_rotator.get()
+            _log_proxy_event(job_proxy, 'rotated', 'Backend: Invidious (last resort)')
+            if invidious_download(job_id, video_id, url,
+                                  prefetched_title, prefetched_uploader, quality, fmt):
+                _log_proxy_event(job_proxy, 'success', 'Invidious — done ✓')
+                return
 
         err = parse_ytdlp_error(serr)
         _log_proxy_event(job_proxy, 'error', 'All backends failed — giving up')
@@ -1406,59 +1426,71 @@ _TEST_VIDEO = 'dQw4w9WgXcQ'
 
 @app.route('/test')
 def test_backends():
-    results = {}
+    """Race all 5 backends in parallel — returns in ~time of slowest, not sum."""
+    def _piped():
+        try:
+            pd = piped_get_streams(_TEST_VIDEO)
+            return 'ok' if pd and not pd.get('error') and pd.get('audioStreams') else 'fail'
+        except Exception as e:
+            return f'error: {e}'
 
-    # Piped
-    try:
-        pd = piped_get_streams(_TEST_VIDEO)
-        results['piped'] = 'ok' if pd and not pd.get('error') and pd.get('audioStreams') else 'fail'
-    except Exception as e:
-        results['piped'] = f'error: {e}'
+    def _invidious():
+        try:
+            iv = invidious_get_streams(_TEST_VIDEO)
+            return 'ok' if iv and iv.get('adaptiveFormats') else 'fail'
+        except Exception as e:
+            return f'error: {e}'
 
-    # Invidious
-    try:
-        iv = invidious_get_streams(_TEST_VIDEO)
-        results['invidious'] = 'ok' if iv and iv.get('adaptiveFormats') else 'fail'
-    except Exception as e:
-        results['invidious'] = f'error: {e}'
+    def _ytdlp():
+        try:
+            proxy = _proxy_rotator.get()
+            r = subprocess.run(
+                [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
+                 '--socket-timeout', '10', '--retries', '1',
+                 '--extractor-args', 'youtube:player_client=mweb',
+                 f'https://www.youtube.com/watch?v={_TEST_VIDEO}']
+                + _proxy_args(proxy) + _cookies_args(),
+                capture_output=True, text=True, timeout=15)
+            return 'ok' if r.returncode == 0 else f'fail: {parse_ytdlp_error(r.stderr)}'
+        except Exception as e:
+            return f'error: {e}'
 
-    # yt-dlp (quick check — just dump-json, no download)
-    try:
-        proxy = _proxy_rotator.get()
-        r = subprocess.run(
-            [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
-             '--socket-timeout', '10', '--retries', '1',
-             '--extractor-args', 'youtube:player_client=mweb',
-             f'https://www.youtube.com/watch?v={_TEST_VIDEO}']
-            + _proxy_args(proxy) + _cookies_args(),
-            capture_output=True, text=True, timeout=20)
-        results['ytdlp'] = 'ok' if r.returncode == 0 else f'fail: {parse_ytdlp_error(r.stderr)}'
-    except Exception as e:
-        results['ytdlp'] = f'error: {e}'
-
-    # PyTubefix
-    if _PYTUBE_OK:
+    def _pytubefix():
+        if not _PYTUBE_OK:
+            return 'not installed'
         try:
             yt = PyTube(f'https://www.youtube.com/watch?v={_TEST_VIDEO}', client='WEB')
             _ = yt.streams
-            results['pytubefix'] = 'ok'
+            return 'ok'
         except Exception as e:
-            results['pytubefix'] = f'fail: {e}'
-    else:
-        results['pytubefix'] = 'not installed'
+            return f'fail: {e}'
 
-    # Cobalt
-    try:
-        body = json.dumps({'url': f'https://www.youtube.com/watch?v={_TEST_VIDEO}',
-                           'audioFormat': 'mp3', 'filenameStyle': 'basic'}).encode()
-        req = urllib.request.Request('https://api.cobalt.tools/', data=body,
-            headers={'Accept': 'application/json', 'Content-Type': 'application/json',
-                     'User-Agent': 'Mozilla/5.0'}, method='POST')
-        with urllib.request.urlopen(req, timeout=10) as r:
-            d = json.loads(r.read())
-        results['cobalt'] = 'ok' if d.get('status') in ('stream','tunnel','redirect','picker') else f"fail: {d.get('status')}"
-    except Exception as e:
-        results['cobalt'] = f'error: {e}'
+    def _cobalt():
+        try:
+            body = json.dumps({'url': f'https://www.youtube.com/watch?v={_TEST_VIDEO}',
+                               'audioFormat': 'mp3', 'filenameStyle': 'basic'}).encode()
+            req = urllib.request.Request('https://api.cobalt.tools/', data=body,
+                headers={'Accept': 'application/json', 'Content-Type': 'application/json',
+                         'User-Agent': 'Mozilla/5.0'}, method='POST')
+            with urllib.request.urlopen(req, timeout=8) as r:
+                d = json.loads(r.read())
+            return 'ok' if d.get('status') in ('stream','tunnel','redirect','picker') else f"fail: {d.get('status')}"
+        except Exception as e:
+            return f'error: {e}'
+
+    fns = {'piped': _piped, 'invidious': _invidious, 'ytdlp': _ytdlp,
+           'pytubefix': _pytubefix, 'cobalt': _cobalt}
+    results = {}
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        futs = {ex.submit(fn): name for name, fn in fns.items()}
+        for fut in as_completed(futs, timeout=20):
+            name = futs[fut]
+            try:
+                results[name] = fut.result()
+            except Exception as e:
+                results[name] = f'error: {e}'
+    for name in fns:
+        results.setdefault(name, 'timeout')
 
     ok_count = sum(1 for v in results.values() if v == 'ok')
     return jsonify({'backends': results, 'ok': ok_count, 'total': len(results)})
@@ -1568,17 +1600,47 @@ def get_info():
                 pass
             return None
 
-        winner = None
-        with ThreadPoolExecutor(max_workers=3) as ex:
-            futures = [ex.submit(fn) for fn in (_piped_info, _oembed_combo, _invidious_info)]
-            for fut in as_completed(futures, timeout=10):
+        def _pytube_info():
+            if not _PYTUBE_OK:
+                return None
+            for client in ('WEB', 'ANDROID_VR', 'MWEB'):
                 try:
-                    res = fut.result()
-                    if res and res.get('title'):
-                        winner = res
-                        break
+                    yt = PyTube(url, client=client)
+                    title = yt.title
+                    if not title:
+                        continue
+                    return {
+                        'title': title,
+                        'thumbnail': yt.thumbnail_url or f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+                        'duration_sec': int(yt.length or 0),
+                        'uploader': yt.author or '',
+                    }
                 except Exception:
                     continue
+            return None
+
+        # Race all 4 sources. Prefer first result with both title AND duration > 0.
+        # Fall back to first result with title only if nothing has duration in time.
+        winner_with_dur = None
+        winner_no_dur   = None
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futures = [ex.submit(fn) for fn in (_piped_info, _oembed_combo, _invidious_info, _pytube_info)]
+            try:
+                for fut in as_completed(futures, timeout=12):
+                    try:
+                        res = fut.result()
+                    except Exception:
+                        continue
+                    if not res or not res.get('title'):
+                        continue
+                    if res.get('duration_sec'):
+                        winner_with_dur = res
+                        break
+                    if not winner_no_dur:
+                        winner_no_dur = res
+            except Exception:
+                pass
+        winner = winner_with_dur or winner_no_dur
         if winner:
             dur  = int(winner.get('duration_sec') or 0)
             m, s = divmod(dur, 60)
