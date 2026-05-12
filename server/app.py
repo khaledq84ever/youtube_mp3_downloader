@@ -84,9 +84,9 @@ threading.Thread(target=_start_bgutil_server, daemon=True).start()
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 90            # 90 s per yt-dlp attempt
-MAX_YTDLP_TRIES = 8             # max proxy attempts for yt-dlp
-GLOBAL_JOB_TTL  = 600           # give up entire job after 10 min
+JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 90 — never hits limit when blocked)
+MAX_YTDLP_TRIES = 4             # 4 proxy attempts (was 8 — most blocks repeat across IPs)
+GLOBAL_JOB_TTL  = 180           # give up entire job after 3 min (was 10 — UX killer)
 RATE_LIMIT      = 30            # per minute per IP
 COOKIES_FILE    = '/tmp/yt_cookies.txt'
 
@@ -903,14 +903,38 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
     try:
         _set_job(job_id, {'progress': 5})
         if fmt == 'mp4':
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').last()
-            if not stream:
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').last()
-            if not stream:
-                return False
+            max_h = {'720': 720, '1080': 1080, '4k': 2160}.get(quality, 99999)
             out = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp4')
-            _set_job(job_id, {'progress': 10})
-            stream.download(output_path=DOWNLOAD_DIR, filename=f'{file_id}.mp4')
+
+            # Modern YouTube: progressive streams cap at 720p and often missing.
+            # Try progressive first (single file, fastest), else fall back to
+            # adaptive video-only + audio-only and merge with ffmpeg.
+            prog = [s for s in yt.streams.filter(progressive=True, file_extension='mp4')
+                    if (s.resolution and int(s.resolution.rstrip('p')) <= max_h)]
+            prog.sort(key=lambda s: int(s.resolution.rstrip('p')), reverse=True)
+            if prog:
+                _set_job(job_id, {'progress': 10})
+                prog[0].download(output_path=DOWNLOAD_DIR, filename=f'{file_id}.mp4')
+            else:
+                v_streams = [s for s in yt.streams.filter(adaptive=True, file_extension='mp4', only_video=True)
+                             if (s.resolution and int(s.resolution.rstrip('p')) <= max_h)]
+                v_streams.sort(key=lambda s: int(s.resolution.rstrip('p')), reverse=True)
+                a_stream  = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').last() \
+                            or yt.streams.filter(only_audio=True).order_by('abr').last()
+                if not v_streams or not a_stream:
+                    return False
+                v_tmp = os.path.join(DOWNLOAD_DIR, f'{file_id}_v.mp4')
+                a_tmp = os.path.join(DOWNLOAD_DIR, f'{file_id}_a.{a_stream.subtype or "m4a"}')
+                _set_job(job_id, {'progress': 15})
+                v_streams[0].download(output_path=DOWNLOAD_DIR, filename=os.path.basename(v_tmp))
+                _set_job(job_id, {'progress': 60})
+                a_stream.download(output_path=DOWNLOAD_DIR, filename=os.path.basename(a_tmp))
+                _set_job(job_id, {'progress': 85})
+                if not _ffmpeg_merge(v_tmp, a_tmp, out):
+                    return False
+                for f in (v_tmp, a_tmp):
+                    try: os.remove(f)
+                    except: pass
         else:
             stream = yt.streams.filter(only_audio=True).order_by('abr').last()
             if not stream:
