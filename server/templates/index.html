@@ -790,61 +790,49 @@
     $('sizeBadge').style.display    = 'none';
     currentDownloadUrl = null;
     setConverting(true);
-    setStatus('Fetching video info…');
+    setStatus('Starting…');
 
-    try {
-      const infoRes = await fetch('/info', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-      const info = await infoRes.json();
-      setStatus('');
+    // Fire /info AND /start in parallel — no waiting on info before conversion begins.
+    const infoPromise = fetch('/info', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
 
-      if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info', url); setConverting(false); return; }
+    const startPromise = fetch('/start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, quality: selectedQ, format: selectedFmt })
+    }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
 
-      $('videoThumb').src         = info.thumbnail;
-      $('videoTitle').textContent = info.title;
-      $('videoSub').textContent   = `${info.uploader}  ·  ${info.duration}`;
-
+    // Render info as soon as it lands (does not block conversion)
+    infoPromise.then(({ ok, data }) => {
+      if (!ok) return;
+      $('videoThumb').src         = data.thumbnail;
+      $('videoTitle').textContent = data.title;
+      $('videoSub').textContent   = `${data.uploader}  ·  ${data.duration}`;
       const badgeMap = { '720': 'MP4 720p', '1080': 'MP4 1080p', 'best': 'MP4 Best' };
       $('qualityBadge').textContent = selectedFmt === 'mp4'
         ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
-
-      const sz = estimateSize(info.duration_sec, selectedFmt, selectedQ);
+      const sz = estimateSize(data.duration_sec, selectedFmt, selectedQ);
       if (sz) { $('sizeBadge').textContent = sz; $('sizeBadge').style.display = 'inline-block'; }
-
       $('videoCard').style.display = 'block';
+    }).catch(() => {});
 
-      startStreamDownload(info.url || url, info.title, info.uploader);
+    // Wait only on /start to begin polling
+    try {
+      const { ok, data } = await startPromise;
+      setStatus('');
+      if (!ok) { showSingleError(data.error || 'Failed to start conversion.'); setConverting(false); return; }
+      $('progressWrap').style.display = 'block';
+      $('progressBar').style.width    = '5%';
+      setStatus('Starting conversion…');
+      setConverting(false);
+      $('btnReset').style.display = 'block';
+      pollJob(data.job_id);
     } catch {
       setStatus('');
       showSingleError('Network error. Please try again.');
       setConverting(false);
     }
-  }
-
-  async function startStreamDownload(videoUrl, title, uploader) {
-    $('progressWrap').style.display = 'block';
-    $('progressBar').style.width    = '5%';
-    setStatus('Starting conversion…');
-    setConverting(false);
-    $('btnReset').style.display = 'block';
-
-    let startData;
-    try {
-      const res = await fetch('/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: videoUrl, title, uploader,
-                               quality: selectedQ, format: selectedFmt })
-      });
-      startData = await res.json();
-      if (!res.ok) { showSingleError(startData.error || 'Failed to start conversion.'); return; }
-    } catch {
-      showSingleError('Network error. Please try again.');
-      return;
-    }
-
-    pollJob(startData.job_id, title);
   }
 
   const _convMsgs = [
@@ -855,7 +843,7 @@
     'Finalising file…',
   ];
 
-  function pollJob(jobId, title) {
+  function pollJob(jobId) {
     clearInterval(pollTimer);
     const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
     const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
@@ -908,7 +896,7 @@
           showSingleError(data.error || 'Conversion failed. Please try again.');
         }
       } catch { /* network hiccup — keep polling */ }
-    }, 1500);
+    }, 700);
   }
 
   async function copyDownloadLink() {

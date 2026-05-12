@@ -498,13 +498,13 @@ threading.Thread(target=_probe_proxies, daemon=True).start()
 def piped_get_streams(video_id):
     _ensure_sources_fresh()
     with _sources_lock:
-        instances = list(_working_piped) or _ALL_PIPED[:5]
+        instances = (list(_working_piped) or _ALL_PIPED[:5])[:5]
     for inst in instances:
         try:
             req = urllib.request.Request(
                 f'{inst}/streams/{video_id}',
                 headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'})
-            with urllib.request.urlopen(req, timeout=12) as r:
+            with urllib.request.urlopen(req, timeout=6) as r:
                 data = json.loads(r.read())
             if not data.get('error'):
                 return data
@@ -536,13 +536,13 @@ def _piped_best_video(d, max_h=None):
 def invidious_get_streams(video_id):
     _ensure_sources_fresh()
     with _sources_lock:
-        instances = list(_working_invidious) or _ALL_INVIDIOUS[:5]
+        instances = (list(_working_invidious) or _ALL_INVIDIOUS[:5])[:5]
     for inst in instances:
         try:
             req = urllib.request.Request(
                 f'{inst}/api/v1/videos/{video_id}?fields=title,author,lengthSeconds,adaptiveFormats,videoThumbnails',
                 headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=12) as r:
+            with urllib.request.urlopen(req, timeout=6) as r:
                 data = json.loads(r.read())
             audio = [f for f in data.get('adaptiveFormats', []) if 'audio' in f.get('type', '')]
             if audio:
@@ -1366,8 +1366,16 @@ def index():
     except Exception as exc:
         return f'template error: {exc}', 500
 
+_HEALTH_CACHE      = {'ts': 0, 'data': None}
+_HEALTH_CACHE_LOCK = threading.Lock()
+_HEALTH_TTL        = 30
+
 @app.route('/health')
 def health():
+    now = time.time()
+    with _HEALTH_CACHE_LOCK:
+        if _HEALTH_CACHE['data'] and now - _HEALTH_CACHE['ts'] < _HEALTH_TTL:
+            return jsonify(_HEALTH_CACHE['data'])
     with _sources_lock:
         piped = list(_working_piped)
         inv   = list(_working_invidious)
@@ -1379,7 +1387,7 @@ def health():
         ytdlp_ver = (r.stdout.strip() if isinstance(r.stdout, str) else r.stdout.decode().strip())
     except Exception:
         pass
-    return jsonify({
+    payload = {
         'status':            'ok',
         'yt_dlp_version':    ytdlp_ver,
         'pytubefix':         _PYTUBE_OK,
@@ -1388,7 +1396,11 @@ def health():
         'active_proxies':    active_proxies,
         'total_proxies':     len(_PROXY_LIST),
         'last_probe_ago':    int(time.time() - _last_probe) if _last_probe else None,
-    })
+    }
+    with _HEALTH_CACHE_LOCK:
+        _HEALTH_CACHE['ts']   = now
+        _HEALTH_CACHE['data'] = payload
+    return jsonify(payload)
 
 _TEST_VIDEO = 'dQw4w9WgXcQ'
 
@@ -1509,78 +1521,77 @@ def get_info():
 
     video_id = _extract_video_id(url)
 
-    # 1. Piped (has duration)
+    # Race 3 fast sources in parallel — first winner wins.
+    # Piped, oEmbed, Invidious all return in <2s usually. No more sequential waiting.
     if video_id:
-        try:
-            pd = piped_get_streams(video_id)
-            if pd and not pd.get('error'):
-                dur  = int(pd.get('duration', 0))
-                m, s = divmod(dur, 60)
-                return jsonify({
-                    'title': pd.get('title', 'Unknown Title'),
-                    'thumbnail': pd.get('thumbnailUrl', '') or '',
-                    'duration': f'{m}:{s:02d}', 'duration_sec': dur,
-                    'uploader': pd.get('uploader', ''), 'url': url,
-                })
-        except Exception:
-            pass
+        def _piped_info():
+            try:
+                pd = piped_get_streams(video_id)
+                if pd and not pd.get('error') and pd.get('title'):
+                    dur = int(pd.get('duration', 0))
+                    return {
+                        'title': pd.get('title', 'Unknown Title'),
+                        'thumbnail': pd.get('thumbnailUrl', '') or f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+                        'duration_sec': dur,
+                        'uploader': pd.get('uploader', ''),
+                    }
+            except Exception:
+                pass
+            return None
 
-    # 2. oEmbed (works from any IP) + duration from multiple sources
-    if video_id:
-        oe = _oembed_info(video_id)
-        if oe:
-            dur = 0
-            # Try PyTube first (fastest when it works)
-            if _PYTUBE_OK:
-                try:
-                    dur = PyTube(url).length or 0
-                except Exception:
-                    pass
-            # Try page scrape
-            if not dur:
-                dur = _yt_duration_from_page(video_id)
-            # Try Invidious as reliable fallback for duration
-            if not dur:
-                try:
-                    for inst in (_working_invidious or _ALL_INVIDIOUS[:3]):
-                        req = urllib.request.Request(
-                            f'{inst}/api/v1/videos/{video_id}?fields=lengthSeconds',
-                            headers={'User-Agent': 'Mozilla/5.0'})
-                        with urllib.request.urlopen(req, timeout=5) as r:
-                            d = json.loads(r.read())
-                        if d.get('lengthSeconds'):
-                            dur = int(d['lengthSeconds'])
-                            break
-                except Exception:
-                    pass
-            m, s = divmod(dur, 60)
-            return jsonify({
+        def _oembed_combo():
+            oe = _oembed_info(video_id)
+            if not oe:
+                return None
+            dur = _yt_duration_from_page(video_id) or 0
+            return {
                 'title': oe.get('title', 'Unknown Title'),
                 'thumbnail': oe.get('thumbnail_url') or f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
-                'duration': f'{m}:{s:02d}' if dur else '?:??',
                 'duration_sec': dur,
-                'uploader': oe.get('author_name', ''), 'url': url,
+                'uploader': oe.get('author_name', ''),
+            }
+
+        def _invidious_info():
+            try:
+                iv = invidious_get_streams(video_id)
+                if iv and iv.get('title'):
+                    dur = int(iv.get('lengthSeconds', 0))
+                    thumb = next((t['url'] for t in iv.get('videoThumbnails', [])
+                                  if t.get('quality') in ('maxresdefault', 'sddefault', 'high')), '')
+                    return {
+                        'title': iv.get('title', 'Unknown Title'),
+                        'thumbnail': thumb or f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+                        'duration_sec': dur,
+                        'uploader': iv.get('author', ''),
+                    }
+            except Exception:
+                pass
+            return None
+
+        winner = None
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            futures = [ex.submit(fn) for fn in (_piped_info, _oembed_combo, _invidious_info)]
+            for fut in as_completed(futures, timeout=10):
+                try:
+                    res = fut.result()
+                    if res and res.get('title'):
+                        winner = res
+                        break
+                except Exception:
+                    continue
+        if winner:
+            dur  = int(winner.get('duration_sec') or 0)
+            m, s = divmod(dur, 60)
+            return jsonify({
+                'title':        winner['title'],
+                'thumbnail':    winner['thumbnail'],
+                'duration':     f'{m}:{s:02d}' if dur else '?:??',
+                'duration_sec': dur,
+                'uploader':     winner.get('uploader', ''),
+                'url':          url,
             })
 
-    # 3. Invidious
-    if video_id:
-        try:
-            iv = invidious_get_streams(video_id)
-            if iv:
-                dur  = int(iv.get('lengthSeconds', 0))
-                m, s = divmod(dur, 60)
-                thumb = next((t['url'] for t in iv.get('videoThumbnails', [])
-                              if t.get('quality') in ('maxresdefault', 'sddefault', 'high')), '')
-                return jsonify({
-                    'title': iv.get('title', 'Unknown Title'),
-                    'thumbnail': thumb,
-                    'duration': f'{m}:{s:02d}', 'duration_sec': dur,
-                    'uploader': iv.get('author', ''), 'url': url,
-                })
-        except Exception:
-            pass
-
-    # 4. yt-dlp with proxy rotation
+    # Last resort — yt-dlp with proxy rotation
     try:
         result, last_err = None, '__BOT__'
         _tried = set()
