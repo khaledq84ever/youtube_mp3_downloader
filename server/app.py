@@ -26,7 +26,61 @@ FILE_TTL      = 1800          # 30 min
 JOB_TIMEOUT   = 120           # 2 min per yt-dlp attempt
 RATE_LIMIT    = 10            # per minute per IP
 COOKIES_FILE  = '/tmp/yt_cookies.txt'
-PROXY_URL     = os.environ.get('PROXY_URL', '')
+
+# ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
+
+_PROXY_LIST = [
+    'http://pxosioyq-gb-1:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-ca-2:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-de-3:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-fr-4:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-au-5:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-nl-6:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-it-7:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-es-8:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-be-9:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-at-10:n08bo6f1b3c5@p.webshare.io:80',
+]
+
+class ProxyRotator:
+    def __init__(self, proxies):
+        self._all   = list(proxies)
+        self._pool  = list(proxies)
+        self._idx   = 0
+        self._lock  = threading.Lock()
+
+    def get(self):
+        with self._lock:
+            if not self._pool:
+                self._pool = list(self._all)
+                self._idx  = 0
+            return self._pool[self._idx % len(self._pool)]
+
+    def rotate(self):
+        with self._lock:
+            n = max(len(self._pool), 1)
+            self._idx = (self._idx + 1) % n
+
+    def mark_failed(self, proxy):
+        with self._lock:
+            if proxy in self._pool:
+                self._pool.remove(proxy)
+            if not self._pool:
+                self._pool = list(self._all)
+            self._idx = self._idx % max(len(self._pool), 1)
+
+    def args(self, proxy=None):
+        p = proxy or self.get()
+        return ['--proxy', p] if p else []
+
+    def opener(self, proxy=None):
+        p = proxy or self.get()
+        if not p:
+            return urllib.request.build_opener()
+        handler = urllib.request.ProxyHandler({'http': p, 'https': p})
+        return urllib.request.build_opener(handler)
+
+_proxy_rotator = ProxyRotator(_PROXY_LIST)
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -40,8 +94,8 @@ def _cookies_args():
         return ['--cookies', COOKIES_FILE]
     return []
 
-def _proxy_args():
-    return ['--proxy', PROXY_URL] if PROXY_URL else []
+def _proxy_args(proxy=None):
+    return _proxy_rotator.args(proxy)
 
 jobs          = {}
 jobs_lock     = threading.Lock()
@@ -656,7 +710,7 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
 
 # ── yt-dlp backend ────────────────────────────────────────────────────────────
 
-def build_cmd(url, output_template, quality='320K', fmt='mp3'):
+def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'
     if fmt == 'mp4':
         q = quality or 'best'
@@ -671,13 +725,13 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3'):
         cmd = [YTDLP, '-f', fmt_str, '--merge-output-format', 'mp4',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
                '--extractor-args', f'youtube:player_client={clients}',
-               '--js-runtimes', 'node'] + _proxy_args() + _cookies_args()
+               '--js-runtimes', 'node'] + _proxy_args(proxy) + _cookies_args()
     else:
         cmd = [YTDLP, '-x', '--audio-format', 'mp3',
                '--audio-quality', quality or '320K',
                '--no-playlist', '--newline', '--geo-bypass', '--no-part',
                '--extractor-args', f'youtube:player_client={clients}',
-               '--js-runtimes', 'node'] + _proxy_args() + _cookies_args()
+               '--js-runtimes', 'node'] + _proxy_args(proxy) + _cookies_args()
     d = _find_ffmpeg_dir()
     if d:
         cmd += ['--ffmpeg-location', d]
@@ -752,12 +806,20 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         if pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
             return
 
-        # 3. yt-dlp (retries twice with different clients)
+        # 3. yt-dlp — rotate through all proxies on bot errors
         file_id  = str(uuid.uuid4())
         tmpl     = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
         rc, serr = -1, ''
-        for _ in range(2):
-            cmd    = build_cmd(url, tmpl, quality, fmt)
+        tried_proxies = set()
+        for _attempt in range(len(_PROXY_LIST) + 1):
+            proxy = _proxy_rotator.get()
+            if proxy in tried_proxies:
+                _proxy_rotator.rotate()
+                proxy = _proxy_rotator.get()
+                if proxy in tried_proxies:
+                    break
+            tried_proxies.add(proxy)
+            cmd    = build_cmd(url, tmpl, quality, fmt, proxy)
             rc, serr = _run_ytdlp(cmd, job_id)
             if rc == 0:
                 break
@@ -765,8 +827,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 _set_job(job_id, {'status': 'error',
                                   'error': 'Download timed out. The video may be too long.'})
                 return
-            if parse_ytdlp_error(serr) != '__BOT__':
+            err_type = parse_ytdlp_error(serr)
+            if err_type != '__BOT__':
                 break
+            _proxy_rotator.mark_failed(proxy)
+            _proxy_rotator.rotate()
             for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
                 try: os.remove(f)
                 except: pass
@@ -910,11 +975,11 @@ def sitemap():
             f'<priority>1.0</priority></url></urlset>',
             200, {'Content-Type': 'application/xml'})
 
-def _yt_info_cmd(url):
+def _yt_info_cmd(url, proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'
     cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
            '--extractor-args', f'youtube:player_client={clients}',
-           '--js-runtimes', 'node', url] + _proxy_args() + _cookies_args()
+           '--js-runtimes', 'node', url] + _proxy_args(proxy) + _cookies_args()
     return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
 @app.route('/info', methods=['POST'])
@@ -985,16 +1050,22 @@ def get_info():
         except Exception:
             pass
 
-    # 4. yt-dlp
+    # 4. yt-dlp with proxy rotation
     try:
         result, last_err = None, '__BOT__'
-        for _ in range(2):
-            result   = _yt_info_cmd(url)
+        _tried = set()
+        for _ in range(min(len(_PROXY_LIST), 4)):
+            proxy = _proxy_rotator.get()
+            result   = _yt_info_cmd(url, proxy)
             if result.returncode == 0:
                 break
             last_err = parse_ytdlp_error(result.stderr)
             if last_err != '__BOT__':
                 break
+            if proxy not in _tried:
+                _tried.add(proxy)
+                _proxy_rotator.mark_failed(proxy)
+                _proxy_rotator.rotate()
         if result and result.returncode == 0:
             info     = json.loads(result.stdout)
             duration = info.get('duration', 0)
