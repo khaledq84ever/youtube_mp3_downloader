@@ -1,10 +1,13 @@
 [phases.setup]
-nixPkgs = ["python311", "ffmpeg", "nodejs"]
+nixPkgs = ["python311", "ffmpeg", "nodejs_20"]
 
 [phases.install]
 cmds = [
   "pip install -r server/requirements.txt",
-  "pip install -U yt-dlp"
+  "pip install -U yt-dlp",
+  "git clone --depth=1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-ytdlp-pot-provider || true",
+  "cd /app/bgutil-ytdlp-pot-provider/server && npm install --production 2>/dev/null || true",
+  "cd /app/bgutil-ytdlp-pot-provider/server && npx tsc 2>/dev/null || true"
 ]
 
 [start]

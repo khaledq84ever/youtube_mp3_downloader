@@ -20,6 +20,53 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(_HERE, 'templates'))
 CORS(app)
 
+# ── bgutil PO token HTTP server ───────────────────────────────────────────────
+BGUTIL_PORT      = 4416
+BGUTIL_BASE_URL  = f'http://127.0.0.1:{BGUTIL_PORT}'
+_bgutil_proc     = None
+_bgutil_ready    = False
+
+def _start_bgutil_server():
+    global _bgutil_proc, _bgutil_ready
+    # Look for the bgutil server in common locations
+    search_dirs = [
+        os.path.expanduser('~/bgutil-ytdlp-pot-provider/server'),
+        '/app/bgutil-ytdlp-pot-provider/server',
+        os.path.join(os.path.dirname(_HERE), 'bgutil-ytdlp-pot-provider', 'server'),
+    ]
+    server_dir = None
+    for d in search_dirs:
+        if os.path.isfile(os.path.join(d, 'build', 'main.js')):
+            server_dir = d
+            break
+    if not server_dir:
+        print('[bgutil] Server not found — PO token generation via HTTP unavailable')
+        return
+
+    node = shutil.which('node') or 'node'
+    main_js = os.path.join(server_dir, 'build', 'main.js')
+    try:
+        _bgutil_proc = subprocess.Popen(
+            [node, main_js, '-p', str(BGUTIL_PORT)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        # Wait up to 10 s for the server to come up
+        for _ in range(20):
+            time.sleep(0.5)
+            try:
+                with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=1) as r:
+                    if r.getcode() == 200:
+                        _bgutil_ready = True
+                        print(f'[bgutil] PO Token server ready on port {BGUTIL_PORT}')
+                        return
+            except Exception:
+                pass
+        print('[bgutil] Server started but /ping not responding within 10 s')
+    except Exception as ex:
+        print(f'[bgutil] Failed to start server: {ex}')
+
+threading.Thread(target=_start_bgutil_server, daemon=True).start()
+
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
@@ -801,25 +848,36 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
 # ── yt-dlp backend ────────────────────────────────────────────────────────────
 
 def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attempt=0):
-    # Rotate client strategies per attempt — ios+tv_embedded bypass PO-token requirement
-    client_sets = [
-        'ios,tv_embedded',             # attempt 0: most reliable, no cookies needed
-        'tv_embedded,ios',             # attempt 1: same clients, different order
-        'mweb,tv_embedded,android',   # attempt 2: mobile clients
-        'ios,web_creator,android',    # attempt 3
-        'tv_embedded,web_creator',    # attempt 4+
-    ]
+    has_cookies = os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100
+    bgutil_up   = _bgutil_ready
+
+    # Client strategy depends on what's available
+    if has_cookies:
+        # With cookies: web client works reliably
+        client_sets = ['web', 'mweb,web', 'web,mweb', 'web_creator,web', 'mweb']
+    elif bgutil_up:
+        # With bgutil: web client + PO token fetching
+        client_sets = ['web', 'web,mweb', 'mweb,web', 'web_creator', 'web,web_creator']
+    else:
+        # No cookies, no bgutil: try various clients
+        client_sets = ['mweb', 'mweb,android', 'android,mweb', 'mweb', 'android']
+
     clients = client_sets[min(attempt, len(client_sets) - 1)]
+
+    # Build extractor args
+    ea_parts = [f'player_client={clients}']
+    if bgutil_up and not has_cookies:
+        ea_parts.append('fetch_pot=always')
 
     base_flags = [
         '--no-playlist', '--newline', '--geo-bypass', '--no-part',
-        '--extractor-args', f'youtube:player_client={clients}',
-        '--socket-timeout', '15',   # per-connection timeout (not total)
+        '--extractor-args', f'youtube:{";".join(ea_parts)}',
+        '--socket-timeout', '15',
         '--retries', '2',
     ]
-    # Add cookies if available (dramatically improves success rate)
+    # Cookies dramatically improve success rate
     base_flags += _cookies_args()
-    # Add proxy if given
+    # Add proxy if given and valid (skip expired proxies)
     if proxy:
         base_flags += _proxy_args(proxy)
 
