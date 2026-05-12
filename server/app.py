@@ -70,6 +70,16 @@ _PROXY_LIST = [
     'http://pxosioyq-es-38:n08bo6f1b3c5@p.webshare.io:80',
     'http://pxosioyq-be-39:n08bo6f1b3c5@p.webshare.io:80',
     'http://pxosioyq-at-40:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-ch-41:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-se-42:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-no-43:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-dk-44:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-fi-45:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-ie-46:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-pt-47:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-nz-48:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-pl-49:n08bo6f1b3c5@p.webshare.io:80',
+    'http://pxosioyq-kr-50:n08bo6f1b3c5@p.webshare.io:80',
 ]
 
 class ProxyRotator:
