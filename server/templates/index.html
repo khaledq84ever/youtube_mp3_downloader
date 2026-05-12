@@ -850,19 +850,41 @@
     clearInterval(pollTimer);
     const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
     const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-    let msgIdx  = 0;
+    let msgIdx     = 0;
+    let lastChange = Date.now();
+    let lastProg   = -1;
+    let notFound   = 0;
 
     pollTimer = setInterval(async () => {
       try {
         const res  = await fetch(`/status/${jobId}`);
+        if (res.status === 404) {
+          if (++notFound >= 3) {
+            clearInterval(pollTimer);
+            $('progressWrap').style.display = 'none';
+            setStatus('');
+            showSingleError('Conversion lost — please try again.');
+          }
+          return;
+        }
+        notFound = 0;
         const data = await res.json();
 
-        if (data.progress != null) {
-          $('progressBar').style.width = `${Math.max(5, data.progress)}%`;
-          if (data.progress > 0 && data.progress < 100)
-            setStatus(`Converting… ${data.progress}%`);
-        } else {
-          setStatus(_convMsgs[msgIdx++ % _convMsgs.length]);
+        const p = (data.progress != null) ? data.progress : 0;
+        $('progressBar').style.width = `${Math.max(5, p)}%`;
+        if (p !== lastProg) { lastProg = p; lastChange = Date.now(); }
+
+        if (data.status === 'processing') {
+          // Always rotate friendly messages so UI never feels frozen.
+          if (p > 0 && p < 100) {
+            setStatus(`Converting… ${p}%`);
+          } else {
+            setStatus(_convMsgs[msgIdx++ % _convMsgs.length]);
+          }
+          // After 60s with no progress change, surface a hint instead of dead air
+          if (Date.now() - lastChange > 60000) {
+            setStatus('Still working… YouTube is slow right now');
+          }
         }
 
         if (data.status === 'done') {
