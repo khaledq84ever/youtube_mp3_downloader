@@ -24,7 +24,7 @@ DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP         = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL      = 1800          # 30 min
 JOB_TIMEOUT   = 120           # 2 min per yt-dlp attempt
-RATE_LIMIT    = 10            # per minute per IP
+RATE_LIMIT    = 30            # per minute per IP
 COOKIES_FILE  = '/tmp/yt_cookies.txt'
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1009,12 +1009,7 @@ def _sec(resp):
 
 @app.errorhandler(404)
 def _404(e):
-    routes = sorted(str(r) for r in app.url_map.iter_rules())
-    tdir = app.template_folder
-    import os as _os
-    tmpl_exists = _os.path.exists(_os.path.join(tdir, 'index.html')) if tdir else False
-    return (f'404 debug | template_folder={tdir} | index.html={tmpl_exists} | '
-            f'routes={routes}'), 404
+    return jsonify({'error': 'Not found'}), 404
 
 @app.route('/ping')
 def ping():
