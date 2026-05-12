@@ -303,6 +303,18 @@ def _load_jobs():
 
 _load_jobs()
 
+# Clean up files older than 1 hour from a previous container run
+def _startup_cleanup():
+    cutoff = time.time() - 3600
+    for f in glob.glob(os.path.join(DOWNLOAD_DIR, '*')):
+        try:
+            if os.path.getmtime(f) < cutoff:
+                os.remove(f)
+        except Exception:
+            pass
+
+threading.Thread(target=_startup_cleanup, daemon=True).start()
+
 
 # ── URL helpers ───────────────────────────────────────────────────────────────
 
@@ -621,6 +633,14 @@ def schedule_cleanup(job_id, path):
 
 # ── Shared stream downloader + ffmpeg converter ───────────────────────────────
 
+_FFMPEG_DURATION_RE = re.compile(r'Duration:\s*(\d+):(\d+):(\d+)')
+_FFMPEG_TIME_RE     = re.compile(r'time=(\d+):(\d+):(\d+)')
+
+def _get_ffmpeg():
+    ffmpeg = shutil.which('ffmpeg') or 'ffmpeg'
+    d = _find_ffmpeg_dir()
+    return os.path.join(d, 'ffmpeg') if d else ffmpeg
+
 def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_end=85):
     req = urllib.request.Request(stream_url,
         headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.youtube.com/'})
@@ -629,7 +649,7 @@ def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_e
         total = int(r.headers.get('Content-Length', 0))
         with open(out_path, 'wb') as f:
             while True:
-                chunk = r.read(65536)
+                chunk = r.read(524288)   # 512 KB chunks — faster than 64 KB
                 if not chunk:
                     break
                 f.write(chunk)
@@ -641,27 +661,51 @@ def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_e
                         if jobs.get(job_id, {}).get('status') == 'processing':
                             jobs[job_id]['progress'] = pct
 
+def _ffmpeg_stream_convert(job_id, stream_url, dst, quality,
+                           referer='https://www.youtube.com/'):
+    """Single-pass: ffmpeg fetches the URL and converts to mp3 simultaneously.
+    Fastest path — no separate download step."""
+    kbps = (quality or '320K').rstrip('Kk')
+    _set_job(job_id, {'progress': 5})
+    cmd = [
+        _get_ffmpeg(), '-y',
+        '-headers', f'User-Agent: Mozilla/5.0\r\nReferer: {referer}\r\n',
+        '-i', stream_url,
+        '-vn', '-ar', '44100', '-ac', '2', '-b:a', f'{kbps}k', dst
+    ]
+    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    total_secs = 0
+    for line in proc.stderr:
+        dm = _FFMPEG_DURATION_RE.search(line)
+        if dm and not total_secs:
+            total_secs = int(dm.group(1))*3600 + int(dm.group(2))*60 + int(dm.group(3))
+        tm = _FFMPEG_TIME_RE.search(line)
+        if tm and total_secs:
+            done = int(tm.group(1))*3600 + int(tm.group(2))*60 + int(tm.group(3))
+            pct = min(int(done / total_secs * 85) + 10, 90)
+            with jobs_lock:
+                if jobs.get(job_id, {}).get('status') == 'processing':
+                    jobs[job_id]['progress'] = pct
+    try:
+        proc.wait(timeout=300)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return False
+    return proc.returncode == 0 and os.path.exists(dst) and os.path.getsize(dst) > 1024
+
 def _ffmpeg_to_mp3(src, dst, quality):
-    ffmpeg = shutil.which('ffmpeg') or 'ffmpeg'
-    d = _find_ffmpeg_dir()
-    if d:
-        ffmpeg = os.path.join(d, 'ffmpeg')
     kbps = (quality or '320K').rstrip('Kk')
     res = subprocess.run(
-        [ffmpeg, '-i', src, '-vn', '-ar', '44100', '-ac', '2',
-         '-b:a', f'{kbps}k', dst, '-y'],
+        [_get_ffmpeg(), '-y', '-i', src, '-vn', '-ar', '44100', '-ac', '2',
+         '-b:a', f'{kbps}k', dst],
         capture_output=True, timeout=300)
     return res.returncode == 0 and os.path.exists(dst)
 
 def _ffmpeg_merge(v_src, a_src, dst):
-    ffmpeg = shutil.which('ffmpeg') or 'ffmpeg'
-    d = _find_ffmpeg_dir()
-    if d:
-        ffmpeg = os.path.join(d, 'ffmpeg')
     res = subprocess.run(
-        [ffmpeg, '-i', v_src, '-i', a_src,
+        [_get_ffmpeg(), '-y', '-i', v_src, '-i', a_src,
          '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
-         '-movflags', '+faststart', dst, '-y'],
+         '-movflags', '+faststart', dst],
         capture_output=True, timeout=300)
     return res.returncode == 0 and os.path.exists(dst)
 
@@ -700,13 +744,10 @@ def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
             astream = _piped_best_audio(data)
             if not astream or not astream.get('url'):
                 return False
-            raw = os.path.join(DOWNLOAD_DIR, f'{file_id}_raw.m4a')
             out = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp3')
-            _download_stream(job_id, astream['url'], raw, 10, 80)
-            if not _ffmpeg_to_mp3(raw, out, quality):
+            # Single-pass: ffmpeg downloads + converts simultaneously
+            if not _ffmpeg_stream_convert(job_id, astream['url'], out, quality):
                 return False
-            try: os.remove(raw)
-            except: pass
 
         if not os.path.exists(out) or os.path.getsize(out) < 1024:
             return False
@@ -748,15 +789,13 @@ def invidious_download(job_id, video_id, url, title, uploader, quality, fmt):
                 return False
             stream_url = aud_fmt[0]['url']
 
-        raw = os.path.join(DOWNLOAD_DIR, f'{file_id}_raw.m4a') if fmt == 'mp3' else out
         _set_job(job_id, {'progress': 10})
-        _download_stream(job_id, stream_url, raw, 10, 80)
-
         if fmt == 'mp3':
-            if not _ffmpeg_to_mp3(raw, out, quality):
+            # Single-pass: ffmpeg downloads + converts simultaneously
+            if not _ffmpeg_stream_convert(job_id, stream_url, out, quality):
                 return False
-            try: os.remove(raw)
-            except: pass
+        else:
+            _download_stream(job_id, stream_url, out, 10, 85)
 
         if not os.path.exists(out) or os.path.getsize(out) < 1024:
             return False
@@ -1332,6 +1371,8 @@ def health():
     with _sources_lock:
         piped = list(_working_piped)
         inv   = list(_working_invidious)
+    with _proxy_rotator._lock:
+        active_proxies = len(_proxy_rotator._pool)
     ytdlp_ver = ''
     try:
         r = subprocess.run([YTDLP, '--version'], capture_output=True, timeout=5)
@@ -1344,8 +1385,71 @@ def health():
         'pytubefix':         _PYTUBE_OK,
         'working_piped':     piped,
         'working_invidious': inv,
+        'active_proxies':    active_proxies,
+        'total_proxies':     len(_PROXY_LIST),
         'last_probe_ago':    int(time.time() - _last_probe) if _last_probe else None,
     })
+
+_TEST_VIDEO = 'dQw4w9WgXcQ'
+
+@app.route('/test')
+def test_backends():
+    results = {}
+
+    # Piped
+    try:
+        pd = piped_get_streams(_TEST_VIDEO)
+        results['piped'] = 'ok' if pd and not pd.get('error') and pd.get('audioStreams') else 'fail'
+    except Exception as e:
+        results['piped'] = f'error: {e}'
+
+    # Invidious
+    try:
+        iv = invidious_get_streams(_TEST_VIDEO)
+        results['invidious'] = 'ok' if iv and iv.get('adaptiveFormats') else 'fail'
+    except Exception as e:
+        results['invidious'] = f'error: {e}'
+
+    # yt-dlp (quick check — just dump-json, no download)
+    try:
+        proxy = _proxy_rotator.get()
+        r = subprocess.run(
+            [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
+             '--socket-timeout', '10', '--retries', '1',
+             '--extractor-args', 'youtube:player_client=mweb',
+             f'https://www.youtube.com/watch?v={_TEST_VIDEO}']
+            + _proxy_args(proxy) + _cookies_args(),
+            capture_output=True, text=True, timeout=20)
+        results['ytdlp'] = 'ok' if r.returncode == 0 else f'fail: {parse_ytdlp_error(r.stderr)}'
+    except Exception as e:
+        results['ytdlp'] = f'error: {e}'
+
+    # PyTubefix
+    if _PYTUBE_OK:
+        try:
+            yt = PyTube(f'https://www.youtube.com/watch?v={_TEST_VIDEO}', client='WEB')
+            _ = yt.streams
+            results['pytubefix'] = 'ok'
+        except Exception as e:
+            results['pytubefix'] = f'fail: {e}'
+    else:
+        results['pytubefix'] = 'not installed'
+
+    # Cobalt
+    try:
+        body = json.dumps({'url': f'https://www.youtube.com/watch?v={_TEST_VIDEO}',
+                           'audioFormat': 'mp3', 'filenameStyle': 'basic'}).encode()
+        req = urllib.request.Request('https://api.cobalt.tools/', data=body,
+            headers={'Accept': 'application/json', 'Content-Type': 'application/json',
+                     'User-Agent': 'Mozilla/5.0'}, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+        results['cobalt'] = 'ok' if d.get('status') in ('stream','tunnel','redirect','picker') else f"fail: {d.get('status')}"
+    except Exception as e:
+        results['cobalt'] = f'error: {e}'
+
+    ok_count = sum(1 for v in results.values() if v == 'ok')
+    return jsonify({'backends': results, 'ok': ok_count, 'total': len(results)})
 
 @app.route('/manifest.json')
 def manifest():

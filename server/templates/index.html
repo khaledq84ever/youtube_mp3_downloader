@@ -118,6 +118,22 @@
       letter-spacing: 0.03em;
     }
 
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 6px;
+      padding: 4px 11px;
+      background: rgba(16,185,129,0.07);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 99px;
+      font-size: 0.68rem; font-weight: 700;
+      color: var(--success);
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .status-badge:hover { background: rgba(16,185,129,0.14); }
+
     .live-badge .dot {
       width: 6px; height: 6px;
       background: var(--success);
@@ -396,8 +412,8 @@
       height: 100%; border-radius: 99px; width: 0%;
       background: linear-gradient(90deg, var(--accent), var(--accent2), #06b6d4, var(--accent));
       background-size: 300% 100%;
-      transition: width 0.5s ease;
-      animation: flow 3s linear infinite;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+      animation: flow 2.5s linear infinite;
     }
 
     @keyframes flow {
@@ -408,7 +424,18 @@
     .status-text {
       font-size: 0.83rem; font-weight: 600; color: var(--muted);
       margin-bottom: 10px; display: none;
+      display: flex; align-items: center; gap: 7px;
     }
+
+    .status-spinner {
+      width: 13px; height: 13px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .download-actions { display: flex; flex-direction: column; gap: 9px; }
 
@@ -538,8 +565,12 @@
     <div class="logo-icon">▶</div>
     <span class="logo-text">YT <span>MP3</span></span>
   </a>
-  <div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
     <span class="live-badge"><span class="dot"></span> Free &amp; No Signup Required</span>
+    <a href="/test" target="_blank" class="status-badge" id="serverBadge">
+      <span class="dot" style="width:5px;height:5px;background:var(--success)"></span>
+      <span id="serverBadgeText">Checking backends…</span>
+    </a>
   </div>
 </header>
 
@@ -614,7 +645,7 @@
         </div>
       </div>
       <div class="card-actions">
-        <p class="status-text" id="statusText"></p>
+        <p class="status-text" id="statusText"><span class="status-spinner" id="statusSpinner"></span><span id="statusMsg"></span></p>
         <div class="progress-wrap" id="progressWrap">
           <div class="progress-bar" id="progressBar"></div>
         </div>
@@ -664,6 +695,20 @@
   let selectedQ   = localStorage.getItem('q')   || '320K';
 
   const $ = id => document.getElementById(id);
+
+  // Load server backend status badge
+  (async function loadServerBadge() {
+    try {
+      const r = await fetch('/health');
+      const d = await r.json();
+      const piped = d.working_piped ? d.working_piped.length : 0;
+      const inv   = d.working_invidious ? d.working_invidious.length : 0;
+      const prx   = d.active_proxies || 0;
+      $('serverBadgeText').textContent = `${piped} Piped · ${inv} Invidious · ${prx} Proxies`;
+    } catch {
+      $('serverBadgeText').textContent = 'Test backends →';
+    }
+  })();
 
   (function restoreQuality() {
     const btn = document.querySelector(`.q-btn[data-fmt="${selectedFmt}"][data-q="${selectedQ}"]`);
@@ -719,6 +764,11 @@
     $('errorWrap').style.display = 'none';
   }
 
+  function setStatus(msg) {
+    $('statusMsg').textContent = msg;
+    $('statusText').style.display = msg ? 'flex' : 'none';
+  }
+
   function setConverting(on) {
     $('btnConvert').disabled = on;
     $('btnConvert').textContent = on ? 'Loading…' : 'Convert';
@@ -737,21 +787,18 @@
     $('btnShare').style.display     = 'none';
     $('btnReset').style.display     = 'none';
     $('progressWrap').style.display = 'none';
-    $('statusText').style.display   = 'none';
     $('sizeBadge').style.display    = 'none';
     currentDownloadUrl = null;
     setConverting(true);
+    setStatus('Fetching video info…');
 
     try {
-      $('statusText').textContent = 'Fetching video info…';
-      $('statusText').style.display = 'block';
-
       const infoRes = await fetch('/info', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       const info = await infoRes.json();
-      $('statusText').style.display = 'none';
+      setStatus('');
 
       if (!infoRes.ok) { showSingleError(info.error || 'Could not fetch video info', url); setConverting(false); return; }
 
@@ -770,7 +817,7 @@
 
       startStreamDownload(info.url || url, info.title, info.uploader);
     } catch {
-      $('statusText').style.display = 'none';
+      setStatus('');
       showSingleError('Network error. Please try again.');
       setConverting(false);
     }
@@ -778,9 +825,8 @@
 
   async function startStreamDownload(videoUrl, title, uploader) {
     $('progressWrap').style.display = 'block';
-    $('statusText').style.display   = 'block';
     $('progressBar').style.width    = '5%';
-    $('statusText').textContent     = 'Starting conversion…';
+    setStatus('Starting conversion…');
     setConverting(false);
     $('btnReset').style.display = 'block';
 
@@ -801,12 +847,19 @@
     pollJob(startData.job_id, title);
   }
 
+  const _convMsgs = [
+    'Fetching audio stream…',
+    'Converting to ' + (localStorage.getItem('fmt')==='mp4' ? 'MP4' : 'MP3') + '…',
+    'Processing audio…',
+    'Almost done…',
+    'Finalising file…',
+  ];
+
   function pollJob(jobId, title) {
     clearInterval(pollTimer);
     const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
     const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
     let msgIdx  = 0;
-    const msgs  = ['Converting…', 'Processing audio…', 'Almost done…'];
 
     pollTimer = setInterval(async () => {
       try {
@@ -816,16 +869,16 @@
         if (data.progress != null) {
           $('progressBar').style.width = `${Math.max(5, data.progress)}%`;
           if (data.progress > 0 && data.progress < 100)
-            $('statusText').textContent = `Converting… ${data.progress}%`;
+            setStatus(`Converting… ${data.progress}%`);
         } else {
-          $('statusText').textContent = msgs[msgIdx++ % msgs.length];
+          setStatus(_convMsgs[msgIdx++ % _convMsgs.length]);
         }
 
         if (data.status === 'done') {
           clearInterval(pollTimer);
           $('progressBar').style.width    = '100%';
           $('progressWrap').style.display = 'none';
-          $('statusText').style.display   = 'none';
+          setStatus('');
 
           const fname   = data.filename || `audio.${ext}`;
           const dlUrl   = `/download/${jobId}/${encodeURIComponent(fname)}`;
@@ -851,11 +904,11 @@
         } else if (data.status === 'error') {
           clearInterval(pollTimer);
           $('progressWrap').style.display = 'none';
-          $('statusText').style.display   = 'none';
+          setStatus('');
           showSingleError(data.error || 'Conversion failed. Please try again.');
         }
       } catch { /* network hiccup — keep polling */ }
-    }, 2000);
+    }, 1500);
   }
 
   async function copyDownloadLink() {
