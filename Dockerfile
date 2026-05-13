@@ -26,8 +26,8 @@ RUN git clone --depth=1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.
     (npm run build 2>/dev/null || tsc) && \
     test -f build/main.js && echo "✅ bgutil build OK" || (echo "❌ bgutil build FAILED" && exit 1)
 
-# Verify the Python plugin is importable
-RUN python -c "import bgutil_ytdlp_pot_provider; print('✅ bgutil python plugin OK')"
+# Verify the yt-dlp plugin is installed (it lives at yt_dlp_plugins/extractor/getpot_bgutil*)
+RUN python -c "from yt_dlp_plugins.extractor import getpot_bgutil_http; print('✅ bgutil yt-dlp plugin OK')"
 
 COPY . .
 

@@ -1436,9 +1436,9 @@ def health():
         ytdlp_ver = (r.stdout.strip() if isinstance(r.stdout, str) else r.stdout.decode().strip())
     except Exception:
         pass
-    # Verify bgutil python plugin is importable + server is reachable
+    # Verify bgutil yt-dlp plugin is importable + server is reachable
     try:
-        import bgutil_ytdlp_pot_provider  # noqa
+        from yt_dlp_plugins.extractor import getpot_bgutil_http  # noqa
         bgutil_plugin_loaded = True
     except Exception:
         bgutil_plugin_loaded = False
