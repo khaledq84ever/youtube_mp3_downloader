@@ -1,21 +1,33 @@
 FROM python:3.11-slim
 
+# System deps + node 20 (needed for bgutil's TypeScript build)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg nodejs npm git \
+        ffmpeg git curl ca-certificates gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# TypeScript globally so `npx tsc` always works for bgutil
+RUN npm install -g --no-audit --no-fund typescript@5
 
 WORKDIR /app
 
+# Python deps (stable layer — pip cache busts only on requirements change)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install -U yt-dlp pytubefix
+    pip install -U yt-dlp pytubefix bgutil-ytdlp-pot-provider
 
 # bgutil PO token server — lets yt-dlp bypass YouTube's bot detection
-# without cookies (needed for popular/famous videos)
+# without cookies (needed for popular/famous videos).
+# This step VERIFIES the build artifact exists; build fails loudly if missing.
 RUN git clone --depth=1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-ytdlp-pot-provider && \
     cd /app/bgutil-ytdlp-pot-provider/server && \
-    npm install --production --no-audit --no-fund && \
-    (npx tsc 2>/dev/null || true)
+    npm install --no-audit --no-fund && \
+    (npm run build 2>/dev/null || tsc) && \
+    test -f build/main.js && echo "✅ bgutil build OK" || (echo "❌ bgutil build FAILED" && exit 1)
+
+# Verify the Python plugin is importable
+RUN python -c "import bgutil_ytdlp_pot_provider; print('✅ bgutil python plugin OK')"
 
 COPY . .
 

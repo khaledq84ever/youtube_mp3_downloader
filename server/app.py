@@ -994,6 +994,10 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attem
         '--socket-timeout', '15',
         '--retries', '2',
     ]
+    # Tell the bgutil yt-dlp plugin where the HTTP server lives
+    if bgutil_up:
+        base_flags += ['--extractor-args',
+                       f'youtubepot-bgutilhttp:base_url={BGUTIL_BASE_URL}']
     # Cookies dramatically improve success rate
     base_flags += _cookies_args()
     # Add proxy if given and valid (skip expired proxies)
@@ -1432,15 +1436,31 @@ def health():
         ytdlp_ver = (r.stdout.strip() if isinstance(r.stdout, str) else r.stdout.decode().strip())
     except Exception:
         pass
+    # Verify bgutil python plugin is importable + server is reachable
+    try:
+        import bgutil_ytdlp_pot_provider  # noqa
+        bgutil_plugin_loaded = True
+    except Exception:
+        bgutil_plugin_loaded = False
+    bgutil_server_alive = False
+    try:
+        with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=2) as r:
+            bgutil_server_alive = r.getcode() == 200
+    except Exception:
+        pass
+    has_cookies = os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100
     payload = {
-        'status':            'ok',
-        'yt_dlp_version':    ytdlp_ver,
-        'pytubefix':         _PYTUBE_OK,
-        'working_piped':     piped,
-        'working_invidious': inv,
-        'active_proxies':    active_proxies,
-        'total_proxies':     len(_PROXY_LIST),
-        'last_probe_ago':    int(time.time() - _last_probe) if _last_probe else None,
+        'status':              'ok',
+        'yt_dlp_version':      ytdlp_ver,
+        'pytubefix':           _PYTUBE_OK,
+        'working_piped':       piped,
+        'working_invidious':   inv,
+        'active_proxies':      active_proxies,
+        'total_proxies':       len(_PROXY_LIST),
+        'last_probe_ago':      int(time.time() - _last_probe) if _last_probe else None,
+        'bgutil_server':       bgutil_server_alive,
+        'bgutil_plugin':       bgutil_plugin_loaded,
+        'cookies_loaded':      has_cookies,
     }
     with _HEALTH_CACHE_LOCK:
         _HEALTH_CACHE['ts']   = now
@@ -1559,10 +1579,15 @@ def sitemap():
 
 def _yt_info_cmd(url, proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'
+    ea = [f'player_client={clients}']
+    if _bgutil_ready and not (os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100):
+        ea.append('fetch_pot=always')
     cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
            '--socket-timeout', '15', '--retries', '2',
-           '--extractor-args', f'youtube:player_client={clients}',
-           url] + _proxy_args(proxy) + _cookies_args()
+           '--extractor-args', f'youtube:{";".join(ea)}']
+    if _bgutil_ready:
+        cmd += ['--extractor-args', f'youtubepot-bgutilhttp:base_url={BGUTIL_BASE_URL}']
+    cmd += [url] + _proxy_args(proxy) + _cookies_args()
     return subprocess.run(cmd, capture_output=True, text=True, timeout=45)
 
 @app.route('/info', methods=['POST'])
