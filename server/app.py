@@ -1,9 +1,14 @@
 from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
-import subprocess, os, uuid, json, re, glob, threading, time, shutil
+import subprocess, os, uuid, json, re, glob, threading, time, shutil, socket
 import urllib.parse, urllib.request
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Global socket fallback so any bare urlopen (pytubefix internals, etc.)
+# cannot hang forever on a dead proxy. Explicit timeouts in our own
+# urlopen() calls still override this.
+socket.setdefaulttimeout(20)
 
 try:
     from flask_compress import Compress
@@ -896,14 +901,23 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
     if not _PYTUBE_OK:
         return False
     yt = None
-    for client in ['WEB', 'ANDROID_VR', 'MWEB', 'TV_EMBED', 'IOS']:
-        try:
-            _yt = PyTube(url, client=client)
-            _ = _yt.streams   # trigger extraction
-            yt = _yt
+    # Try multiple clients × (direct + 2 proxies). YouTube bot-blocks the
+    # Railway datacenter IP, so direct extraction usually fails — rotating
+    # through residential proxies is what makes pytubefix usable here.
+    clients = ['WEB', 'ANDROID_VR', 'MWEB', 'TV_EMBED', 'IOS']
+    proxy_attempts = [None, _proxy_rotator.get(), _proxy_rotator.get()]
+    for proxy in proxy_attempts:
+        proxies = {'http': proxy, 'https': proxy} if proxy else None
+        for client in clients:
+            try:
+                _yt = PyTube(url, client=client, proxies=proxies)
+                _ = _yt.streams   # trigger extraction
+                yt = _yt
+                break
+            except Exception:
+                continue
+        if yt is not None:
             break
-        except Exception:
-            continue
     if yt is None:
         return False
 
