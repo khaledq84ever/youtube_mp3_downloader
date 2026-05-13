@@ -590,10 +590,15 @@
   <div class="converter" id="panel-single">
 
     <div class="input-card">
-      <input type="url" class="url-input" id="urlInput"
+      <input type="search" class="url-input" id="urlInput"
+        name="yt_search_q"
         placeholder="Paste a YouTube link here…"
         autocomplete="off" autocorrect="off" autocapitalize="off"
-        spellcheck="false" inputmode="url" />
+        spellcheck="false" inputmode="url"
+        data-form-type="other"
+        data-lpignore="true"
+        data-1p-ignore="true"
+        aria-autocomplete="none" />
       <button class="btn-clear" id="btnClear" onclick="clearInput()" title="Clear">✕</button>
       <button class="btn-paste" id="btnPaste" onclick="pasteUrl()">Paste</button>
       <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
