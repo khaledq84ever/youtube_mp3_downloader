@@ -1556,7 +1556,13 @@ def proxy_clear():
 @app.route('/')
 def index():
     try:
-        return render_template('index.html')
+        resp = app.make_response(render_template('index.html'))
+        # Force every browser to fetch a fresh page — old Chrome desktop
+        # caches were serving stale JS that broke polling after our deploys.
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma']        = 'no-cache'
+        resp.headers['Expires']       = '0'
+        return resp
     except Exception as exc:
         return f'template error: {exc}', 500
 
