@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3956390078338144" crossorigin="anonymous"></script>
   <title>YT MP3 — Free YouTube to MP3 &amp; MP4 Converter</title>
   <meta name="description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required. Supports Shorts, Live, and all YouTube links." />
@@ -691,9 +694,18 @@
   <span class="footer-copy">For personal use only. Respect copyright laws.</span>
   <span class="footer-divider">·</span>
   <span class="footer-copy">Programmed by <a href="https://x.com/KhaledQ84Ever" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;font-weight:900;text-decoration:none;">@KhaledQ84Ever</a></span>
+  <span class="footer-divider">·</span>
+  <span class="footer-copy" style="color:#444466;font-size:0.7rem">build {{ build }}</span>
 </footer>
 
 <script>
+  // One-shot cache wiper: registers /sw.js which deletes every Cache Storage
+  // entry and unregisters itself, so stale Chrome/Safari/Android-browser
+  // copies of this page can't survive a single visit.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
   let pollTimer = null;
   let currentDownloadUrl = null;
   let selectedFmt = localStorage.getItem('fmt') || 'mp3';

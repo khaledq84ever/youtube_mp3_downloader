@@ -1553,10 +1553,26 @@ def proxy_clear():
         _proxy_log.clear()
     return jsonify({'ok': True})
 
+_BUILD_ID = None
+def _build_id():
+    """Short identifier visible in the footer so users + dev can tell which
+    deploy a browser is actually rendering (cache-sanity check)."""
+    global _BUILD_ID
+    if _BUILD_ID:
+        return _BUILD_ID
+    try:
+        out = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+                             capture_output=True, text=True, timeout=2,
+                             cwd=os.path.dirname(os.path.dirname(_HERE)) or _HERE)
+        _BUILD_ID = (out.stdout.strip() or str(int(time.time())))[:8]
+    except Exception:
+        _BUILD_ID = str(int(time.time()))[-7:]
+    return _BUILD_ID
+
 @app.route('/')
 def index():
     try:
-        resp = app.make_response(render_template('index.html'))
+        resp = app.make_response(render_template('index.html', build=_build_id()))
         # Force every browser to fetch a fresh page — old Chrome desktop
         # caches were serving stale JS that broke polling after our deploys.
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
