@@ -1224,7 +1224,8 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         _log_proxy_event(job_proxy, 'error', 'All backends failed — giving up')
         _set_job(job_id, {'status': 'error',
                            'error': err if err != '__BOT__' else
-                           'Video unavailable on this server. Try again — sources rotate automatically.'})
+                           "YouTube blocked this video on our servers. It's a popular video with strict anti-bot. "
+                           "Try a different video, or paste a shorter clip."})
     except Exception as ex:
         _log_proxy_event(job_proxy if 'job_proxy' in locals() else '', 'error', f'Exception: {ex}')
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
