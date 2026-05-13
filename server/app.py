@@ -743,17 +743,42 @@ def _ffmpeg_merge(v_src, a_src, dst):
 # path works even when our own IP is bot-blocked and proxies are down.
 
 import base64
+import http.cookiejar
 
 _Y2MATE_PAGE = 'https://v3.y2mate.nu/'
-_Y2MATE_UA   = ('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-                '(KHTML, like Gecko) Chrome/120.0 Safari/537.36')
+# Rotate through real browser UAs so y2mate doesn't fingerprint us as the
+# same headless client across many requests from the Railway IP.
+_Y2MATE_UAS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+]
+_y2mate_ua_idx = 0
+_y2mate_ua_lock = threading.Lock()
+def _y2mate_pick_ua():
+    global _y2mate_ua_idx
+    with _y2mate_ua_lock:
+        ua = _Y2MATE_UAS[_y2mate_ua_idx % len(_Y2MATE_UAS)]
+        _y2mate_ua_idx += 1
+    return ua
 
-def _y2mate_get(url, timeout=20):
+def _y2mate_session():
+    """One opener with a CookieJar so y2mate sees us as a coherent browser
+    session (homepage → init → convert → progress → download)."""
+    jar = http.cookiejar.CookieJar()
+    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar)), jar
+
+def _y2mate_get(opener, ua, url, timeout=20):
     req = urllib.request.Request(url, headers={
-        'User-Agent': _Y2MATE_UA, 'Accept': '*/*',
-        'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
+        'User-Agent': ua,
+        'Accept': 'text/html,application/json,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': _Y2MATE_PAGE,
+        'Origin':  'https://v3.y2mate.nu',
+        'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-site',
     })
-    return urllib.request.urlopen(req, timeout=timeout).read()
+    return opener.open(req, timeout=timeout).read()
 
 def _y2mate_auth(cfg):
     arr0, arr2, rev = cfg[0], cfg[2], cfg[1]
@@ -762,11 +787,14 @@ def _y2mate_auth(cfg):
     return s[:32]
 
 def _y2mate_resolve(youtube_url, fmt='mp3'):
-    """Return (signed_download_url, title) or raise on failure."""
-    html = _y2mate_get(_Y2MATE_PAGE).decode('utf-8', 'replace')
+    """Return (signed_download_url, title, opener, ua) or raise on failure."""
+    opener, _jar = _y2mate_session()
+    ua = _y2mate_pick_ua()
+
+    html = _y2mate_get(opener, ua, _Y2MATE_PAGE).decode('utf-8', 'replace')
     m = re.search(r"json\s*=\s*JSON\.parse\('([^']+)'\)", html)
     if not m:
-        raise RuntimeError('y2mate: no config on page')
+        raise RuntimeError('no config on page')
     cfg = json.loads(m.group(1))
     auth_param = chr(cfg[6])
     auth = _y2mate_auth(cfg)
@@ -774,22 +802,22 @@ def _y2mate_resolve(youtube_url, fmt='mp3'):
 
     vm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([a-zA-Z0-9_-]{11})', youtube_url)
     if not vm:
-        raise RuntimeError('y2mate: bad youtube url')
+        raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
     ts = int(time.time())
     init_url = f'https://eta.{backend}/api/v1/init?{auth_param}={urllib.parse.quote(auth)}&t={ts}'
-    d = json.loads(_y2mate_get(init_url))
+    d = json.loads(_y2mate_get(opener, ua, init_url))
     if int(d.get('error', 0) or 0) > 0:
-        raise RuntimeError(f'y2mate init: {d}')
+        raise RuntimeError(f'init error={d.get("error")}')
     convert_url = d['convertURL']
 
     for _ in range(3):
         ts = int(time.time())
         c_url = f'{convert_url}&v={vid}&f={fmt}&t={ts}'
-        d = json.loads(_y2mate_get(c_url))
+        d = json.loads(_y2mate_get(opener, ua, c_url))
         if int(d.get('error', 0) or 0) > 0:
-            raise RuntimeError(f'y2mate convert: {d}')
+            raise RuntimeError(f'convert error={d.get("error")}')
         if d.get('redirect') == 1:
             convert_url = d['redirectURL']
             continue
@@ -803,34 +831,44 @@ def _y2mate_resolve(youtube_url, fmt='mp3'):
     deadline = time.time() + 90
     while time.time() < deadline:
         ts = int(time.time())
-        pd = json.loads(_y2mate_get(f'{progress_url}&t={ts}'))
+        pd = json.loads(_y2mate_get(opener, ua, f'{progress_url}&t={ts}'))
         if int(pd.get('error', 0) or 0) > 0:
-            raise RuntimeError(f'y2mate progress: {pd}')
+            raise RuntimeError(f'progress error={pd.get("error")}')
         if int(pd.get('progress', 0) or 0) >= 3:
-            return download_url, pd.get('title') or title
+            return download_url, pd.get('title') or title, opener, ua
         time.sleep(3)
-    raise RuntimeError('y2mate: conversion timeout')
+    raise RuntimeError('conversion timeout')
 
 def y2mate_download(job_id, url, title, uploader, quality, fmt):
     """Backend: y2mate.nu — most reliable when our IP is bot-blocked.
     Quality is fixed by y2mate (mp3=192 kbps, mp4=360p); 'quality' arg ignored.
+    Retries 3x with a fresh session each time before giving up.
     """
-    try:
-        _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
-        signed_url, fetched_title = _y2mate_resolve(url, 'mp3' if fmt != 'mp4' else 'mp4')
-    except Exception:
+    last_err = ''
+    signed_url = fetched_title = sess_opener = sess_ua = None
+    _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
+    for attempt in range(3):
+        try:
+            signed_url, fetched_title, sess_opener, sess_ua = _y2mate_resolve(
+                url, 'mp3' if fmt != 'mp4' else 'mp4')
+            break
+        except Exception as ex:
+            last_err = f'{type(ex).__name__}: {ex}'[:140]
+            time.sleep(1.5)
+    if not signed_url:
+        _log_proxy_event('y2mate', 'error', f'y2mate resolve: {last_err}')
         return False
 
     file_id = str(uuid.uuid4())
     ext     = 'mp4' if fmt == 'mp4' else 'mp3'
     out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
     try:
-        # Tell _download_stream to spoof y2mate referer
+        # Reuse the same session (cookies + UA) for the actual file fetch
         req = urllib.request.Request(signed_url, headers={
-            'User-Agent': _Y2MATE_UA, 'Accept': '*/*',
+            'User-Agent': sess_ua, 'Accept': '*/*',
             'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
         })
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with sess_opener.open(req, timeout=30) as r:
             total = int(r.headers.get('Content-Length', 0))
             done  = 0
             with open(out, 'wb') as f:
@@ -1211,176 +1249,24 @@ def _client_ip():
             .split(',')[0].strip() or request.remote_addr or 'unknown')
 
 
-# ── Main worker: Piped → PyTubefix → yt-dlp → Cobalt → Invidious ────────────
+# ── Main worker: y2mate.nu only ──────────────────────────────────────────────
 
 def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                quality='320K', fmt='mp3'):
     _set_job(job_id, {'status': 'processing', 'progress': 2})
-    _global_start = time.time()
-    video_id = _extract_video_id(url)
-
-    # Always grab a fresh proxy at job start — rotates for every user
-    job_proxy = _proxy_rotator.get()
-    _log_proxy_event(job_proxy, 'rotated', f'New job → {fmt.upper()} {quality}')
 
     try:
-        # 0. y2mate.nu — their server does YouTube extraction, so it works even
-        #    when our IP is bot-blocked AND our proxies are dead. Fastest path.
-        _log_proxy_event('y2mate', 'trying', 'Backend: y2mate.nu')
+        _log_proxy_event('y2mate', 'trying', f'New job → {fmt.upper()} {quality}')
         if y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
             _log_proxy_event('y2mate', 'success', 'y2mate.nu — done ✓')
             return
-        _log_proxy_event('y2mate', 'blocked', 'y2mate failed — switching backend')
-
-        # 1. Piped — only if the probe shows working instances (skip wasted attempt otherwise)
-        with _sources_lock:
-            piped_alive = bool(_working_piped)
-        if video_id and piped_alive:
-            _log_proxy_event(job_proxy, 'trying', 'Backend: Piped API')
-            if piped_download(job_id, video_id, url,
-                              prefetched_title, prefetched_uploader, quality, fmt):
-                _log_proxy_event(job_proxy, 'success', 'Piped API — done ✓')
-                return
-            _log_proxy_event(job_proxy, 'blocked', 'Piped failed — switching backend')
-        elif video_id:
-            _log_proxy_event(job_proxy, 'trying', 'Skipping Piped (no live instances)')
-
-        # 2. PyTubefix (currently the most reliable single source)
-        job_proxy = _proxy_rotator.get()
-        _log_proxy_event(job_proxy, 'rotated', 'Backend: PyTubefix')
-        _set_job(job_id, {'progress': 0})
-        if pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
-            _log_proxy_event(job_proxy, 'success', 'PyTubefix — done ✓')
-            return
-        _log_proxy_event(job_proxy, 'blocked', 'PyTubefix failed — switching to yt-dlp')
-
-        # 3. yt-dlp — try WITHOUT proxy first (server IP may work), then proxies
-        _set_job(job_id, {'progress': 5})
-        file_id      = str(uuid.uuid4())
-        tmpl         = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
-        rc, serr     = -1, ''
-        tried_proxies = set()
-        _job_start = time.time()
-
-        # Attempt list: None (no proxy) first, then up to MAX_YTDLP_TRIES proxies
-        proxy_attempts = [None] + [None] * MAX_YTDLP_TRIES  # slots filled below
-        for _attempt in range(MAX_YTDLP_TRIES + 1):
-            # Global job timeout
-            if time.time() - _job_start > GLOBAL_JOB_TTL:
-                _set_job(job_id, {'status': 'error',
-                                  'error': 'Conversion timed out. Please try again.'})
-                return
-
-            # First attempt: no proxy
-            if _attempt == 0:
-                job_proxy = None
-                _log_proxy_event('direct', 'trying', f'yt-dlp attempt 1 — no proxy (direct IP)')
-            else:
-                job_proxy = _proxy_rotator.get()
-                if job_proxy in tried_proxies:
-                    break
-                tried_proxies.add(job_proxy)
-                _log_proxy_event(job_proxy, 'trying', f'yt-dlp attempt {_attempt+1} — proxy')
-
-            cmd      = build_cmd(url, tmpl, quality, fmt, job_proxy, attempt=_attempt)
-            rc, serr = _run_ytdlp(cmd, job_id)
-
-            if rc == 0:
-                label = 'direct' if job_proxy is None else job_proxy
-                _log_proxy_event(label, 'success', f'yt-dlp {fmt.upper()} {quality} — done ✓')
-                break
-
-            if serr == 'timeout':
-                label = 'direct' if job_proxy is None else job_proxy
-                _log_proxy_event(label, 'timeout', 'yt-dlp timed out — trying next')
-                # Never exit on single timeout; keep rotating until global TTL
-                if job_proxy:
-                    _proxy_rotator.mark_failed(job_proxy)
-                continue
-
-            err_type = parse_ytdlp_error(serr)
-
-            # Proxy subscription expired — mark failed and continue to next attempt
-            if err_type == '__PROXY_EXPIRED__':
-                if job_proxy:
-                    _proxy_rotator.mark_failed(job_proxy)
-                _log_proxy_event(job_proxy or 'direct', 'error', 'Proxy expired (402) — skipping')
-                continue
-
-            if err_type != '__BOT__':
-                label = 'direct' if job_proxy is None else job_proxy
-                _log_proxy_event(label, 'error', f'yt-dlp: {err_type}')
-                break
-
-            label = 'direct' if job_proxy is None else job_proxy
-            _log_proxy_event(label, 'blocked', 'YouTube blocked — rotating')
-            if job_proxy:
-                _proxy_rotator.mark_failed(job_proxy)
-            for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*')):
-                try: os.remove(f)
-                except: pass
-
-        if rc == 0:
-            ext    = 'mp4' if fmt == 'mp4' else 'mp3'
-            target = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
-            if not os.path.exists(target):
-                audio_exts = {'.webm', '.m4a', '.ogg', '.opus', '.aac', '.mp4'}
-                cands = [f for f in glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
-                         if os.path.splitext(f)[1].lower() in audio_exts]
-                if not cands:
-                    _set_job(job_id, {'status': 'error',
-                                      'error': 'Output file not found. Please try again.'})
-                    return
-                src = cands[0]
-                if not _ffmpeg_to_mp3(src, target, quality):
-                    _set_job(job_id, {'status': 'error',
-                                      'error': 'Conversion failed. Please try again.'})
-                    return
-                try: os.remove(src)
-                except: pass
-            if os.path.getsize(target) < 1024:
-                _set_job(job_id, {'status': 'error',
-                                  'error': 'Output file is empty. Please try again.'})
-                return
-            fname = make_filename(prefetched_title or 'download',
-                                  prefetched_uploader or '', ext)
-            _set_job(job_id, {'status': 'done', 'file': target,
-                              'filename': fname, 'progress': 100})
-            schedule_cleanup(job_id, target)
-            return
-
-        # 4. Cobalt.tools API
-        job_proxy = _proxy_rotator.get()
-        _log_proxy_event(job_proxy, 'rotated', 'Backend: Cobalt.tools')
-        _set_job(job_id, {'progress': 0})
-        if cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
-            _log_proxy_event(job_proxy, 'success', 'Cobalt.tools — done ✓')
-            return
-        _log_proxy_event(job_proxy, 'blocked', 'Cobalt failed — trying Invidious')
-
-        # 5. Invidious last resort — only if probe shows live instances
-        with _sources_lock:
-            inv_alive = bool(_working_invidious)
-        if video_id and inv_alive:
-            job_proxy = _proxy_rotator.get()
-            _log_proxy_event(job_proxy, 'rotated', 'Backend: Invidious (last resort)')
-            if invidious_download(job_id, video_id, url,
-                                  prefetched_title, prefetched_uploader, quality, fmt):
-                _log_proxy_event(job_proxy, 'success', 'Invidious — done ✓')
-                return
-
-        err = parse_ytdlp_error(serr)
-        _log_proxy_event(job_proxy, 'error', 'All backends failed — giving up')
+        _log_proxy_event('y2mate', 'error', 'y2mate failed (see preceding error log)')
         _set_job(job_id, {'status': 'error',
-                           'error': err if err != '__BOT__' else
-                           "YouTube blocked this video on our servers. It's a popular video with strict anti-bot. "
-                           "Try a different video, or paste a shorter clip."})
+                          'error': 'Conversion failed. y2mate is blocking us — try again in a moment.'})
     except Exception as ex:
-        _log_proxy_event(job_proxy if 'job_proxy' in locals() else '', 'error', f'Exception: {ex}')
+        _log_proxy_event('y2mate', 'error', f'Exception: {ex}')
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
     finally:
-        # Always rotate proxy after job finishes (success or fail)
-        _proxy_rotator.get()
         with url_jobs_lock:
             url_jobs.pop(f'{url}|{fmt}|{quality}', None)
 
