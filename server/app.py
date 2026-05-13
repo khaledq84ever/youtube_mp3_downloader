@@ -737,6 +737,130 @@ def _ffmpeg_merge(v_src, a_src, dst):
     return res.returncode == 0 and os.path.exists(dst)
 
 
+# ── y2mate.nu scraper backend ─────────────────────────────────────────────────
+# Reverse-engineered from https://v3.y2mate.nu/js/.../y2mate.js
+# Their server (etacloud.org) does the YouTube extraction for us, so this
+# path works even when our own IP is bot-blocked and proxies are down.
+
+import base64
+
+_Y2MATE_PAGE = 'https://v3.y2mate.nu/'
+_Y2MATE_UA   = ('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120.0 Safari/537.36')
+
+def _y2mate_get(url, timeout=20):
+    req = urllib.request.Request(url, headers={
+        'User-Agent': _Y2MATE_UA, 'Accept': '*/*',
+        'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
+    })
+    return urllib.request.urlopen(req, timeout=timeout).read()
+
+def _y2mate_auth(cfg):
+    arr0, arr2, rev = cfg[0], cfg[2], cfg[1]
+    s = ''.join(chr(arr0[i] - arr2[len(arr2) - (i + 1)]) for i in range(len(arr0)))
+    if rev: s = s[::-1]
+    return s[:32]
+
+def _y2mate_resolve(youtube_url, fmt='mp3'):
+    """Return (signed_download_url, title) or raise on failure."""
+    html = _y2mate_get(_Y2MATE_PAGE).decode('utf-8', 'replace')
+    m = re.search(r"json\s*=\s*JSON\.parse\('([^']+)'\)", html)
+    if not m:
+        raise RuntimeError('y2mate: no config on page')
+    cfg = json.loads(m.group(1))
+    auth_param = chr(cfg[6])
+    auth = _y2mate_auth(cfg)
+    backend = base64.b64decode('ZXRhY2xvdWQub3Jn').decode()  # etacloud.org
+
+    vm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([a-zA-Z0-9_-]{11})', youtube_url)
+    if not vm:
+        raise RuntimeError('y2mate: bad youtube url')
+    vid = vm.group(1)
+
+    ts = int(time.time())
+    init_url = f'https://eta.{backend}/api/v1/init?{auth_param}={urllib.parse.quote(auth)}&t={ts}'
+    d = json.loads(_y2mate_get(init_url))
+    if int(d.get('error', 0) or 0) > 0:
+        raise RuntimeError(f'y2mate init: {d}')
+    convert_url = d['convertURL']
+
+    for _ in range(3):
+        ts = int(time.time())
+        c_url = f'{convert_url}&v={vid}&f={fmt}&t={ts}'
+        d = json.loads(_y2mate_get(c_url))
+        if int(d.get('error', 0) or 0) > 0:
+            raise RuntimeError(f'y2mate convert: {d}')
+        if d.get('redirect') == 1:
+            convert_url = d['redirectURL']
+            continue
+        break
+
+    progress_url = d['progressURL']
+    download_url = d['downloadURL']
+    title        = d.get('title') or ''
+
+    # Poll until conversion completes (progress == 3)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        ts = int(time.time())
+        pd = json.loads(_y2mate_get(f'{progress_url}&t={ts}'))
+        if int(pd.get('error', 0) or 0) > 0:
+            raise RuntimeError(f'y2mate progress: {pd}')
+        if int(pd.get('progress', 0) or 0) >= 3:
+            return download_url, pd.get('title') or title
+        time.sleep(3)
+    raise RuntimeError('y2mate: conversion timeout')
+
+def y2mate_download(job_id, url, title, uploader, quality, fmt):
+    """Backend: y2mate.nu — most reliable when our IP is bot-blocked.
+    Quality is fixed by y2mate (mp3=192 kbps, mp4=360p); 'quality' arg ignored.
+    """
+    try:
+        _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
+        signed_url, fetched_title = _y2mate_resolve(url, 'mp3' if fmt != 'mp4' else 'mp4')
+    except Exception:
+        return False
+
+    file_id = str(uuid.uuid4())
+    ext     = 'mp4' if fmt == 'mp4' else 'mp3'
+    out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+    try:
+        # Tell _download_stream to spoof y2mate referer
+        req = urllib.request.Request(signed_url, headers={
+            'User-Agent': _Y2MATE_UA, 'Accept': '*/*',
+            'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
+        })
+        with urllib.request.urlopen(req, timeout=30) as r:
+            total = int(r.headers.get('Content-Length', 0))
+            done  = 0
+            with open(out, 'wb') as f:
+                while True:
+                    chunk = r.read(524288)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    done += len(chunk)
+                    if total:
+                        pct = min(10 + int(done / total * 80), 90)
+                    else:
+                        pct = min(10 + done // (1024 * 1024), 90)
+                    with jobs_lock:
+                        if jobs.get(job_id, {}).get('status') == 'processing':
+                            jobs[job_id]['progress']         = pct
+                            jobs[job_id]['last_progress_at'] = time.time()
+    except Exception:
+        return False
+
+    if not os.path.exists(out) or os.path.getsize(out) < 1024:
+        return False
+
+    fname = make_filename(title or fetched_title or 'video',
+                          uploader or '', ext)
+    _set_job(job_id, {'status': 'done', 'file': out, 'filename': fname, 'progress': 100})
+    schedule_cleanup(job_id, out)
+    return True
+
+
 # ── Download backends ─────────────────────────────────────────────────────────
 
 def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
@@ -1100,6 +1224,14 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     _log_proxy_event(job_proxy, 'rotated', f'New job → {fmt.upper()} {quality}')
 
     try:
+        # 0. y2mate.nu — their server does YouTube extraction, so it works even
+        #    when our IP is bot-blocked AND our proxies are dead. Fastest path.
+        _log_proxy_event('y2mate', 'trying', 'Backend: y2mate.nu')
+        if y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
+            _log_proxy_event('y2mate', 'success', 'y2mate.nu — done ✓')
+            return
+        _log_proxy_event('y2mate', 'blocked', 'y2mate failed — switching backend')
+
         # 1. Piped — only if the probe shows working instances (skip wasted attempt otherwise)
         with _sources_lock:
             piped_alive = bool(_working_piped)
