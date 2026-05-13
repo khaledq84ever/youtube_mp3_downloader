@@ -786,7 +786,16 @@ def _y2mate_auth(cfg):
     if rev: s = s[::-1]
     return s[:32]
 
-def _y2mate_resolve(youtube_url, fmt='mp3'):
+def _y2mate_bump(job_id, pct):
+    if not job_id:
+        return
+    with jobs_lock:
+        j = jobs.get(job_id)
+        if j and j.get('status') == 'processing' and j.get('progress', 0) < pct:
+            j['progress'] = pct
+            j['last_progress_at'] = time.time()
+
+def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
     """Return (signed_download_url, title, opener, ua) or raise on failure."""
     opener, _jar = _y2mate_session()
     ua = _y2mate_pick_ua()
@@ -811,6 +820,7 @@ def _y2mate_resolve(youtube_url, fmt='mp3'):
     if int(d.get('error', 0) or 0) > 0:
         raise RuntimeError(f'init error={d.get("error")}')
     convert_url = d['convertURL']
+    _y2mate_bump(job_id, 6)
 
     for _ in range(3):
         ts = int(time.time())
@@ -826,17 +836,26 @@ def _y2mate_resolve(youtube_url, fmt='mp3'):
     progress_url = d['progressURL']
     download_url = d['downloadURL']
     title        = d.get('title') or ''
+    _y2mate_bump(job_id, 7)
 
-    # Poll until conversion completes (progress == 3)
+    # Poll until y2mate's server finishes conversion (their progress == 3).
+    # Bump our local progress every iteration so the UI doesn't look frozen at 5%.
     deadline = time.time() + 90
+    polls = 0
     while time.time() < deadline:
         ts = int(time.time())
         pd = json.loads(_y2mate_get(opener, ua, f'{progress_url}&t={ts}'))
         if int(pd.get('error', 0) or 0) > 0:
             raise RuntimeError(f'progress error={pd.get("error")}')
-        if int(pd.get('progress', 0) or 0) >= 3:
+        yp = int(pd.get('progress', 0) or 0)
+        if yp >= 3:
+            _y2mate_bump(job_id, 10)
             return download_url, pd.get('title') or title, opener, ua
-        time.sleep(3)
+        # Map y2mate's coarse 0/1/2 to our 7..9, plus a poll-count tick so the
+        # bar visibly moves even while y2mate sits at the same internal step.
+        polls += 1
+        _y2mate_bump(job_id, min(7 + yp + (polls // 3), 9))
+        time.sleep(1.5)
     raise RuntimeError('conversion timeout')
 
 def y2mate_download(job_id, url, title, uploader, quality, fmt):
@@ -850,7 +869,7 @@ def y2mate_download(job_id, url, title, uploader, quality, fmt):
     for attempt in range(3):
         try:
             signed_url, fetched_title, sess_opener, sess_ua = _y2mate_resolve(
-                url, 'mp3' if fmt != 'mp4' else 'mp4')
+                url, 'mp3' if fmt != 'mp4' else 'mp4', job_id=job_id)
             break
         except Exception as ex:
             last_err = f'{type(ex).__name__}: {ex}'[:140]
