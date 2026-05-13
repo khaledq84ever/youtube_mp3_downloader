@@ -88,7 +88,6 @@ JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 90 — never hits
 MAX_YTDLP_TRIES = 4             # 4 proxy attempts (was 8 — most blocks repeat across IPs)
 GLOBAL_JOB_TTL  = 180           # give up entire job after 3 min (was 10 — UX killer)
 RATE_LIMIT      = 30            # per minute per IP
-COOKIES_FILE    = '/tmp/yt_cookies.txt'
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
 
@@ -232,33 +231,6 @@ def _log_proxy_event(proxy, result, detail=''):
             _proxy_log.pop()
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
-def _init_cookies():
-    # 1. From Railway env var
-    env_cookies = os.environ.get('YOUTUBE_COOKIES', '')
-    if env_cookies:
-        with open(COOKIES_FILE, 'w') as f:
-            f.write(env_cookies)
-        print('[cookies] Loaded from YOUTUBE_COOKIES env var')
-        return
-    # 2. Auto-detect from common file paths
-    for path in [
-        os.path.join(_HERE, 'cookies.txt'),
-        os.path.join(os.path.dirname(_HERE), 'cookies.txt'),
-        '/app/cookies.txt',
-        '/tmp/cookies.txt',
-    ]:
-        if os.path.isfile(path) and os.path.getsize(path) > 10:
-            shutil.copy(path, COOKIES_FILE)
-            print(f'[cookies] Auto-loaded from {path}')
-            return
-
-_init_cookies()
-
-def _cookies_args():
-    if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 10:
-        return ['--cookies', COOKIES_FILE]
-    return []
 
 def _proxy_args(proxy=None):
     return _proxy_rotator.args(proxy)
@@ -655,14 +627,16 @@ def _get_ffmpeg():
     return os.path.join(d, 'ffmpeg') if d else ffmpeg
 
 def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_end=85):
+    """Stream a URL to disk with progress updates. Socket timeout = 30 s applies
+    to BOTH connect and each read, so a stalled CDN can never hang us forever."""
     req = urllib.request.Request(stream_url,
         headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.youtube.com/'})
     total, done = 0, 0
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=30) as r:
         total = int(r.headers.get('Content-Length', 0))
         with open(out_path, 'wb') as f:
             while True:
-                chunk = r.read(524288)   # 512 KB chunks — faster than 64 KB
+                chunk = r.read(524288)   # 512 KB chunks
                 if not chunk:
                     break
                 f.write(chunk)
@@ -670,39 +644,74 @@ def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_e
                 if total:
                     pct = min(progress_start + int(done / total * (progress_end - progress_start)),
                               progress_end)
-                    with jobs_lock:
-                        if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id]['progress'] = pct
+                else:
+                    # No Content-Length: bump progress every chunk so UI doesn't look frozen
+                    pct = min(progress_start + (done // (1024 * 1024)),
+                              progress_end)
+                with jobs_lock:
+                    if jobs.get(job_id, {}).get('status') == 'processing':
+                        jobs[job_id]['progress'] = pct
+                        jobs[job_id]['last_progress_at'] = time.time()
 
 def _ffmpeg_stream_convert(job_id, stream_url, dst, quality,
                            referer='https://www.youtube.com/'):
     """Single-pass: ffmpeg fetches the URL and converts to mp3 simultaneously.
-    Fastest path — no separate download step."""
+    Fastest path — no separate download step.
+
+    Stall watchdog: if no progress for STALL_LIMIT seconds, kill ffmpeg.
+    Hard cap: total runtime cannot exceed HARD_LIMIT seconds.
+    """
+    STALL_LIMIT = 60
+    HARD_LIMIT  = 300
     kbps = (quality or '320K').rstrip('Kk')
-    _set_job(job_id, {'progress': 5})
+    _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
     cmd = [
         _get_ffmpeg(), '-y',
+        '-rw_timeout', '30000000',  # 30s I/O timeout (microseconds) — kills hung HTTP reads
         '-headers', f'User-Agent: Mozilla/5.0\r\nReferer: {referer}\r\n',
         '-i', stream_url,
         '-vn', '-ar', '44100', '-ac', '2', '-b:a', f'{kbps}k', dst
     ]
     proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    started = time.time()
+    last_progress = started
+    killed = False
+
+    def _watchdog():
+        nonlocal killed
+        while proc.poll() is None:
+            time.sleep(2)
+            now = time.time()
+            if now - last_progress > STALL_LIMIT or now - started > HARD_LIMIT:
+                killed = True
+                try: proc.kill()
+                except Exception: pass
+                return
+
+    threading.Thread(target=_watchdog, daemon=True).start()
+
     total_secs = 0
     for line in proc.stderr:
         dm = _FFMPEG_DURATION_RE.search(line)
         if dm and not total_secs:
             total_secs = int(dm.group(1))*3600 + int(dm.group(2))*60 + int(dm.group(3))
+            last_progress = time.time()
         tm = _FFMPEG_TIME_RE.search(line)
         if tm and total_secs:
             done = int(tm.group(1))*3600 + int(tm.group(2))*60 + int(tm.group(3))
             pct = min(int(done / total_secs * 85) + 10, 90)
+            last_progress = time.time()
             with jobs_lock:
                 if jobs.get(job_id, {}).get('status') == 'processing':
                     jobs[job_id]['progress'] = pct
+                    jobs[job_id]['last_progress_at'] = last_progress
     try:
-        proc.wait(timeout=300)
+        proc.wait(timeout=HARD_LIMIT)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        try: proc.kill()
+        except Exception: pass
+        return False
+    if killed:
         return False
     return proc.returncode == 0 and os.path.exists(dst) and os.path.getsize(dst) > 1024
 
@@ -901,7 +910,7 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
     file_id = str(uuid.uuid4())
     ext     = 'mp4' if fmt == 'mp4' else 'mp3'
     try:
-        _set_job(job_id, {'progress': 5})
+        _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
         if fmt == 'mp4':
             max_h = {'720': 720, '1080': 1080, '4k': 2160}.get(quality, 99999)
             out = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp4')
@@ -913,8 +922,9 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
                     if (s.resolution and int(s.resolution.rstrip('p')) <= max_h)]
             prog.sort(key=lambda s: int(s.resolution.rstrip('p')), reverse=True)
             if prog:
-                _set_job(job_id, {'progress': 10})
-                prog[0].download(output_path=DOWNLOAD_DIR, filename=f'{file_id}.mp4')
+                # Use _download_stream so we get progress + a real read timeout
+                # (pytube's stream.download() has neither, which caused the 10% freeze).
+                _download_stream(job_id, prog[0].url, out, 10, 90)
             else:
                 v_streams = [s for s in yt.streams.filter(adaptive=True, file_extension='mp4', only_video=True)
                              if (s.resolution and int(s.resolution.rstrip('p')) <= max_h)]
@@ -925,10 +935,8 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
                     return False
                 v_tmp = os.path.join(DOWNLOAD_DIR, f'{file_id}_v.mp4')
                 a_tmp = os.path.join(DOWNLOAD_DIR, f'{file_id}_a.{a_stream.subtype or "m4a"}')
-                _set_job(job_id, {'progress': 15})
-                v_streams[0].download(output_path=DOWNLOAD_DIR, filename=os.path.basename(v_tmp))
-                _set_job(job_id, {'progress': 60})
-                a_stream.download(output_path=DOWNLOAD_DIR, filename=os.path.basename(a_tmp))
+                _download_stream(job_id, v_streams[0].url, v_tmp, 15, 55)
+                _download_stream(job_id, a_stream.url, a_tmp, 55, 80)
                 _set_job(job_id, {'progress': 85})
                 if not _ffmpeg_merge(v_tmp, a_tmp, out):
                     return False
@@ -942,11 +950,12 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
             raw_ext  = stream.mime_type.split('/')[-1]
             raw_path = os.path.join(DOWNLOAD_DIR, f'{file_id}_raw.{raw_ext}')
             out      = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp3')
-            _set_job(job_id, {'progress': 10})
-            stream.download(output_path=DOWNLOAD_DIR, filename=f'{file_id}_raw.{raw_ext}')
-            _set_job(job_id, {'progress': 75})
+            # _download_stream gives progress updates + 30s read timeout
+            # (pytube's stream.download() does neither — this was the 10% freeze).
+            _download_stream(job_id, stream.url, raw_path, 10, 70)
             if not os.path.exists(raw_path) or os.path.getsize(raw_path) < 1024:
                 return False
+            _set_job(job_id, {'progress': 75})
             if not _ffmpeg_to_mp3(raw_path, out, quality):
                 return False
             try: os.remove(raw_path)
@@ -967,25 +976,19 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
 # ── yt-dlp backend ────────────────────────────────────────────────────────────
 
 def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attempt=0):
-    has_cookies = os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100
-    bgutil_up   = _bgutil_ready
+    bgutil_up = _bgutil_ready
 
-    # Client strategy depends on what's available
-    if has_cookies:
-        # With cookies: web client works reliably
-        client_sets = ['web', 'mweb,web', 'web,mweb', 'web_creator,web', 'mweb']
-    elif bgutil_up:
+    if bgutil_up:
         # With bgutil: web client + PO token fetching
         client_sets = ['web', 'web,mweb', 'mweb,web', 'web_creator', 'web,web_creator']
     else:
-        # No cookies, no bgutil: try various clients
+        # No bgutil: try various clients
         client_sets = ['mweb', 'mweb,android', 'android,mweb', 'mweb', 'android']
 
     clients = client_sets[min(attempt, len(client_sets) - 1)]
 
-    # Build extractor args
     ea_parts = [f'player_client={clients}']
-    if bgutil_up and not has_cookies:
+    if bgutil_up:
         ea_parts.append('fetch_pot=always')
 
     base_flags = [
@@ -994,13 +997,9 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attem
         '--socket-timeout', '15',
         '--retries', '2',
     ]
-    # Tell the bgutil yt-dlp plugin where the HTTP server lives
     if bgutil_up:
         base_flags += ['--extractor-args',
                        f'youtubepot-bgutilhttp:base_url={BGUTIL_BASE_URL}']
-    # Cookies dramatically improve success rate
-    base_flags += _cookies_args()
-    # Add proxy if given and valid (skip expired proxies)
     if proxy:
         base_flags += _proxy_args(proxy)
 
@@ -1448,7 +1447,6 @@ def health():
             bgutil_server_alive = r.getcode() == 200
     except Exception:
         pass
-    has_cookies = os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100
     payload = {
         'status':              'ok',
         'yt_dlp_version':      ytdlp_ver,
@@ -1460,7 +1458,6 @@ def health():
         'last_probe_ago':      int(time.time() - _last_probe) if _last_probe else None,
         'bgutil_server':       bgutil_server_alive,
         'bgutil_plugin':       bgutil_plugin_loaded,
-        'cookies_loaded':      has_cookies,
     }
     with _HEALTH_CACHE_LOCK:
         _HEALTH_CACHE['ts']   = now
@@ -1494,7 +1491,7 @@ def test_backends():
                  '--socket-timeout', '10', '--retries', '1',
                  '--extractor-args', 'youtube:player_client=mweb',
                  f'https://www.youtube.com/watch?v={_TEST_VIDEO}']
-                + _proxy_args(proxy) + _cookies_args(),
+                + _proxy_args(proxy),
                 capture_output=True, text=True, timeout=15)
             return 'ok' if r.returncode == 0 else f'fail: {parse_ytdlp_error(r.stderr)}'
         except Exception as e:
@@ -1580,14 +1577,14 @@ def sitemap():
 def _yt_info_cmd(url, proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'
     ea = [f'player_client={clients}']
-    if _bgutil_ready and not (os.path.isfile(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 100):
+    if _bgutil_ready:
         ea.append('fetch_pot=always')
     cmd = [YTDLP, '--dump-json', '--no-playlist', '--geo-bypass',
            '--socket-timeout', '15', '--retries', '2',
            '--extractor-args', f'youtube:{";".join(ea)}']
     if _bgutil_ready:
         cmd += ['--extractor-args', f'youtubepot-bgutilhttp:base_url={BGUTIL_BASE_URL}']
-    cmd += [url] + _proxy_args(proxy) + _cookies_args()
+    cmd += [url] + _proxy_args(proxy)
     return subprocess.run(cmd, capture_output=True, text=True, timeout=45)
 
 @app.route('/info', methods=['POST'])
@@ -1799,15 +1796,6 @@ def download_file(job_id, _fname=None):
     safe = re.sub(r'[^\w\s\-\.\(\)]', '', filename).strip() or 'audio.mp3'
     mime = 'video/mp4' if safe.endswith('.mp4') else 'audio/mpeg'
     return send_file(path, as_attachment=True, download_name=safe, mimetype=mime)
-
-@app.route('/upload-cookies', methods=['POST'])
-def upload_cookies():
-    txt = (request.get_json() or {}).get('cookies', '').strip()
-    if not txt or len(txt) < 20:
-        return jsonify({'error': 'No cookie data provided.'}), 400
-    with open(COOKIES_FILE, 'w') as f:
-        f.write(txt)
-    return jsonify({'ok': True, 'message': 'Cookies saved. Downloads should now work.'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 13000))

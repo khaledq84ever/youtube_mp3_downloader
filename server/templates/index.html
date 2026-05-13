@@ -685,35 +685,8 @@
   <span class="footer-divider">·</span>
   <span class="footer-copy">For personal use only. Respect copyright laws.</span>
   <span class="footer-divider">·</span>
-  <span class="footer-copy"><a href="#" onclick="openCookies();return false" style="color:#a78bfa;font-weight:700;text-decoration:none;">🍪 Got cookies?</a></span>
-  <span class="footer-divider">·</span>
   <span class="footer-copy">Programmed by <a href="https://x.com/KhaledQ84Ever" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;font-weight:900;text-decoration:none;">@KhaledQ84Ever</a></span>
 </footer>
-
-<div id="cookieModal" style="display:none;position:fixed;inset:0;z-index:99;background:rgba(7,7,15,0.88);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0e0e1c;border:1px solid #252548;border-radius:18px;padding:24px;max-width:560px;width:100%;max-height:88vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:1.05rem;font-weight:900;color:#eeeeff">🍪 Paste YouTube cookies</div>
-      <button onclick="closeCookies()" style="background:none;border:none;color:#60608a;font-size:1.4rem;cursor:pointer;padding:0 8px">×</button>
-    </div>
-    <div style="font-size:0.8rem;color:#b0b0d0;line-height:1.55;margin-bottom:14px">
-      YouTube blocks famous music videos from datacenter IPs. Paste cookies from a logged-in YouTube session and these videos will work.
-      <br/><br/>
-      <b style="color:#eeeeff">How to get them (60 sec):</b>
-      <ol style="margin:8px 0 0 18px;padding:0">
-        <li>Install <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener" style="color:#a78bfa">Get cookies.txt LOCALLY</a> (Chrome)</li>
-        <li>Open YouTube while logged in → click extension</li>
-        <li>Click "Export As" → copy the text → paste below</li>
-      </ol>
-    </div>
-    <textarea id="cookieText" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com  TRUE  /  TRUE  ..." style="width:100%;height:160px;background:#07070f;border:1px solid #252548;border-radius:10px;padding:10px;color:#eeeeff;font-family:monospace;font-size:0.74rem;resize:vertical"></textarea>
-    <div id="cookieMsg" style="font-size:0.78rem;color:#60608a;margin-top:8px;min-height:18px"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button onclick="closeCookies()" style="flex:1;padding:10px;border-radius:10px;border:1px solid #252548;background:transparent;color:#b0b0d0;font-weight:700;cursor:pointer">Cancel</button>
-      <button onclick="saveCookies()" id="cookieSaveBtn" style="flex:2;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;font-weight:800;cursor:pointer">Save cookies</button>
-    </div>
-  </div>
-</div>
 
 <script>
   let pollTimer = null;
@@ -1001,53 +974,6 @@
       }
     } catch {}
   });
-
-  function openCookies() {
-    $('cookieModal').style.display = 'flex';
-    $('cookieMsg').textContent = '';
-    $('cookieText').value = '';
-    setTimeout(() => $('cookieText').focus(), 50);
-  }
-  function closeCookies() {
-    $('cookieModal').style.display = 'none';
-  }
-  $('cookieModal').addEventListener('click', e => {
-    if (e.target === $('cookieModal')) closeCookies();
-  });
-  async function saveCookies() {
-    const txt = $('cookieText').value.trim();
-    if (!txt || txt.length < 50) {
-      $('cookieMsg').textContent = '⚠ Paste the full cookies.txt content first.';
-      $('cookieMsg').style.color = '#fbbf24';
-      return;
-    }
-    $('cookieSaveBtn').disabled = true;
-    $('cookieSaveBtn').textContent = 'Saving…';
-    $('cookieMsg').style.color = '#60608a';
-    $('cookieMsg').textContent = 'Uploading…';
-    try {
-      const r = await fetch('/upload-cookies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookies: txt })
-      });
-      const d = await r.json();
-      if (r.ok) {
-        $('cookieMsg').style.color = '#10b981';
-        $('cookieMsg').textContent = '✅ ' + (d.message || 'Cookies saved.');
-        setTimeout(closeCookies, 1500);
-      } else {
-        $('cookieMsg').style.color = '#f87171';
-        $('cookieMsg').textContent = '❌ ' + (d.error || 'Upload failed.');
-      }
-    } catch {
-      $('cookieMsg').style.color = '#f87171';
-      $('cookieMsg').textContent = '❌ Network error. Try again.';
-    } finally {
-      $('cookieSaveBtn').disabled = false;
-      $('cookieSaveBtn').textContent = 'Save cookies';
-    }
-  }
 </script>
 </body>
 </html>
