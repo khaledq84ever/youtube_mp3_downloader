@@ -91,7 +91,7 @@ YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
 JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 90 — never hits limit when blocked)
 MAX_YTDLP_TRIES = 4             # 4 proxy attempts (was 8 — most blocks repeat across IPs)
-GLOBAL_JOB_TTL  = 180           # give up entire job after 3 min (was 10 — UX killer)
+GLOBAL_JOB_TTL  = 120           # give up entire job after 2 min
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1268,22 +1268,105 @@ def _client_ip():
             .split(',')[0].strip() or request.remote_addr or 'unknown')
 
 
-# ── Main worker: y2mate.nu only ──────────────────────────────────────────────
+# ── yt-dlp backend wrapper ──────────────────────────────────────────────────
+
+def ytdlp_download(job_id, url, title, uploader, quality, fmt):
+    file_id = str(uuid.uuid4())
+    ext = 'mp4' if fmt == 'mp4' else 'mp3'
+    output_tmpl = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
+    _set_job(job_id, {'progress': 3})
+
+    # Try up to 3 proxies
+    for attempt in range(min(len(_PROXY_LIST), 3)):
+        proxy = _proxy_rotator.get()
+        cmd = build_cmd(url, output_tmpl, quality, fmt, proxy, attempt)
+        rc, stderr = _run_ytdlp(cmd, job_id)
+        if rc == 0:
+            # Find output file
+            out_candidates = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
+            if not out_candidates:
+                continue
+            out_path = out_candidates[0]
+            if not os.path.exists(out_path) or os.path.getsize(out_path) < 1024:
+                continue
+
+            # Rename to correct extension if needed
+            final_ext = ext
+            _, actual_ext = os.path.splitext(out_path)
+            actual_ext = actual_ext.lstrip('.')
+            if actual_ext != final_ext:
+                final_path = os.path.join(DOWNLOAD_DIR, f'{file_id}.{final_ext}')
+                ffmpeg = _get_ffmpeg()
+                if final_ext == 'mp3':
+                    if not _ffmpeg_to_mp3(out_path, final_path, quality):
+                        continue
+                    try: os.remove(out_path)
+                    except: pass
+                    out_path = final_path
+                else:
+                    os.rename(out_path, final_path)
+                    out_path = final_path
+
+            fname = make_filename(title or os.path.splitext(os.path.basename(out_path))[0],
+                                  uploader or '', ext)
+            _set_job(job_id, {'status': 'done', 'file': out_path, 'filename': fname, 'progress': 100})
+            schedule_cleanup(job_id, out_path)
+            return True
+        else:
+            err_msg = parse_ytdlp_error(stderr)
+            if err_msg != '__BOT__':
+                _proxy_rotator.mark_failed(proxy)
+            _proxy_rotator.rotate()
+    return False
+
+
+# ── Main worker: multi-backend with auto fallback ───────────────────────────
 
 def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                quality='320K', fmt='mp3'):
-    _set_job(job_id, {'status': 'processing', 'progress': 2})
+    _set_job(job_id, {'status': 'processing', 'progress': 2, '_started': time.time()})
+    video_id = _extract_video_id(url)
 
+    backends = [
+        ('y2mate',    lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)),
+    ]
+
+    if _PYTUBE_OK:
+        backends.append(('pytubefix', lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+        backends.append(('pytubefix2',lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    if video_id:
+        backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+        backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+    backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    last_err = ''
     try:
-        _log_proxy_event('y2mate', 'trying', f'New job → {fmt.upper()} {quality}')
-        if y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt):
-            _log_proxy_event('y2mate', 'success', 'y2mate.nu — done ✓')
-            return
-        _log_proxy_event('y2mate', 'error', 'y2mate failed (see preceding error log)')
+        for name, fn in backends:
+            # Check job deadline
+            with jobs_lock:
+                job_data = jobs.get(job_id)
+                if job_data and time.time() - job_data.get('_started', time.time()) > GLOBAL_JOB_TTL:
+                    _log_proxy_event(name, 'error', f'Global timeout ({GLOBAL_JOB_TTL}s) exceeded')
+                    break
+            _log_proxy_event(name, 'trying', f'{fmt.upper()} {quality} — {name}')
+            try:
+                if fn():
+                    _log_proxy_event(name, 'success', f'{name} — done ✓')
+                    return
+            except Exception as e:
+                _log_proxy_event(name, 'error', f'{name} exception: {e}')
+                last_err = f'{name}: {e}'
+                continue
+            _log_proxy_event(name, 'error', f'{name} returned False')
+            last_err = f'{name} failed'
+
         _set_job(job_id, {'status': 'error',
-                          'error': 'Conversion failed. y2mate is blocking us — try again in a moment.'})
+                          'error': 'Conversion failed. All sources are busy. Please try again.'})
     except Exception as ex:
-        _log_proxy_event('y2mate', 'error', f'Exception: {ex}')
+        _log_proxy_event('all', 'error', f'Unhandled: {ex}')
         _set_job(job_id, {'status': 'error', 'error': 'Conversion failed. Please try again.'})
     finally:
         with url_jobs_lock:
@@ -1634,10 +1717,6 @@ def sw():
 def robots():
     return 'User-agent: *\nAllow: /\n', 200, {'Content-Type': 'text/plain'}
 
-@app.route('/ads.txt')
-def ads_txt():
-    return 'google.com, pub-3956390078338144, DIRECT, f08c47fec0942fa0\n', 200, {'Content-Type': 'text/plain'}
-
 @app.route('/sitemap.xml')
 def sitemap():
     host = request.host_url.rstrip('/')
@@ -1646,6 +1725,82 @@ def sitemap():
             f'<url><loc>{host}/</loc><changefreq>monthly</changefreq>'
             f'<priority>1.0</priority></url></urlset>',
             200, {'Content-Type': 'application/xml'})
+
+TIKTOK_RX = re.compile(r'(?:^|[./])(?:tiktok\.com|vm\.tiktok\.com|vt\.tiktok\.com)/', re.I)
+
+def _tikwm_extract(url):
+    try:
+        body = urllib.parse.urlencode({'url': url, 'hd': '1'}).encode()
+        req = urllib.request.Request(
+            'https://www.tikwm.com/api/',
+            data=body,
+            headers={
+                'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                               'AppleWebKit/537.36 (KHTML, like Gecko) '
+                               'Chrome/123.0.0.0 Safari/537.36'),
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://www.tikwm.com/',
+            },
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            payload = json.loads(r.read().decode('utf-8', errors='replace'))
+    except Exception:
+        return None
+    if not isinstance(payload, dict) or payload.get('code') != 0:
+        return None
+    d = payload.get('data') or {}
+    def _abs(u):
+        if not u:
+            return ''
+        if u.startswith('http'):
+            return u
+        return 'https://www.tikwm.com' + u
+    downloads = []
+    if d.get('hdplay'):
+        downloads.append({'label': 'HD MP4 (no watermark)', 'url': _abs(d['hdplay']), 'kind': 'video', 'ext': 'mp4'})
+    if d.get('play'):
+        downloads.append({'label': 'MP4 (no watermark)',    'url': _abs(d['play']),   'kind': 'video', 'ext': 'mp4'})
+    if d.get('wmplay'):
+        downloads.append({'label': 'MP4 (with watermark)',  'url': _abs(d['wmplay']), 'kind': 'video', 'ext': 'mp4'})
+    if d.get('music'):
+        downloads.append({'label': 'MP3 (audio only)',      'url': _abs(d['music']),  'kind': 'audio', 'ext': 'mp3'})
+    if not downloads:
+        return None
+    author = d.get('author')
+    if isinstance(author, dict):
+        author = author.get('nickname') or author.get('unique_id') or ''
+    return {
+        'title': (d.get('title') or '').strip() or 'TikTok video',
+        'author': author or '',
+        'thumbnail': _abs(d.get('cover') or d.get('origin_cover') or ''),
+        'duration': int(d.get('duration') or 0),
+        'downloads': downloads,
+    }
+
+@app.route('/tiktok', methods=['GET'])
+def tiktok_page():
+    try:
+        resp = app.make_response(render_template('tiktok.html', build=_build_id()))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma']        = 'no-cache'
+        resp.headers['Expires']       = '0'
+        return resp
+    except Exception as exc:
+        return f'template error: {exc}', 500
+
+@app.route('/tiktok/resolve', methods=['POST'])
+def tiktok_resolve():
+    if not _check_rate(_client_ip()):
+        return jsonify({'error': 'Too many requests. Please wait a moment.'}), 429
+    data = request.get_json(silent=True) or {}
+    url  = (data.get('url') or '').strip()
+    if not url or not TIKTOK_RX.search(url):
+        return jsonify({'error': 'Please paste a valid TikTok link.'}), 400
+    result = _tikwm_extract(url)
+    if not result:
+        return jsonify({'error': 'Could not extract this video. It may be private, removed, or region-locked.'}), 502
+    return jsonify(result)
 
 def _yt_info_cmd(url, proxy=None):
     clients = 'mweb,tv_embedded,web_creator,android,web'

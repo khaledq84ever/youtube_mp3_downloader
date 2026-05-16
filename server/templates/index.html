@@ -1,996 +1,442 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="auto">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3956390078338144" crossorigin="anonymous"></script>
-  <title>YT MP3 — Free YouTube to MP3 &amp; MP4 Converter</title>
-  <meta name="description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required. Supports Shorts, Live, and all YouTube links." />
-  <meta property="og:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter" />
-  <meta property="og:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required." />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter" />
-  <meta name="twitter:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required." />
-  <link rel="canonical" href="https://youtube-mp3-downloader-production-c1e2.up.railway.app/" />
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 16px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
-
-    :root {
-      --bg:        #07070f;
-      --surface:   #0e0e1c;
-      --surface2:  #14142a;
-      --surface3:  #1c1c38;
-      --border:    #252548;
-      --border2:   #34345e;
-      --accent:    #8b5cf6;
-      --accent2:   #3b82f6;
-      --accent-g:  rgba(139,92,246,0.16);
-      --success:   #10b981;
-      --success-g: rgba(16,185,129,0.18);
-      --danger:    #ef4444;
-      --text:      #eeeeff;
-      --text2:     #b0b0d0;
-      --muted:     #60608a;
-      --radius:    18px;
-      --radius-sm: 12px;
-      --max-w:     700px;
-    }
-
-    body {
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(139,92,246,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(139,92,246,0.025) 1px, transparent 1px);
-      background-size: 44px 44px;
-      pointer-events: none; z-index: 0;
-    }
-
-    body::after {
-      content: '';
-      position: fixed; top: -15%; left: 50%;
-      transform: translateX(-50%);
-      width: 900px; height: 600px;
-      background: radial-gradient(ellipse, rgba(139,92,246,0.13) 0%, transparent 65%);
-      pointer-events: none; z-index: 0;
-    }
-
-    header, main, footer { position: relative; z-index: 1; }
-
-    header {
-      padding: clamp(20px,4vw,36px) 24px 0;
-      text-align: center;
-    }
-
-    .logo {
-      display: inline-flex; align-items: center; gap: 10px;
-      text-decoration: none;
-    }
-
-    .logo-icon {
-      width: 38px; height: 38px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.05rem; color: #fff;
-      box-shadow: 0 4px 16px rgba(139,92,246,0.38);
-      flex-shrink: 0;
-    }
-
-    .logo-text {
-      font-size: clamp(1.15rem,3.2vw,1.45rem);
-      font-weight: 900;
-      letter-spacing: -0.04em;
-      color: var(--text);
-    }
-
-    .logo-text span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 10px;
-      padding: 5px 13px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 99px;
-      font-size: 0.73rem; font-weight: 700;
-      color: var(--muted);
-      letter-spacing: 0.03em;
-    }
-
-    .status-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 6px;
-      padding: 4px 11px;
-      background: rgba(16,185,129,0.07);
-      border: 1px solid rgba(16,185,129,0.2);
-      border-radius: 99px;
-      font-size: 0.68rem; font-weight: 700;
-      color: var(--success);
-      letter-spacing: 0.03em;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.2s;
-    }
-    .status-badge:hover { background: rgba(16,185,129,0.14); }
-
-    .live-badge .dot {
-      width: 6px; height: 6px;
-      background: var(--success);
-      border-radius: 50%;
-      animation: blink 2.4s ease-in-out infinite;
-    }
-
-    @keyframes blink {
-      0%,100% { opacity: 1; }
-      50% { opacity: 0.25; }
-    }
-
-    main {
-      flex: 1;
-      display: flex; flex-direction: column; align-items: center;
-      padding: clamp(36px,6vw,60px) 16px 56px;
-    }
-
-    .hero {
-      text-align: center;
-      max-width: 620px; width: 100%;
-    }
-
-    h1 {
-      font-size: clamp(1.9rem,5.8vw,3.2rem);
-      font-weight: 900;
-      line-height: 1.12;
-      letter-spacing: -0.04em;
-      color: var(--text);
-    }
-
-    h1 .grad {
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 55%, #06b6d4 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .subtitle {
-      margin-top: 14px;
-      color: var(--text2);
-      font-size: clamp(0.9rem,2.5vw,1.05rem);
-      font-weight: 500;
-      line-height: 1.6;
-    }
-
-    .chips {
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 8px;
-      margin-top: 18px;
-    }
-
-    .chip {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 5px 13px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 99px;
-      font-size: 0.78rem; font-weight: 600;
-      color: var(--text2);
-    }
-
-    .chip .ci { color: var(--success); }
-
-    .converter {
-      margin-top: 40px;
-      width: 100%; max-width: var(--max-w);
-    }
-
-    .input-card {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      padding: 8px;
-      display: flex; gap: 6px; align-items: center;
-      transition: border-color 0.25s, box-shadow 0.25s;
-    }
-
-    .input-card:focus-within {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(139,92,246,0.1), 0 6px 24px rgba(139,92,246,0.08);
-    }
-
-    .url-input {
-      flex: 1;
-      background: transparent; border: none; outline: none;
-      color: var(--text);
-      font-family: inherit; font-size: 1rem; font-weight: 500;
-      padding: 13px 8px 13px 14px;
-      min-width: 0;
-    }
-
-    .url-input::placeholder { color: var(--muted); font-weight: 400; }
-
-    .btn-clear {
-      flex-shrink: 0;
-      width: 32px; height: 32px;
-      border: none; background: var(--surface2); color: var(--muted);
-      border-radius: 8px; font-size: 0.75rem; cursor: pointer;
-      display: none; align-items: center; justify-content: center;
-      transition: color 0.2s, background 0.2s;
-    }
-
-    .btn-clear:hover { color: var(--text); background: var(--border); }
-
-    .btn-paste {
-      flex-shrink: 0;
-      padding: 10px 18px;
-      border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
-      background: var(--surface2); color: var(--text2);
-      font-family: inherit; font-size: 0.85rem; font-weight: 700;
-      cursor: pointer; white-space: nowrap; min-height: 46px;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-
-    .btn-paste:hover { border-color: var(--accent); color: var(--text); background: var(--surface3); }
-
-    .btn-primary {
-      flex-shrink: 0;
-      padding: 13px 26px; border: none; border-radius: var(--radius-sm);
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-      font-family: inherit; font-size: clamp(0.9rem,2.5vw,1rem); font-weight: 800;
-      cursor: pointer; white-space: nowrap; min-height: 50px;
-      letter-spacing: 0.01em;
-      box-shadow: 0 4px 18px rgba(139,92,246,0.32);
-      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-    }
-
-    .btn-primary:hover { opacity: 0.92; box-shadow: 0 6px 24px rgba(139,92,246,0.45); }
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-primary:disabled { opacity: 0.38; cursor: not-allowed; box-shadow: none; }
-
-    .quality-label {
-      margin-top: 16px; margin-bottom: 8px;
-      font-size: 0.72rem; font-weight: 800;
-      color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.1em;
-      padding: 0 2px;
-    }
-
-    .quality-selector {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 6px;
-    }
-
-    .q-btn {
-      padding: 11px 6px 10px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      color: var(--muted);
-      font-family: inherit;
-      cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.15s;
-    }
-
-    .q-btn:hover { border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
-
-    .q-title { font-size: 0.8rem; font-weight: 800; line-height: 1.2; }
-    .q-sub   { font-size: 0.64rem; font-weight: 600; opacity: 0.75; }
-
-    .q-btn.active {
-      border-color: var(--accent);
-      background: rgba(139,92,246,0.14);
-      box-shadow: 0 0 0 1.5px var(--accent), 0 4px 14px rgba(139,92,246,0.22);
-      color: var(--text);
-    }
-    .q-btn.active .q-title { color: #b39dfd; }
-    .q-btn.active .q-sub   { color: #b39dfd; }
-
-    .q-btn.mp4-btn.active {
-      border-color: var(--accent2);
-      background: rgba(59,130,246,0.14);
-      box-shadow: 0 0 0 1.5px var(--accent2), 0 4px 14px rgba(59,130,246,0.22);
-    }
-    .q-btn.mp4-btn.active .q-title { color: #7db8fb; }
-    .q-btn.mp4-btn.active .q-sub   { color: #7db8fb; }
-
-    .error-wrap {
-      margin-top: 12px;
-      background: rgba(239,68,68,0.07);
-      border: 1px solid rgba(239,68,68,0.22);
-      border-radius: var(--radius-sm);
-      padding: 13px 16px;
-      display: none;
-      align-items: center; justify-content: space-between; gap: 10px;
-    }
-
-    .error-msg { color: var(--danger); font-size: 0.86rem; font-weight: 600; flex: 1; }
-
-    .btn-retry {
-      flex-shrink: 0;
-      padding: 7px 16px;
-      border: 1.5px solid var(--danger); border-radius: 8px;
-      background: transparent; color: var(--danger);
-      font-family: inherit; font-size: 0.8rem; font-weight: 700;
-      cursor: pointer; transition: background 0.2s, color 0.2s;
-    }
-
-    .btn-retry:hover { background: var(--danger); color: #fff; }
-
-    .video-card {
-      margin-top: 20px;
-      background: var(--surface);
-      border: 1.5px solid var(--border2);
-      border-radius: var(--radius);
-      overflow: hidden;
-      display: none;
-      animation: fadeUp 0.38s cubic-bezier(0.16,1,0.3,1);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(139,92,246,0.06);
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(18px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .video-card-inner {
-      display: flex; align-items: center; gap: 16px;
-      padding: 16px;
-    }
-
-    .video-thumb {
-      flex-shrink: 0;
-      width: 124px; height: 70px;
-      border-radius: 10px; object-fit: cover;
-      background: var(--surface2);
-    }
-
-    .video-meta { flex: 1; min-width: 0; }
-
-    .video-title {
-      font-size: 0.95rem; font-weight: 700; line-height: 1.4;
-      overflow: hidden; display: -webkit-box;
-      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      color: var(--text);
-    }
-
-    .video-sub {
-      margin-top: 4px;
-      font-size: 0.78rem; font-weight: 500;
-      color: var(--muted);
-    }
-
-    .video-badges {
-      display: flex; gap: 6px; flex-wrap: wrap;
-      margin-top: 8px;
-    }
-
-    .quality-badge {
-      padding: 3px 9px; border-radius: 6px;
-      background: rgba(139,92,246,0.15);
-      border: 1px solid rgba(139,92,246,0.28);
-      color: #b39dfd;
-      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em;
-    }
-
-    .size-badge {
-      padding: 3px 9px; border-radius: 6px;
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 0.7rem; font-weight: 600;
-    }
-
-    .card-actions { padding: 0 16px 16px; }
-
-    .progress-wrap {
-      height: 5px; background: var(--surface2);
-      border-radius: 99px; overflow: hidden;
-      margin-bottom: 10px; display: none;
-    }
-
-    .progress-bar {
-      height: 100%; border-radius: 99px; width: 0%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2), #06b6d4, var(--accent));
-      background-size: 300% 100%;
-      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
-      animation: flow 2.5s linear infinite;
-    }
-
-    @keyframes flow {
-      0%   { background-position: 100% 0; }
-      100% { background-position: -100% 0; }
-    }
-
-    .status-text {
-      font-size: 0.83rem; font-weight: 600; color: var(--muted);
-      margin-bottom: 10px; display: none;
-      display: flex; align-items: center; gap: 7px;
-    }
-
-    .status-spinner {
-      width: 13px; height: 13px;
-      border: 2px solid var(--border2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .download-actions { display: flex; flex-direction: column; gap: 9px; }
-
-    @keyframes pulse-glow {
-      0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5), 0 6px 22px rgba(16,185,129,0.28); }
-      50%      { box-shadow: 0 0 0 14px rgba(16,185,129,0), 0 6px 22px rgba(16,185,129,0.14); }
-    }
-
-    .btn-download {
-      width: 100%; padding: 17px 14px; border: none;
-      border-radius: var(--radius-sm);
-      background: linear-gradient(135deg, var(--success), #059669);
-      color: #fff;
-      font-family: inherit; font-size: clamp(1rem,3vw,1.12rem); font-weight: 800;
-      cursor: pointer; display: none;
-      align-items: center; justify-content: center; gap: 10px;
-      text-decoration: none; min-height: 58px;
-      letter-spacing: 0.01em;
-      box-shadow: 0 6px 22px rgba(16,185,129,0.28);
-      transition: opacity 0.2s;
-    }
-
-    .btn-download:hover { opacity: 0.92; }
-    .btn-download.pulse { animation: pulse-glow 1.8s ease-in-out infinite; }
-    .btn-download svg { width: 20px; height: 20px; flex-shrink: 0; }
-
-    .btn-row { display: flex; gap: 8px; }
-
-    .btn-copy-link {
-      flex: 1; padding: 12px 10px;
-      border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
-      background: var(--surface2); color: var(--text2);
-      font-family: inherit; font-size: 0.85rem; font-weight: 700;
-      cursor: pointer; display: none;
-      align-items: center; justify-content: center; gap: 6px;
-      min-height: 48px;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-
-    .btn-copy-link:hover { border-color: var(--accent); color: var(--text); background: var(--surface3); }
-    .btn-copy-link.copied { color: var(--success); border-color: var(--success); }
-
-    .btn-share {
-      flex-shrink: 0; padding: 12px 18px;
-      border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
-      background: var(--surface2); color: var(--text2);
-      font-family: inherit; font-size: 0.85rem; font-weight: 700;
-      cursor: pointer; display: none;
-      align-items: center; justify-content: center; gap: 6px;
-      min-height: 48px;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-
-    .btn-share:hover { border-color: var(--accent2); color: var(--text); }
-
-    .btn-reset {
-      width: 100%; padding: 12px;
-      border: 1.5px dashed var(--border); border-radius: var(--radius-sm);
-      background: transparent; color: var(--muted);
-      font-family: inherit; font-size: 0.85rem; font-weight: 700;
-      cursor: pointer; min-height: 48px; display: none;
-      transition: border-color 0.2s, color 0.2s;
-    }
-
-    .btn-reset:hover { border-color: var(--accent); color: var(--text); }
-
-    footer {
-      padding: 24px 20px;
-      border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      gap: 16px; flex-wrap: wrap;
-    }
-
-    .footer-brand {
-      font-size: 0.92rem; font-weight: 900;
-      letter-spacing: -0.03em; color: var(--text);
-    }
-
-    .footer-brand span {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-
-    .footer-divider { color: var(--border2); }
-    .footer-copy { font-size: 0.74rem; color: var(--muted); font-weight: 500; }
-
-    .footer-handle {
-      font-size: 0.85rem; font-weight: 800;
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      text-decoration: none; transition: opacity 0.2s;
-    }
-
-    .footer-handle:hover { opacity: 0.72; }
-
-    @media (hover: hover) {
-      .q-btn:hover { background: var(--surface2); }
-    }
-
-    @media (max-width: 768px) {
-      main   { padding: 28px 14px 44px; }
-      header { padding: 18px 16px 0; }
-    }
-
-    @media (max-width: 560px) {
-      .quality-selector { grid-template-columns: repeat(3, 1fr); }
-    }
-
-    @media (max-width: 480px) {
-      .input-card { flex-wrap: wrap; padding: 10px; gap: 8px; }
-      .url-input  { width: 100%; order: 0; padding: 12px 8px; min-height: 50px; }
-      .btn-paste  { order: 1; flex: 1; min-height: 50px; font-size: 0.92rem; }
-      .btn-primary{ order: 2; flex: 1; min-height: 50px; font-size: 1rem; }
-      .btn-clear  { order: 3; }
-      .video-card-inner { flex-direction: column; align-items: stretch; }
-      .video-thumb { width: 100%; height: 168px; }
-      .chips { gap: 6px; }
-      .chip  { font-size: 0.73rem; padding: 4px 10px; }
-      .btn-paste { display: none; }
-    }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes"/>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="color-scheme" content="dark"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="format-detection" content="telephone=no"/>
+<meta name="description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup. Supports Shorts, Live, all YouTube links. Works worldwide."/>
+<meta property="og:title" content="YT MP3 — Free YouTube to MP3 & MP4 Converter"/>
+<meta property="og:description" content="Convert any YouTube video to MP3 or MP4. Free, fast, no signup required."/>
+<meta property="og:type" content="website"/>
+<meta name="twitter:card" content="summary"/>
+<link rel="canonical" href="https://youtube-mp3-downloader-production-c1e2.up.railway.app/"/>
+<link rel="manifest" href="/manifest.json"/>
+<title>YT MP3 — Free YouTube to MP3 & MP4 Converter</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+:root{--bg:#07070f;--surface:#0e0e1c;--surface2:#14142a;--surface3:#1c1c38;--border:#252548;--border2:#34345e;--accent:#8b5cf6;--accent2:#3b82f6;--success:#10b981;--danger:#ef4444;--text:#eeeef;--text2:#b0b0d0;--muted:#60608a;--radius:18px;--radius-sm:12px;--max-w:700px}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;line-height:1.5}
+[dir="rtl"] body{font-family:system-ui,-apple-system,'Segoe UI',Tahoma,Arial,sans-serif}
+[dir="rtl"] .logo-text,[dir="rtl"] h1,[dir="rtl"] .subtitle,[dir="rtl"] .quality-label,[dir="rtl"] .btn-primary{letter-spacing:0}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(139,92,246,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,0.025) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:-15%;left:50%;transform:translateX(-50%);width:900px;height:600px;background:radial-gradient(ellipse,rgba(139,92,246,0.13) 0%,transparent 65%);pointer-events:none;z-index:0}
+[dir="rtl"] body::after{left:auto;right:50%;transform:translateX(50%)}
+header,main,footer{position:relative;z-index:1}
+.skip-link{position:absolute;top:-100px;left:0;z-index:100;padding:8px 16px;background:var(--accent);color:#fff;font-weight:700;border-radius:0 0 8px 0;text-decoration:none;transition:top .2s}
+.skip-link:focus{top:0}
+header{padding:clamp(20px,4vw,36px) 24px 0;text-align:center}
+.logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none}
+[dir="rtl"] .logo{flex-direction:row-reverse}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;color:#fff;box-shadow:0 4px 16px rgba(139,92,246,0.38);flex-shrink:0}
+.logo-text{font-size:clamp(1.15rem,3.2vw,1.45rem);font-weight:900;letter-spacing:-0.04em;color:var(--text)}
+.logo-text span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.status-row{display:flex;flex-direction:column;align-items:center;gap:4px}
+.live-badge{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 13px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:.73rem;font-weight:700;color:var(--muted);letter-spacing:.03em}
+[dir="rtl"] .live-badge{letter-spacing:0}
+.live-badge .dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.status-badge{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 11px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:99px;font-size:.68rem;font-weight:700;color:var(--success);letter-spacing:.03em;cursor:pointer;text-decoration:none;transition:background .2s}
+.status-badge:hover{background:rgba(16,185,129,0.14)}
+main{flex:1;display:flex;flex-direction:column;align-items:center;padding:clamp(36px,6vw,60px) 16px 56px}
+.hero{text-align:center;max-width:620px;width:100%}
+h1{font-size:clamp(1.9rem,5.8vw,3.2rem);font-weight:900;line-height:1.12;letter-spacing:-0.04em;color:var(--text)}
+[dir="rtl"] h1{line-height:1.4}
+h1 .grad{background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 55%,#06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{margin-top:14px;color:var(--text2);font-size:clamp(.9rem,2.5vw,1.05rem);font-weight:500;line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:.78rem;font-weight:600;color:var(--text2)}
+.chip .ci{color:var(--success)}
+.converter{margin-top:40px;width:100%;max-width:var(--max-w)}
+.input-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:8px;display:flex;gap:6px;align-items:center;transition:border-color .25s,box-shadow .25s}
+.input-card:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px rgba(139,92,246,0.1),0 6px 24px rgba(139,92,246,0.08)}
+.url-input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:inherit;font-size:1rem;font-weight:500;padding:13px 8px 13px 14px;min-width:0}
+[dir="rtl"] .url-input{padding:13px 14px 13px 8px}
+.url-input::placeholder{color:var(--muted);font-weight:400}
+.btn-clear{flex-shrink:0;width:32px;height:32px;border:none;background:var(--surface2);color:var(--muted);border-radius:8px;font-size:.75rem;cursor:pointer;display:none;align-items:center;justify-content:center;transition:color .2s,background .2s}
+.btn-clear:hover{color:var(--text);background:var(--border)}
+.btn-paste{flex-shrink:0;padding:10px 18px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;min-height:46px;transition:border-color .2s,color .2s,background .2s}
+.btn-paste:hover{border-color:var(--accent);color:var(--text);background:var(--surface3)}
+.btn-primary{flex-shrink:0;padding:13px 26px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-family:inherit;font-size:clamp(.9rem,2.5vw,1rem);font-weight:800;cursor:pointer;white-space:nowrap;min-height:50px;letter-spacing:.01em;box-shadow:0 4px 18px rgba(139,92,246,0.32);transition:opacity .2s,transform .15s,box-shadow .2s}
+.btn-primary:hover{opacity:.92;box-shadow:0 6px 24px rgba(139,92,246,0.45)}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.38;cursor:not-allowed;box-shadow:none}
+.quality-label{margin-top:16px;margin-bottom:8px;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:0 2px}
+[dir="rtl"] .quality-label{letter-spacing:0}
+.quality-selector{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.q-btn{padding:11px 6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:border-color .2s,color .2s,background .2s,box-shadow .2s,transform .15s;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.q-btn:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px)}
+.q-title{font-size:.8rem;font-weight:800;line-height:1.2}
+.q-sub{font-size:.64rem;font-weight:600;opacity:.75}
+.q-btn.active{border-color:var(--accent);background:rgba(139,92,246,0.14);box-shadow:0 0 0 1.5px var(--accent),0 4px 14px rgba(139,92,246,0.22);color:var(--text)}
+.q-btn.active .q-title{color:#b39dfd}
+.q-btn.active .q-sub{color:#b39dfd}
+.q-btn.mp4-btn.active{border-color:var(--accent2);background:rgba(59,130,246,0.14);box-shadow:0 0 0 1.5px var(--accent2),0 4px 14px rgba(59,130,246,0.22)}
+.q-btn.mp4-btn.active .q-title{color:#7db8fb}
+.q-btn.mp4-btn.active .q-sub{color:#7db8fb}
+.error-wrap{margin-top:12px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.22);border-radius:var(--radius-sm);padding:13px 16px;display:none;align-items:center;justify-content:space-between;gap:10px}
+.error-msg{color:var(--danger);font-size:.86rem;font-weight:600;flex:1}
+.btn-retry{flex-shrink:0;padding:7px 16px;border:1.5px solid var(--danger);border-radius:8px;background:transparent;color:var(--danger);font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer;transition:background .2s,color .2s}
+.btn-retry:hover{background:var(--danger);color:#fff}
+.video-card{margin-top:20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--radius);overflow:hidden;display:none;animation:fadeUp .38s cubic-bezier(0.16,1,0.3,1);box-shadow:0 12px 40px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.06)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.video-card-inner{display:flex;align-items:center;gap:16px;padding:16px}
+[dir="rtl"] .video-card-inner{flex-direction:row-reverse}
+.video-thumb{flex-shrink:0;width:124px;height:70px;border-radius:10px;object-fit:cover;background:var(--surface2)}
+.video-meta{flex:1;min-width:0}
+.video-title{font-size:.95rem;font-weight:700;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:var(--text)}
+.video-sub{margin-top:4px;font-size:.78rem;font-weight:500;color:var(--muted)}
+.video-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.quality-badge{padding:3px 9px;border-radius:6px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.28);color:#b39dfd;font-size:.7rem;font-weight:800;letter-spacing:.04em}
+[dir="rtl"] .quality-badge{letter-spacing:0}
+.size-badge{padding:3px 9px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:.7rem;font-weight:600}
+.card-actions{padding:0 16px 16px}
+.progress-wrap{height:5px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:10px;display:none}
+.progress-bar{height:100%;border-radius:99px;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2),#06b6d4,var(--accent));background-size:300% 100%;transition:width .6s cubic-bezier(0.4,0,0.2,1);animation:flow 2.5s linear infinite}
+@keyframes flow{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.status-text{font-size:.83rem;font-weight:600;color:var(--muted);margin-bottom:10px;display:none;display:flex;align-items:center;gap:7px}
+.status-spinner{width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.download-actions{display:flex;flex-direction:column;gap:9px}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5),0 6px 22px rgba(16,185,129,0.28)}50%{box-shadow:0 0 0 14px rgba(16,185,129,0),0 6px 22px rgba(16,185,129,0.14)}}
+.btn-download{width:100%;padding:17px 14px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--success),#059669);color:#fff;font-family:inherit;font-size:clamp(1rem,3vw,1.12rem);font-weight:800;cursor:pointer;display:none;align-items:center;justify-content:center;gap:10px;text-decoration:none;min-height:58px;letter-spacing:.01em;box-shadow:0 6px 22px rgba(16,185,129,0.28);transition:opacity .2s}
+.btn-download:hover{opacity:.92}
+.btn-download.pulse{animation:pulse-glow 1.8s ease-in-out infinite}
+.btn-download svg{width:20px;height:20px;flex-shrink:0}
+.btn-row{display:flex;gap:8px}
+.btn-copy-link{flex:1;padding:12px 10px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;display:none;align-items:center;justify-content:center;gap:6px;min-height:48px;transition:border-color .2s,color .2s,background .2s}
+.btn-copy-link:hover{border-color:var(--accent);color:var(--text);background:var(--surface3)}
+.btn-copy-link.copied{color:var(--success);border-color:var(--success)}
+.btn-share{flex-shrink:0;padding:12px 18px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;display:none;align-items:center;justify-content:center;gap:6px;min-height:48px;transition:border-color .2s,color .2s,background .2s}
+.btn-share:hover{border-color:var(--accent2);color:var(--text)}
+.btn-reset{width:100%;padding:12px;border:1.5px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--muted);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;min-height:48px;display:none;transition:border-color .2s,color .2s}
+.btn-reset:hover{border-color:var(--accent);color:var(--text)}
+footer{padding:24px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.footer-brand{font-size:.92rem;font-weight:900;letter-spacing:-0.03em;color:var(--text)}
+.footer-brand span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.footer-divider{color:var(--border2)}
+.footer-copy{font-size:.74rem;color:var(--muted);font-weight:500}
+.footer-handle{font-size:.85rem;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;transition:opacity .2s}
+.footer-handle:hover{opacity:.72}
+@media(hover:hover){.q-btn:hover{background:var(--surface2)}}
+@media(max-width:768px){main{padding:28px 14px 44px}header{padding:18px 16px 0}.q-btn{min-height:48px}.btn-paste,.btn-primary,.btn-copy-link,.btn-share,.btn-reset{min-height:48px}.btn-download{min-height:56px}}
+@media(max-width:560px){.quality-selector{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.input-card{flex-wrap:wrap;padding:10px;gap:8px}.url-input{width:100%;order:0;padding:14px 10px;min-height:52px;font-size:1.05rem}.btn-paste{order:1;flex:1;min-height:52px;font-size:.95rem}.btn-primary{order:2;flex:1;min-height:52px;font-size:1.05rem;padding:13px 20px}.btn-clear{order:3;width:40px;height:40px}.video-card-inner{flex-direction:column;align-items:stretch}[dir="rtl"] .video-card-inner{flex-direction:column}.video-thumb{width:100%;height:180px}.chips{gap:5px}.chip{font-size:.7rem;padding:5px 9px}.btn-paste{display:none}.btn-row{flex-direction:column}.btn-copy-link,.btn-share{min-height:50px}}
+@media(max-width:360px){.quality-selector{grid-template-columns:repeat(2,1fr)}.chip{font-size:.65rem;padding:4px 7px}h1{font-size:1.5rem}}
+@supports(-webkit-touch-callout:none){.url-input,.btn-primary,.btn-paste{font-size:16px!important}body{cursor:pointer}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+</style>
 </head>
 <body>
+<a href="#main" class="skip-link" id="skipLink" data-i18n="skip">Skip to content</a>
 
-<header>
-  <a class="logo" href="/">
-    <div class="logo-icon">▶</div>
+<header role="banner">
+  <a class="logo" href="/" aria-label="YT MP3 Home">
+    <div class="logo-icon" aria-hidden="true">▶</div>
     <span class="logo-text">YT <span>MP3</span></span>
   </a>
-  <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-    <span class="live-badge"><span class="dot"></span> Free &amp; No Signup Required</span>
+  <div class="status-row">
+    <span class="live-badge"><span class="dot" aria-hidden="true"></span> <span data-i18n="free">Free &amp; No Signup Required</span></span>
     <a href="/test" target="_blank" class="status-badge" id="serverBadge">
-      <span class="dot" style="width:5px;height:5px;background:var(--success)"></span>
-      <span id="serverBadgeText">Checking backends…</span>
+      <span class="dot" style="width:5px;height:5px;background:var(--success)" aria-hidden="true"></span>
+      <span id="serverBadgeText" data-i18n="checking">Checking backends&#8230;</span>
     </a>
   </div>
 </header>
 
-<main>
+<main id="main" role="main">
   <div class="hero">
-    <h1>Convert YouTube to<br/><span class="grad">MP3 &amp; MP4</span></h1>
-    <p class="subtitle">Paste any YouTube link — get instant high&#8209;quality audio or video</p>
+    <h1><span data-i18n="hero1">Convert YouTube to</span><br/><span class="grad"><span data-i18n="hero2">MP3 &amp; MP4</span></span></h1>
+    <p class="subtitle" data-i18n="subtitle">Paste any YouTube link &#8212; get instant high&#8209;quality audio or video</p>
     <div class="chips">
-      <span class="chip"><span class="ci">✓</span> 100% Free</span>
-      <span class="chip"><span class="ci">✓</span> No Signup</span>
-      <span class="chip"><span class="ci">✓</span> 320 kbps MP3</span>
-      <span class="chip"><span class="ci">✓</span> Up to 4K MP4</span>
-      <span class="chip"><span class="ci">✓</span> Shorts &amp; Live</span>
+      <span class="chip"><span class="ci" aria-hidden="true">&#10003;</span> <span data-i18n="free100">100% Free</span></span>
+      <span class="chip"><span class="ci" aria-hidden="true">&#10003;</span> <span data-i18n="nosignup">No Signup</span></span>
+      <span class="chip"><span class="ci" aria-hidden="true">&#10003;</span> <span data-i18n="kbps">320 kbps MP3</span></span>
+      <span class="chip"><span class="ci" aria-hidden="true">&#10003;</span> <span data-i18n="upTo4k">Up to 4K MP4</span></span>
+      <span class="chip"><span class="ci" aria-hidden="true">&#10003;</span> <span data-i18n="shorts">Shorts &amp; Live</span></span>
     </div>
   </div>
 
   <div class="converter" id="panel-single">
-
     <div class="input-card">
       <input type="search" class="url-input" id="urlInput"
-        name="yt_search_q"
-        placeholder="Paste a YouTube link here…"
+        name="yt_search_q" data-i18n-placeholder="placeholder"
+        placeholder="Paste a YouTube link here&#8230;"
         autocomplete="off" autocorrect="off" autocapitalize="off"
         spellcheck="false" inputmode="url"
-        data-form-type="other"
-        data-lpignore="true"
-        data-1p-ignore="true"
-        aria-autocomplete="none" />
-      <button class="btn-clear" id="btnClear" onclick="clearInput()" title="Clear">✕</button>
-      <button class="btn-paste" id="btnPaste" onclick="pasteUrl()">Paste</button>
-      <button class="btn-primary" id="btnConvert" onclick="handleConvert()">Convert</button>
+        data-form-type="other" data-lpignore="true"
+        data-1p-ignore="true" aria-autocomplete="none"
+        aria-label="YouTube URL input" enterkeyhint="go"/>
+      <button class="btn-clear" id="btnClear" onclick="clearInput()" title="Clear" aria-label="Clear input">&#10005;</button>
+      <button class="btn-paste" id="btnPaste" onclick="pasteUrl()" data-i18n="paste">Paste</button>
+      <button class="btn-primary" id="btnConvert" onclick="handleConvert()" data-i18n="convert">Convert</button>
     </div>
 
-    <p class="quality-label">Format &amp; Quality</p>
-    <div class="quality-selector">
-      <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)">
-        <span class="q-title">MP3</span>
-        <span class="q-sub">128K</span>
-      </button>
-      <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)">
-        <span class="q-title">MP3</span>
-        <span class="q-sub">192K</span>
-      </button>
-      <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)">
-        <span class="q-title">MP3 ★</span>
-        <span class="q-sub">320K</span>
-      </button>
-      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="720" onclick="selectQuality(this)">
-        <span class="q-title">MP4</span>
-        <span class="q-sub">720p</span>
-      </button>
-      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="1080" onclick="selectQuality(this)">
-        <span class="q-title">MP4</span>
-        <span class="q-sub">1080p</span>
-      </button>
-      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="best" onclick="selectQuality(this)">
-        <span class="q-title">MP4</span>
-        <span class="q-sub">4K Max</span>
-      </button>
+    <p class="quality-label" data-i18n="quality">Format &amp; Quality</p>
+    <div class="quality-selector" role="radiogroup" aria-label="Format and quality">
+      <button class="q-btn" data-fmt="mp3" data-q="128K" onclick="selectQuality(this)" role="radio" aria-checked="false"><span class="q-title">MP3</span><span class="q-sub">128K</span></button>
+      <button class="q-btn" data-fmt="mp3" data-q="192K" onclick="selectQuality(this)" role="radio" aria-checked="false"><span class="q-title">MP3</span><span class="q-sub">192K</span></button>
+      <button class="q-btn active" data-fmt="mp3" data-q="320K" onclick="selectQuality(this)" role="radio" aria-checked="true"><span class="q-title">MP3 &#9733;</span><span class="q-sub">320K</span></button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="720" onclick="selectQuality(this)" role="radio" aria-checked="false"><span class="q-title">MP4</span><span class="q-sub">720p</span></button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="1080" onclick="selectQuality(this)" role="radio" aria-checked="false"><span class="q-title">MP4</span><span class="q-sub">1080p</span></button>
+      <button class="q-btn mp4-btn" data-fmt="mp4" data-q="best" onclick="selectQuality(this)" role="radio" aria-checked="false"><span class="q-title">MP4</span><span class="q-sub" data-i18n="4kmax">4K Max</span></button>
     </div>
 
-    <div class="error-wrap" id="errorWrap">
+    <div class="error-wrap" id="errorWrap" role="alert" aria-live="assertive">
       <span class="error-msg" id="singleError"></span>
-      <button class="btn-retry" id="btnRetry" onclick="handleConvert()">Try again</button>
+      <button class="btn-retry" id="btnRetry" onclick="handleConvert()" data-i18n="retry">Try again</button>
     </div>
 
-    <div class="video-card" id="videoCard">
+    <div class="video-card" id="videoCard" aria-live="polite">
       <div class="video-card-inner">
-        <img class="video-thumb" id="videoThumb" src="" alt="" />
+        <img class="video-thumb" id="videoThumb" src="" alt="" loading="lazy" decoding="async"/>
         <div class="video-meta">
           <div class="video-title" id="videoTitle"></div>
-          <div class="video-sub"   id="videoSub"></div>
+          <div class="video-sub" id="videoSub"></div>
           <div class="video-badges">
             <span class="quality-badge" id="qualityBadge">320K MP3</span>
-            <span class="size-badge"    id="sizeBadge" style="display:none"></span>
+            <span class="size-badge" id="sizeBadge" style="display:none"></span>
           </div>
         </div>
       </div>
       <div class="card-actions">
-        <p class="status-text" id="statusText"><span class="status-spinner" id="statusSpinner"></span><span id="statusMsg"></span></p>
-        <div class="progress-wrap" id="progressWrap">
+        <p class="status-text" id="statusText"><span class="status-spinner" id="statusSpinner" aria-hidden="true"></span><span id="statusMsg" role="status"></span></p>
+        <div class="progress-wrap" id="progressWrap" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-bar" id="progressBar"></div>
         </div>
         <div class="download-actions">
           <a class="btn-download" id="btnDownload" href="#">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Download MP3
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span id="downloadLabel">Download MP3</span>
           </a>
           <div class="btn-row">
             <button class="btn-copy-link" id="btnCopyLink" onclick="copyDownloadLink()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
-                <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-              </svg>
-              Copy link
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span data-i18n="copylink">Copy link</span>
             </button>
             <button class="btn-share" id="btnShare" onclick="shareDownload()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-              Share
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span data-i18n="share">Share</span>
             </button>
           </div>
-          <button class="btn-reset" id="btnReset" onclick="resetForm()">↩ Convert another video</button>
+          <button class="btn-reset" id="btnReset" onclick="resetForm()">&#8617; <span data-i18n="convertAnother">Convert another video</span></button>
         </div>
       </div>
     </div>
   </div>
 </main>
 
-<footer>
-  <span class="footer-brand">▶ YT <span>MP3</span></span>
-  <span class="footer-divider">·</span>
-  <span class="footer-copy">For personal use only. Respect copyright laws.</span>
-  <span class="footer-divider">·</span>
+<footer role="contentinfo">
+  <span class="footer-brand">&#9654; YT <span>MP3</span></span>
+  <span class="footer-divider" aria-hidden="true">&#183;</span>
+  <a href="/tiktok" style="color:#a78bfa;font-weight:800;text-decoration:none">TikTok Downloader</a>
+  <span class="footer-divider" aria-hidden="true">&#183;</span>
+  <span class="footer-copy" data-i18n="footerUse">For personal use only. Respect copyright laws.</span>
+  <span class="footer-divider" aria-hidden="true">&#183;</span>
   <span class="footer-copy">Programmed by <a href="https://x.com/KhaledQ84Ever" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;font-weight:900;text-decoration:none;">@KhaledQ84Ever</a></span>
-  <span class="footer-divider">·</span>
-  <span class="footer-copy" style="color:#444466;font-size:0.7rem">build {{ build }}</span>
+  <span class="footer-divider" aria-hidden="true">&#183;</span>
+  <span class="footer-copy" style="color:#444466;font-size:.7rem">build {{ build }}</span>
 </footer>
 
 <script>
-  // One-shot cache wiper: registers /sw.js which deletes every Cache Storage
-  // entry and unregisters itself, so stale Chrome/Safari/Android-browser
-  // copies of this page can't survive a single visit.
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){})}catch(e){}
+
+var _ls=function(){try{var k='_t',v='1';localStorage.setItem(k,v);var r=localStorage.getItem(k);localStorage.removeItem(k);return r===v?localStorage:null}catch(e){return null}}();
+
+var _i18n={
+'ar':{'skip':'تجاوز إلى المحتوى','free':'مجاني ولا يتطلب تسجيل','checking':'فحص الخوادم&#8230;','hero1':'حول يوتيوب إلى','hero2':'MP3 و MP4','subtitle':'الصق رابط يوتيوب &#8212; احصل على صوت أو فيديو عالي الجودة فوراً','free100':'مجاني 100%','nosignup':'بدون تسجيل','kbps':'320 kbps MP3','upTo4k':'حتى 4K MP4','shorts':'Shorts و بث مباشر','placeholder':'الصق رابط يوتيوب هنا&#8230;','paste':'لصق','convert':'تحويل','quality':'الصيغة والجودة','retry':'حاول مجدداً','copylink':'نسخ الرابط','share':'مشاركة','convertAnother':'حول فيديو آخر','footerUse':'للاستخدام الشخصي فقط. احترم قوانين النشر.','4kmax':'4K أقصى'},
+'fr':{'skip':'Aller au contenu','free':'Gratuit sans inscription','checking':'V&#233;rification des serveurs&#8230;','hero1':'Convertissez YouTube en','hero2':'MP3 &amp; MP4','subtitle':'Collez un lien YouTube &#8212; obtenez audio ou vid&#233;o haute qualit&#233;','free100':'100% Gratuit','nosignup':'Sans inscription','kbps':'320 kbps MP3','upTo4k':'Jusqu\'&#224; 4K MP4','shorts':'Shorts &amp; Live','placeholder':'Collez un lien YouTube ici&#8230;','paste':'Coller','convert':'Convertir','quality':'Format &amp; Qualit&#233;','retry':'R&#233;essayer','copylink':'Copier le lien','share':'Partager','convertAnother':'Convertir une autre vid&#233;o','footerUse':'Usage personnel uniquement. Respectez les droits d\'auteur.','4kmax':'4K Max'},
+'es':{'skip':'Saltar al contenido','free':'Gratis sin registro','checking':'Verificando servidores&#8230;','hero1':'Convierte YouTube a','hero2':'MP3 &amp; MP4','subtitle':'Pega cualquier enlace de YouTube &#8212; obt&#233;n audio o v&#237;deo de alta calidad','free100':'100% Gratis','nosignup':'Sin registro','kbps':'320 kbps MP3','upTo4k':'Hasta 4K MP4','shorts':'Shorts &amp; Directos','placeholder':'Pega un enlace de YouTube aqu&#237;&#8230;','paste':'Pegar','convert':'Convertir','quality':'Formato &amp; Calidad','retry':'Reintentar','copylink':'Copiar enlace','share':'Compartir','convertAnother':'Convertir otro v&#237;deo','footerUse':'Solo uso personal. Respeta los derechos de autor.','4kmax':'4K M&#225;ximo'},
+'pt':{'skip':'Pular para conte&#250;do','free':'Gr&#225;tis sem cadastro','checking':'Verificando servidores&#8230;','hero1':'Converta YouTube para','hero2':'MP3 &amp; MP4','subtitle':'Cole qualquer link do YouTube &#8212; obtenha &#225;udio ou v&#237;deo de alta qualidade','free100':'100% Gr&#225;tis','nosignup':'Sem cadastro','kbps':'320 kbps MP3','upTo4k':'At&#233; 4K MP4','shorts':'Shorts &amp; Ao vivo','placeholder':'Cole um link do YouTube aqui&#8230;','paste':'Colar','convert':'Converter','quality':'Formato &amp; Qualidade','retry':'Tentar novamente','copylink':'Copiar link','share':'Compartilhar','convertAnother':'Converter outro v&#237;deo','footerUse':'Uso pessoal apenas. Respeite os direitos autorais.','4kmax':'4K M&#225;ximo'},
+'de':{'skip':'Zum Inhalt springen','free':'Kostenlos, keine Anmeldung','checking':'Server werden gepr&#252;ft&#8230;','hero1':'Konvertiere YouTube zu','hero2':'MP3 &amp; MP4','subtitle':'F&#252;ge einen YouTube-Link ein &#8212; sofort hochwertiges Audio oder Video','free100':'100% Kostenlos','nosignup':'Keine Anmeldung','kbps':'320 kbps MP3','upTo4k':'Bis zu 4K MP4','shorts':'Shorts &amp; Live','placeholder':'F&#252;ge hier einen YouTube-Link ein&#8230;','paste':'Einf&#252;gen','convert':'Konvertieren','quality':'Format &amp; Qualit&#228;t','retry':'Erneut versuchen','copylink':'Link kopieren','share':'Teilen','convertAnother':'Ein weiteres Video konvertieren','footerUse':'Nur f&#252;r den pers&#246;nlichen Gebrauch. Urheberrechte beachten.','4kmax':'4K Max'},
+'tr':{'skip':'&#304;&#231;eri&#287;e atla','free':'&#220;cretsiz, kay&#305;t gerekmez','checking':'Sunucular kontrol ediliyor&#8230;','hero1':'YouTube\'u MP3 ve MP4\'e','hero2':'D&#246;n&#252;&#351;t&#252;r','subtitle':'Herhangi bir YouTube linkini yap&#305;&#351;t&#305;r&#305;n &#8212; an&#305;nda y&#252;ksek kaliteli ses veya video al&#305;n','free100':'%100 &#220;cretsiz','nosignup':'Kay&#305;t Gerekmez','kbps':'320 kbps MP3','upTo4k':'4K MP4\'e kadar','shorts':'Shorts &amp; Canl&#305;','placeholder':'YouTube linkini buraya yap&#305;&#351;t&#305;r&#305;n&#8230;','paste':'Yap&#305;&#351;t&#305;r','convert':'D&#246;n&#252;&#351;t&#252;r','quality':'Bi&#231;im &amp; Kalite','retry':'Tekrar dene','copylink':'Linki kopyala','share':'Payla&#351;','convertAnother':'Ba&#351;ka bir video d&#246;n&#252;&#351;t&#252;r','footerUse':'Yaln&#305;zca ki&#351;isel kullan&#305;m. Telif haklar&#305;na sayg&#305; g&#246;sterin.','4kmax':'4K Maksimum'},
+'id':{'skip':'Lompat ke konten','free':'Gratis tanpa daftar','checking':'Memeriksa server&#8230;','hero1':'Konversi YouTube ke','hero2':'MP3 &amp; MP4','subtitle':'Tempel tautan YouTube &#8212; dapatkan audio atau video berkualitas tinggi instan','free100':'100% Gratis','nosignup':'Tanpa Daftar','kbps':'320 kbps MP3','upTo4k':'Hingga 4K MP4','shorts':'Shorts &amp; Live','placeholder':'Tempel tautan YouTube di sini&#8230;','paste':'Tempel','convert':'Konversi','quality':'Format &amp; Kualitas','retry':'Coba lagi','copylink':'Salin tautan','share':'Bagikan','convertAnother':'Konversi video lain','footerUse':'Hanya untuk penggunaan pribadi. Hormati hak cipta.','4kmax':'4K Maksimal'},
+'ur':{'skip':'مواد پر جائیں','free':'مفت، رجسٹریشن کی ضرورت نہیں','checking':'سرورز کی جانچ ہو رہی ہے&#8230;','hero1':'یوٹیوب کو MP3 اور MP4 میں','hero2':'تبدیلی کریں','subtitle':'یوٹیوب کا لنک پیسٹ کریں &#8212; فوری اعلیٰ معیار کی آڈیو یا ویڈیو حاصل کریں','free100':'100% مفت','nosignup':'رجسٹریشن نہیں','kbps':'320 kbps MP3','upTo4k':'4K MP4 تک','shorts':'Shorts اور لائیو','placeholder':'یوٹیوب کا لنک یہاں پیسٹ کریں&#8230;','paste':'پیسٹ کریں','convert':'تبدیلی کریں','quality':'فارمیٹ اور معیار','retry':'دوبارہ کوشش کریں','copylink':'لنک کاپی کریں','share':'شیئر کریں','convertAnother':'دوسری ویڈیو تبدیل کریں','footerUse':'صرف ذاتی استعمال کے لیے۔ کاپی رائٹ قوانین کا احترام کریں۔','4kmax':'4K زیادہ سے زیادہ'}
+};
+
+var _lang='en';
+(function(){
+  var langs=navigator.languages||[navigator.language||navigator.userLanguage||'en'];
+  for(var i=0;i<langs.length;i++){
+    var l=langs[i].split('-')[0].toLowerCase();
+    if(_i18n[l]){_lang=l;break}
+    if(l==='en')break
   }
-
-  let pollTimer = null;
-  let currentDownloadUrl = null;
-  let selectedFmt = localStorage.getItem('fmt') || 'mp3';
-  let selectedQ   = localStorage.getItem('q')   || '320K';
-
-  const $ = id => document.getElementById(id);
-
-  // Load server backend status badge
-  (async function loadServerBadge() {
-    try {
-      const r = await fetch('/health');
-      const d = await r.json();
-      const piped = d.working_piped ? d.working_piped.length : 0;
-      const inv   = d.working_invidious ? d.working_invidious.length : 0;
-      const prx   = d.active_proxies || 0;
-      $('serverBadgeText').textContent = `${piped} Piped · ${inv} Invidious · ${prx} Proxies`;
-    } catch {
-      $('serverBadgeText').textContent = 'Test backends →';
-    }
-  })();
-
-  (function restoreQuality() {
-    const btn = document.querySelector(`.q-btn[data-fmt="${selectedFmt}"][data-q="${selectedQ}"]`);
-    if (btn) {
-      document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    }
-  })();
-
-  function selectQuality(btn) {
-    document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    selectedFmt = btn.dataset.fmt;
-    selectedQ   = btn.dataset.q;
-    localStorage.setItem('fmt', selectedFmt);
-    localStorage.setItem('q',   selectedQ);
+  if(_lang==='ar'||_lang==='ur'){document.documentElement.setAttribute('dir','rtl')}
+  var els=document.querySelectorAll('[data-i18n]');
+  for(var j=0;j<els.length;j++){
+    var key=els[j].getAttribute('data-i18n');
+    if(_i18n[_lang]&&_i18n[_lang][key]){els[j].innerHTML=_i18n[_lang][key]}
   }
-
-  async function pasteUrl() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        $('urlInput').value = text;
-        updateClearBtn();
-        if (text.includes('youtube.com') || text.includes('youtu.be')) handleConvert();
-      }
-    } catch { $('urlInput').focus(); }
+  var phs=document.querySelectorAll('[data-i18n-placeholder]');
+  for(var k=0;k<phs.length;k++){
+    var pk=phs[k].getAttribute('data-i18n-placeholder');
+    if(_i18n[_lang]&&_i18n[_lang][pk]){phs[k].setAttribute('placeholder',_i18n[_lang][pk])}
   }
+})();
 
-  function clearInput() {
-    $('urlInput').value = '';
-    $('btnClear').style.display = 'none';
-    $('urlInput').focus();
+var pollTimer=null,currentDownloadUrl=null,currentDownloadName=null;
+var selectedFmt=(_ls&&_ls.getItem('fmt'))||'mp3',selectedQ=(_ls&&_ls.getItem('q'))||'320K';
+var $=function(id){return document.getElementById(id)};
+
+function _dlIcon(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'}
+
+// Reliable cross-browser download: fetch as Blob, click an <a> at the blob URL.
+// Same pattern used in TikTok/Insta converter — only path that triggers a real
+// "Save File" on iOS Safari 13+ and Chrome Android instead of an inline preview.
+function triggerDownload(url,filename,button,origLabel){
+  if(button){button.classList.remove('pulse');button.style.pointerEvents='none';
+    button.innerHTML='<span class="status-spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,.4);border-top-color:#fff;width:18px;height:18px"></span> <span>Preparing&#8230;</span>'}
+  fetch(url,{credentials:'same-origin'}).then(function(res){
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    // Stream with progress so big MP4s show a real %.
+    var total=parseInt(res.headers.get('content-length')||'0',10),received=0,chunks=[];
+    var reader=res.body&&res.body.getReader?res.body.getReader():null;
+    if(!reader)return res.blob();
+    return new Promise(function(resolve,reject){
+      function pump(){reader.read().then(function(r){
+        if(r.done){resolve(new Blob(chunks));return}
+        chunks.push(r.value);received+=r.value.length;
+        if(total&&button){var p=Math.round(received/total*100);
+          button.innerHTML='<span class="status-spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,.4);width:18px;height:18px"></span> <span>Downloading&#8230; '+p+'%</span>'}
+        pump()}).catch(reject)}
+      pump()})
+  }).then(function(blob){
+    var blobUrl=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=blobUrl;a.download=filename;a.rel='noopener';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(blobUrl)},4000);
+    if(button){button.innerHTML='<span style="font-size:1.1em">&#10003;</span> <span>Saved</span>';
+      setTimeout(function(){button.innerHTML=_dlIcon()+' <span>'+(origLabel||'Download')+'</span>';button.style.pointerEvents=''},2500)}
+  }).catch(function(){
+    // Blob path failed — fall back to plain navigation so user still gets the file.
+    window.location.href=url;
+    if(button){button.innerHTML=_dlIcon()+' <span>'+(origLabel||'Download')+'</span>';button.style.pointerEvents=''}
+  })
+}
+
+(function(){
+  fetch('/health').then(function(r){return r.json()}).then(function(d){
+    $('serverBadgeText').innerHTML=(d.working_piped?d.working_piped.length:0)+' Piped &#183; '+(d.working_invidious?d.working_invidious.length:0)+' Invidious &#183; '+(d.active_proxies||0)+' Proxies'
+  }).catch(function(){})
+})();
+
+(function(){
+  var btn=document.querySelector('.q-btn[data-fmt="'+selectedFmt+'"][data-q="'+selectedQ+'"]');
+  if(btn){document.querySelectorAll('.q-btn').forEach(function(b){b.classList.remove('active');b.setAttribute('aria-checked','false')});btn.classList.add('active');btn.setAttribute('aria-checked','true')}
+})();
+
+function selectQuality(btn){
+  document.querySelectorAll('.q-btn').forEach(function(b){b.classList.remove('active');b.setAttribute('aria-checked','false')});
+  btn.classList.add('active');btn.setAttribute('aria-checked','true');
+  selectedFmt=btn.dataset.fmt;selectedQ=btn.dataset.q;
+  if(_ls){_ls.setItem('fmt',selectedFmt);_ls.setItem('q',selectedQ)}
+}
+
+function pasteUrl(){
+  var input=$('urlInput');
+  if(navigator.clipboard&&navigator.clipboard.readText){
+    navigator.clipboard.readText().then(function(text){if(text){input.value=text;updateClearBtn();if(text.indexOf('youtube.com')!==-1||text.indexOf('youtu.be')!==-1)handleConvert()}}).catch(function(){input.focus()})
+  }else{input.value='';input.focus();document.execCommand('paste');setTimeout(function(){if(input.value&&(input.value.indexOf('youtube.com')!==-1||input.value.indexOf('youtu.be')!==-1))handleConvert()},100)}
+}
+
+function clearInput(){$('urlInput').value='';$('btnClear').style.display='none';$('urlInput').focus()}
+function updateClearBtn(){$('btnClear').style.display=$('urlInput').value?'flex':'none'}
+function estimateSize(ds,fmt,q){if(!ds||fmt==='mp4')return null;var k={'128K':128,'192K':192,'320K':320},kb=k[q]||320,mb=(kb*1000/8*ds/1024/1024);return '~'+(mb<1?(mb*1024).toFixed(0)+' KB':mb.toFixed(1)+' MB')}
+function showSingleError(msg){$('singleError').innerHTML=msg||'Something went wrong.';$('errorWrap').style.display='flex'}
+function hideSingleError(){$('errorWrap').style.display='none'}
+function setStatus(msg){$('statusMsg').innerHTML=msg;$('statusText').style.display=msg?'flex':'none'}
+function setConverting(on){$('btnConvert').disabled=on;$('btnConvert').innerHTML=on?'Loading&#8230;':'<span data-i18n="convert">Convert</span>';if(on&&_i18n[_lang]&&_i18n[_lang]['convert']){}else if(!on&&_i18n[_lang]){$('btnConvert').innerHTML=_i18n[_lang]['convert']||'Convert'}$('urlInput').disabled=on}
+
+function handleConvert(){
+  clearInterval(pollTimer);
+  var url=$('urlInput').value.replace(/^\s+|\s+$/g,'');
+  if(!url){showSingleError('Please paste a YouTube URL');return}
+  hideSingleError();
+  $('videoCard').style.display='none';$('btnDownload').style.display='none';$('btnCopyLink').style.display='none';$('btnShare').style.display='none';$('btnReset').style.display='none';$('progressWrap').style.display='none';$('sizeBadge').style.display='none';
+  currentDownloadUrl=null;setConverting(true);setStatus('Starting&#8230;');
+  var iOpts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})};
+  var sOpts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,quality:selectedQ,format:selectedFmt})};
+  var iP=fetch('/info',iOpts).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})});
+  var sP=fetch('/start',sOpts).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})});
+  iP.then(function(res){
+    if(!res.ok)return;var data=res.data;
+    var vm=url.match(/(?:v=|youtu\.be\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/);
+    $('videoThumb').src=data.thumbnail||('https://i.ytimg.com/vi/'+(vm?vm[1]:'')+'/hqdefault.jpg');
+    $('videoTitle').textContent=data.title;
+    $('videoSub').textContent=(data.duration&&data.duration!=='?:??'&&data.duration_sec>0)?data.uploader+'  \u00b7  '+data.duration:(data.uploader||'');
+    var bm={'720':'MP4 720p','1080':'MP4 1080p','best':'MP4 Best'};
+    $('qualityBadge').textContent=selectedFmt==='mp4'?(bm[selectedQ]||'MP4'):'MP3 '+selectedQ;
+    var sz=estimateSize(data.duration_sec,selectedFmt,selectedQ);
+    if(sz){$('sizeBadge').textContent=sz;$('sizeBadge').style.display='inline-block'}
+    $('videoCard').style.display='block'
+  }).catch(function(){});
+  sP.then(function(res){
+    setStatus('');
+    if(!res.ok){showSingleError(res.data.error||'Failed to start conversion.');setConverting(false);return}
+    $('progressWrap').style.display='block';$('progressBar').style.width='5%';setStatus('Starting conversion&#8230;');setConverting(false);$('btnReset').style.display='block';pollJob(res.data.job_id)
+  }).catch(function(){setStatus('');showSingleError('Network error. Please try again.');setConverting(false)})
+}
+
+var _cMsgs=['Fetching audio stream&#8230;','Converting to '+(selectedFmt==='mp4'?'MP4':'MP3')+'&#8230;','Processing audio&#8230;','Almost done&#8230;','Finalising file&#8230;'];
+
+function pollJob(jobId){
+  clearInterval(pollTimer);
+  var ext=selectedFmt==='mp4'?'mp4':'mp3',label=selectedFmt==='mp4'?'Download MP4':'Download MP3',mI=0,lC=Date.now(),lP=-1,nF=0;
+  pollTimer=setInterval(function(){
+    fetch('/status/'+jobId).then(function(res){
+      if(res.status===404){nF++;if(nF>=3){clearInterval(pollTimer);$('progressWrap').style.display='none';setStatus('');showSingleError('Conversion lost &#8212; please try again.')}return}
+      nF=0;return res.json().then(function(data){
+        var p=(data.progress!=null)?data.progress:0,pv=Math.max(5,p);
+        $('progressBar').style.width=pv+'%';
+        if(p!==lP){lP=p;lC=Date.now()}
+        if(data.status==='processing'){if(p>0&&p<100){setStatus('Converting&#8230; '+p+'%')}else{setStatus(_cMsgs[mI++%_cMsgs.length])}if(Date.now()-lC>60000){setStatus('Still working&#8230; YouTube is slow right now')}}
+        if(data.status==='done'){
+          clearInterval(pollTimer);$('progressBar').style.width='100%';$('progressWrap').style.display='none';setStatus('');
+          var fn=data.filename||('audio.'+ext),du='/download/'+jobId+'/'+encodeURIComponent(fn);
+          currentDownloadUrl=du;currentDownloadName=fn;
+          var dl=$('btnDownload');dl.href=du;dl.download=fn;
+          dl.innerHTML=_dlIcon()+' <span>'+label+'</span>';
+          dl.onclick=function(e){e.preventDefault();triggerDownload(du,fn,dl,label)};
+          dl.style.display='flex';dl.classList.add('pulse');setTimeout(function(){dl.classList.remove('pulse')},7000);
+          $('btnCopyLink').style.display='flex';if(navigator.share)$('btnShare').style.display='flex';
+        }else if(data.status==='error'){clearInterval(pollTimer);$('progressWrap').style.display='none';setStatus('');showSingleError(data.error||'Conversion failed.')}
+      })
+    }).catch(function(){})
+  },700)
+}
+
+function copyDownloadLink(){
+  if(!currentDownloadUrl)return;var full=location.origin+currentDownloadUrl;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(full).then(function(){$('btnCopyLink').innerHTML='&#10003; Copied!';$('btnCopyLink').classList.add('copied');setTimeout(function(){$('btnCopyLink').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy link';$('btnCopyLink').classList.remove('copied')},2000)}).catch(function(){prompt('Copy this link:',full)})
+  }else{prompt('Copy this link:',full)}
+}
+
+function shareDownload(){if(!navigator.share||!currentDownloadUrl)return;try{navigator.share({title:$('videoTitle').textContent||'Download',url:location.origin+currentDownloadUrl}).catch(function(){})}catch(e){}}
+
+function resetForm(){
+  clearInterval(pollTimer);$('urlInput').value='';updateClearBtn();
+  var ids=['videoCard','btnDownload','btnCopyLink','btnShare','btnReset','errorWrap','progressWrap','statusText'];
+  for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el)el.style.display='none'}
+  currentDownloadUrl=null;setConverting(false);$('urlInput').focus()
+}
+
+$('urlInput').addEventListener('input',updateClearBtn);
+$('urlInput').addEventListener('keydown',function(e){if(e.key==='Enter')handleConvert()});
+$('urlInput').addEventListener('focus',function(){
+  if($('urlInput').value)return;
+  if(navigator.clipboard&&navigator.clipboard.readText){
+    navigator.clipboard.readText().then(function(text){if(text&&(text.indexOf('youtube.com')!==-1||text.indexOf('youtu.be')!==-1)){$('urlInput').value=text;updateClearBtn()}}).catch(function(){})
   }
-
-  function updateClearBtn() {
-    $('btnClear').style.display = $('urlInput').value ? 'flex' : 'none';
-  }
-
-  function estimateSize(durationSec, fmt, q) {
-    if (!durationSec) return null;
-    if (fmt === 'mp4') return null;
-    const kbps = { '128K': 128, '192K': 192, '320K': 320 }[q] || 320;
-    const mb = (kbps * 1000 / 8 * durationSec / 1024 / 1024);
-    return mb < 1 ? `~${(mb*1024).toFixed(0)} KB` : `~${mb.toFixed(1)} MB`;
-  }
-
-  function showSingleError(msg, url) {
-    $('singleError').textContent = msg || 'Something went wrong. Please try again.';
-    $('errorWrap').style.display = 'flex';
-  }
-  function hideSingleError() {
-    $('errorWrap').style.display = 'none';
-  }
-
-  function setStatus(msg) {
-    $('statusMsg').textContent = msg;
-    $('statusText').style.display = msg ? 'flex' : 'none';
-  }
-
-  function setConverting(on) {
-    $('btnConvert').disabled = on;
-    $('btnConvert').textContent = on ? 'Loading…' : 'Convert';
-    $('urlInput').disabled = on;
-  }
-
-  async function handleConvert() {
-    clearInterval(pollTimer);
-    const url = $('urlInput').value.trim();
-    if (!url) { showSingleError('Please paste a YouTube URL'); return; }
-
-    hideSingleError();
-    $('videoCard').style.display    = 'none';
-    $('btnDownload').style.display  = 'none';
-    $('btnCopyLink').style.display  = 'none';
-    $('btnShare').style.display     = 'none';
-    $('btnReset').style.display     = 'none';
-    $('progressWrap').style.display = 'none';
-    $('sizeBadge').style.display    = 'none';
-    currentDownloadUrl = null;
-    setConverting(true);
-    setStatus('Starting…');
-
-    // Fire /info AND /start in parallel — no waiting on info before conversion begins.
-    const infoPromise = fetch('/info', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
-
-    const startPromise = fetch('/start', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, quality: selectedQ, format: selectedFmt })
-    }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
-
-    // Render info as soon as it lands (does not block conversion)
-    infoPromise.then(({ ok, data }) => {
-      if (!ok) return;
-      $('videoThumb').src         = data.thumbnail;
-      $('videoTitle').textContent = data.title;
-      const hasDur = data.duration && data.duration !== '?:??' && data.duration_sec > 0;
-      $('videoSub').textContent   = hasDur
-        ? `${data.uploader}  ·  ${data.duration}`
-        : (data.uploader || '');
-      const badgeMap = { '720': 'MP4 720p', '1080': 'MP4 1080p', 'best': 'MP4 Best' };
-      $('qualityBadge').textContent = selectedFmt === 'mp4'
-        ? (badgeMap[selectedQ] || 'MP4') : `MP3 ${selectedQ}`;
-      const sz = estimateSize(data.duration_sec, selectedFmt, selectedQ);
-      if (sz) { $('sizeBadge').textContent = sz; $('sizeBadge').style.display = 'inline-block'; }
-      $('videoCard').style.display = 'block';
-    }).catch(() => {});
-
-    // Wait only on /start to begin polling
-    try {
-      const { ok, data } = await startPromise;
-      setStatus('');
-      if (!ok) { showSingleError(data.error || 'Failed to start conversion.'); setConverting(false); return; }
-      $('progressWrap').style.display = 'block';
-      $('progressBar').style.width    = '5%';
-      setStatus('Starting conversion…');
-      setConverting(false);
-      $('btnReset').style.display = 'block';
-      pollJob(data.job_id);
-    } catch {
-      setStatus('');
-      showSingleError('Network error. Please try again.');
-      setConverting(false);
-    }
-  }
-
-  const _convMsgs = [
-    'Fetching audio stream…',
-    'Converting to ' + (localStorage.getItem('fmt')==='mp4' ? 'MP4' : 'MP3') + '…',
-    'Processing audio…',
-    'Almost done…',
-    'Finalising file…',
-  ];
-
-  function pollJob(jobId) {
-    clearInterval(pollTimer);
-    const ext   = selectedFmt === 'mp4' ? 'mp4' : 'mp3';
-    const label = selectedFmt === 'mp4' ? 'Download MP4' : 'Download MP3';
-    let msgIdx     = 0;
-    let lastChange = Date.now();
-    let lastProg   = -1;
-    let notFound   = 0;
-
-    pollTimer = setInterval(async () => {
-      try {
-        const res  = await fetch(`/status/${jobId}`);
-        if (res.status === 404) {
-          if (++notFound >= 3) {
-            clearInterval(pollTimer);
-            $('progressWrap').style.display = 'none';
-            setStatus('');
-            showSingleError('Conversion lost — please try again.');
-          }
-          return;
-        }
-        notFound = 0;
-        const data = await res.json();
-
-        const p = (data.progress != null) ? data.progress : 0;
-        $('progressBar').style.width = `${Math.max(5, p)}%`;
-        if (p !== lastProg) { lastProg = p; lastChange = Date.now(); }
-
-        if (data.status === 'processing') {
-          // Always rotate friendly messages so UI never feels frozen.
-          if (p > 0 && p < 100) {
-            setStatus(`Converting… ${p}%`);
-          } else {
-            setStatus(_convMsgs[msgIdx++ % _convMsgs.length]);
-          }
-          // After 60s with no progress change, surface a hint instead of dead air
-          if (Date.now() - lastChange > 60000) {
-            setStatus('Still working… YouTube is slow right now');
-          }
-        }
-
-        if (data.status === 'done') {
-          clearInterval(pollTimer);
-          $('progressBar').style.width    = '100%';
-          $('progressWrap').style.display = 'none';
-          setStatus('');
-
-          const fname   = data.filename || `audio.${ext}`;
-          const dlUrl   = `/download/${jobId}/${encodeURIComponent(fname)}`;
-          currentDownloadUrl = dlUrl;
-
-          const dl = $('btnDownload');
-          dl.href     = dlUrl;
-          dl.download = fname;
-          dl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${label}`;
-          dl.style.display = 'flex';
-          dl.classList.add('pulse');
-          setTimeout(() => dl.classList.remove('pulse'), 7000);
-
-          $('btnCopyLink').style.display = 'flex';
-          if (navigator.share) $('btnShare').style.display = 'flex';
-
-          try {
-            const a = document.createElement('a');
-            a.href = dlUrl; a.download = fname;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          } catch(e) {}
-
-        } else if (data.status === 'error') {
-          clearInterval(pollTimer);
-          $('progressWrap').style.display = 'none';
-          setStatus('');
-          showSingleError(data.error || 'Conversion failed. Please try again.');
-        }
-      } catch { /* network hiccup — keep polling */ }
-    }, 700);
-  }
-
-  async function copyDownloadLink() {
-    if (!currentDownloadUrl) return;
-    const full = location.origin + currentDownloadUrl;
-    try {
-      await navigator.clipboard.writeText(full);
-      $('btnCopyLink').textContent = '✓ Copied!';
-      $('btnCopyLink').classList.add('copied');
-      setTimeout(() => {
-        $('btnCopyLink').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy link`;
-        $('btnCopyLink').classList.remove('copied');
-      }, 2000);
-    } catch { prompt('Copy this link:', full); }
-  }
-
-  async function shareDownload() {
-    if (!navigator.share || !currentDownloadUrl) return;
-    try {
-      await navigator.share({
-        title: $('videoTitle').textContent || 'Download',
-        url: location.origin + currentDownloadUrl
-      });
-    } catch {}
-  }
-
-  function resetForm() {
-    clearInterval(pollTimer);
-    $('urlInput').value = '';
-    updateClearBtn();
-    ['videoCard','btnDownload','btnCopyLink','btnShare','btnReset',
-     'errorWrap','progressWrap','statusText'].forEach(id => {
-      const el = $(id);
-      if (el) el.style.display = 'none';
-    });
-    currentDownloadUrl = null;
-    setConverting(false);
-    $('urlInput').focus();
-  }
-
-  $('urlInput').addEventListener('input',   updateClearBtn);
-  $('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleConvert(); });
-  $('urlInput').addEventListener('focus',   async () => {
-    if ($('urlInput').value) return;
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
-        $('urlInput').value = text;
-        updateClearBtn();
-      }
-    } catch {}
-  });
+});
 </script>
 </body>
 </html>
