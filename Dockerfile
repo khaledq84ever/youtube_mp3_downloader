@@ -15,7 +15,9 @@ WORKDIR /app
 # Python deps (stable layer — pip cache busts only on requirements change)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install -U yt-dlp pytubefix bgutil-ytdlp-pot-provider
+    pip install -U --force-reinstall \
+        "yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp.git@master" \
+        pytubefix bgutil-ytdlp-pot-provider
 
 # bgutil PO token server — lets yt-dlp bypass YouTube's bot detection
 # without cookies (needed for popular/famous videos).

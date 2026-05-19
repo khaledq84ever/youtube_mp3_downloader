@@ -796,37 +796,53 @@ def _y2mate_bump(job_id, pct):
             j['last_progress_at'] = time.time()
 
 def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
-    """Return (signed_download_url, title, opener, ua) or raise on failure."""
+    """Return (signed_download_url, title, opener, ua) or raise on failure.
+
+    NEW (2026-05): y2mate.nu no longer ships the `JSON.parse('...')` cfg blob.
+    Bearer is now base64-encoded in `data-key="<base64>"` on the homepage.
+    Flow: scrape data-key → bearer → POST /api/v1/init (Auth: Bearer) → convert
+    → poll progress → download. All in one stateful session (cookies + bearer)."""
     opener, _jar = _y2mate_session()
     ua = _y2mate_pick_ua()
+    backend = base64.b64decode('ZXRhY2xvdWQub3Jn').decode()  # etacloud.org
 
     html = _y2mate_get(opener, ua, _Y2MATE_PAGE).decode('utf-8', 'replace')
-    m = re.search(r"json\s*=\s*JSON\.parse\('([^']+)'\)", html)
+    m = re.search(r'data-key="([^"]+)"', html)
     if not m:
-        raise RuntimeError('no config on page')
-    cfg = json.loads(m.group(1))
-    auth_param = chr(cfg[6])
-    auth = _y2mate_auth(cfg)
-    backend = base64.b64decode('ZXRhY2xvdWQub3Jn').decode()  # etacloud.org
+        raise RuntimeError('y2mate: no data-key on page')
+    bearer = base64.b64decode(m.group(1)).decode('ascii', errors='ignore')
 
     vm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([a-zA-Z0-9_-]{11})', youtube_url)
     if not vm:
         raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
+    # New init requires Authorization: Bearer header — _y2mate_get doesn't
+    # support it, so we inline the request here.
+    def _bearer_get(u, timeout=20):
+        req = urllib.request.Request(u, headers={
+            'User-Agent': ua,
+            'Authorization': f'Bearer {bearer}',
+            'Accept': 'application/json,text/html,*/*;q=0.8',
+            'Origin': 'https://v3.y2mate.nu',
+            'Referer': _Y2MATE_PAGE,
+            'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-site',
+        })
+        return opener.open(req, timeout=timeout).read()
+
     ts = int(time.time())
-    init_url = f'https://eta.{backend}/api/v1/init?{auth_param}={urllib.parse.quote(auth)}&t={ts}'
-    d = json.loads(_y2mate_get(opener, ua, init_url))
-    if int(d.get('error', 0) or 0) > 0:
+    d = json.loads(_bearer_get(f'https://eta.{backend}/api/v1/init?_={ts}'))
+    # NOTE: y2mate returns error as STRING "0" sometimes — coerce to int.
+    if int(d.get('error') or 0) > 0:
         raise RuntimeError(f'init error={d.get("error")}')
     convert_url = d['convertURL']
     _y2mate_bump(job_id, 6)
 
     for _ in range(3):
         ts = int(time.time())
-        c_url = f'{convert_url}&v={vid}&f={fmt}&t={ts}'
-        d = json.loads(_y2mate_get(opener, ua, c_url))
-        if int(d.get('error', 0) or 0) > 0:
+        c_url = f'{convert_url}&v={vid}&f={fmt}&_={ts}'
+        d = json.loads(_bearer_get(c_url))
+        if int(d.get('error') or 0) > 0:
             raise RuntimeError(f'convert error={d.get("error")}')
         if d.get('redirect') == 1:
             convert_url = d['redirectURL']
@@ -838,21 +854,19 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
     title        = d.get('title') or ''
     _y2mate_bump(job_id, 7)
 
-    # Poll until y2mate's server finishes conversion (their progress == 3).
-    # Bump our local progress every iteration so the UI doesn't look frozen at 5%.
     deadline = time.time() + 90
     polls = 0
     while time.time() < deadline:
         ts = int(time.time())
-        pd = json.loads(_y2mate_get(opener, ua, f'{progress_url}&t={ts}'))
-        if int(pd.get('error', 0) or 0) > 0:
+        pd = json.loads(_bearer_get(f'{progress_url}&_={ts}'))
+        if int(pd.get('error') or 0) > 0:
             raise RuntimeError(f'progress error={pd.get("error")}')
         yp = int(pd.get('progress', 0) or 0)
         if yp >= 3:
             _y2mate_bump(job_id, 10)
-            return download_url, pd.get('title') or title, opener, ua
-        # Map y2mate's coarse 0/1/2 to our 7..9, plus a poll-count tick so the
-        # bar visibly moves even while y2mate sits at the same internal step.
+            # The download URL needs &v=&f=&r= appended (matches y2mate.js).
+            final_url = f'{download_url}&v={vid}&f={fmt}&r=y2mate.nu'
+            return final_url, pd.get('title') or title, opener, ua
         polls += 1
         _y2mate_bump(job_id, min(7 + yp + (polls // 3), 9))
         time.sleep(1.5)
@@ -1928,11 +1942,16 @@ def get_info():
                 'url':          url,
             })
 
-    # Last resort — yt-dlp with proxy rotation
+    # Last resort — yt-dlp with proxy rotation. Hard 35-second total wall so
+    # Railway's 60s edge timeout never fires (frontend hangs forever otherwise).
     try:
         result, last_err = None, '__BOT__'
         _tried = set()
+        _deadline = time.time() + 35
         for _ in range(min(len(_PROXY_LIST), 4)):
+            if time.time() > _deadline:
+                last_err = '__BOT__'
+                break
             proxy = _proxy_rotator.get()
             result   = _yt_info_cmd(url, proxy)
             if result.returncode == 0:
