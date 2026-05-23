@@ -798,79 +798,101 @@ def _y2mate_bump(job_id, pct):
 def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
     """Return (signed_download_url, title, opener, ua) or raise on failure.
 
-    NEW (2026-05): y2mate.nu no longer ships the `JSON.parse('...')` cfg blob.
-    Bearer is now base64-encoded in `data-key="<base64>"` on the homepage.
-    Flow: scrape data-key → bearer → POST /api/v1/init (Auth: Bearer) → convert
-    → poll progress → download. All in one stateful session (cookies + bearer)."""
+    NEW (2026-05-23): y2mate.nu dropped the data-key attribute entirely.
+    Bearer key now comes from a fresh GET /api/v1/auth call (no scraping).
+    Flow: auth → init (Bearer) → convert (Bearer, may redirect once) →
+    poll progress (Bearer) → download URL. The Bearer must be present on
+    every eta.etacloud.org call; without it, convert returns 403 error=4.
+    """
     opener, _jar = _y2mate_session()
     ua = _y2mate_pick_ua()
     backend = base64.b64decode('ZXRhY2xvdWQub3Jn').decode()  # etacloud.org
-
-    html = _y2mate_get(opener, ua, _Y2MATE_PAGE).decode('utf-8', 'replace')
-    m = re.search(r'data-key="([^"]+)"', html)
-    if not m:
-        raise RuntimeError('y2mate: no data-key on page')
-    bearer = base64.b64decode(m.group(1)).decode('ascii', errors='ignore')
 
     vm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([a-zA-Z0-9_-]{11})', youtube_url)
     if not vm:
         raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
-    # New init requires Authorization: Bearer header — _y2mate_get doesn't
-    # support it, so we inline the request here.
-    def _bearer_get(u, timeout=20):
-        req = urllib.request.Request(u, headers={
+    def _api_get(u, bearer=None, timeout=20):
+        h = {
             'User-Agent': ua,
-            'Authorization': f'Bearer {bearer}',
             'Accept': 'application/json,text/html,*/*;q=0.8',
-            'Origin': 'https://v3.y2mate.nu',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin':  'https://v3.y2mate.nu',
             'Referer': _Y2MATE_PAGE,
             'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-site',
-        })
+        }
+        if bearer:
+            h['Authorization'] = f'Bearer {bearer}'
+        req = urllib.request.Request(u, headers=h)
         return opener.open(req, timeout=timeout).read()
 
-    ts = int(time.time())
-    d = json.loads(_bearer_get(f'https://eta.{backend}/api/v1/init?_={ts}'))
-    # NOTE: y2mate returns error as STRING "0" sometimes — coerce to int.
+    # 1) auth — issues a per-session Bearer (16 chars). geo flag tells us
+    # whether to use cProgress (fast path) or full progress polling; we
+    # always poll since we don't have a browser timer.
+    ts = int(time.time() * 1000)
+    auth = json.loads(_api_get(f'https://eta.{backend}/api/v1/auth?_={ts}'))
+    if int(auth.get('err') or auth.get('error') or 0) > 0:
+        raise RuntimeError(f'auth error={auth.get("err") or auth.get("error")}')
+    bearer = auth.get('key') or ''
+    if not bearer:
+        raise RuntimeError('auth: no key')
+    _y2mate_bump(job_id, 5)
+
+    # 2) init — returns convertURL signed for THIS bearer.
+    ts = int(time.time() * 1000)
+    d = json.loads(_api_get(f'https://eta.{backend}/api/v1/init?_={ts}', bearer=bearer))
     if int(d.get('error') or 0) > 0:
         raise RuntimeError(f'init error={d.get("error")}')
     convert_url = d['convertURL']
     _y2mate_bump(job_id, 6)
 
+    # 3) convert — may hop once via redirectURL. JS does this with 1 retry.
     for _ in range(3):
-        ts = int(time.time())
+        ts = int(time.time() * 1000)
         c_url = f'{convert_url}&v={vid}&f={fmt}&_={ts}'
-        d = json.loads(_bearer_get(c_url))
+        d = json.loads(_api_get(c_url, bearer=bearer))
         if int(d.get('error') or 0) > 0:
             raise RuntimeError(f'convert error={d.get("error")}')
-        if d.get('redirect') == 1:
-            convert_url = d['redirectURL']
+        if d.get('redirect') == 1 and d.get('redirectURL'):
+            convert_url = d['redirectURL'].split('&v=')[0]
             continue
         break
 
-    progress_url = d['progressURL']
-    download_url = d['downloadURL']
+    progress_url = d.get('progressURL') or ''
+    download_url = d.get('downloadURL') or ''
     title        = d.get('title') or ''
+    if not download_url:
+        raise RuntimeError('convert: empty downloadURL')
     _y2mate_bump(job_id, 7)
 
-    deadline = time.time() + 90
-    polls = 0
-    while time.time() < deadline:
-        ts = int(time.time())
-        pd = json.loads(_bearer_get(f'{progress_url}&_={ts}'))
-        if int(pd.get('error') or 0) > 0:
-            raise RuntimeError(f'progress error={pd.get("error")}')
-        yp = int(pd.get('progress', 0) or 0)
-        if yp >= 3:
-            _y2mate_bump(job_id, 10)
-            # The download URL needs &v=&f=&r= appended (matches y2mate.js).
-            final_url = f'{download_url}&v={vid}&f={fmt}&r=y2mate.nu'
-            return final_url, pd.get('title') or title, opener, ua
-        polls += 1
-        _y2mate_bump(job_id, min(7 + yp + (polls // 3), 9))
-        time.sleep(1.5)
-    raise RuntimeError('conversion timeout')
+    # 4) poll progress until status == 3 (done). Most popular videos are
+    # already cached: first poll returns 3 immediately.
+    if progress_url:
+        deadline = time.time() + 90
+        polls = 0
+        while time.time() < deadline:
+            ts = int(time.time() * 1000)
+            pd = json.loads(_api_get(f'{progress_url}&_={ts}', bearer=bearer))
+            if int(pd.get('error') or 0) > 0:
+                raise RuntimeError(f'progress error={pd.get("error")}')
+            yp = int(pd.get('progress', 0) or 0)
+            if pd.get('title'):
+                title = pd['title']
+            if yp >= 3:
+                break
+            polls += 1
+            _y2mate_bump(job_id, min(7 + yp + (polls // 3), 9))
+            time.sleep(1.5)
+        else:
+            raise RuntimeError('conversion timeout')
+
+    _y2mate_bump(job_id, 10)
+    # Final URL — matches y2mate.js download() handler.
+    final_url = f'{download_url}&v={vid}&f={fmt}&r=y2mate.nu'
+    # Stash bearer on opener for the file fetch (etacloud.org enforces it).
+    opener._y2mate_bearer = bearer  # type: ignore
+    return final_url, title, opener, ua
 
 def y2mate_download(job_id, url, title, uploader, quality, fmt):
     """Backend: y2mate.nu — most reliable when our IP is bot-blocked.
@@ -896,11 +918,16 @@ def y2mate_download(job_id, url, title, uploader, quality, fmt):
     ext     = 'mp4' if fmt == 'mp4' else 'mp3'
     out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
     try:
-        # Reuse the same session (cookies + UA) for the actual file fetch
-        req = urllib.request.Request(signed_url, headers={
+        # Reuse the same session (cookies + UA + bearer) for the file fetch.
+        # etacloud.org returns 403 on download without the Bearer it issued.
+        dl_headers = {
             'User-Agent': sess_ua, 'Accept': '*/*',
             'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
-        })
+        }
+        sess_bearer = getattr(sess_opener, '_y2mate_bearer', None)
+        if sess_bearer:
+            dl_headers['Authorization'] = f'Bearer {sess_bearer}'
+        req = urllib.request.Request(signed_url, headers=dl_headers)
         with sess_opener.open(req, timeout=30) as r:
             total = int(r.headers.get('Content-Length', 0))
             done  = 0
