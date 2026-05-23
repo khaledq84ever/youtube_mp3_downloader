@@ -360,29 +360,43 @@ function handleConvert(){
   var url=$('urlInput').value.replace(/^\s+|\s+$/g,'');
   if(!url){showSingleError('Please paste a YouTube URL');return}
   hideSingleError();
-  $('videoCard').style.display='none';$('btnDownload').style.display='none';$('btnCopyLink').style.display='none';$('btnShare').style.display='none';$('btnReset').style.display='none';$('progressWrap').style.display='none';$('sizeBadge').style.display='none';
-  currentDownloadUrl=null;setConverting(true);setStatus('Starting&#8230;');
+  $('btnDownload').style.display='none';$('btnCopyLink').style.display='none';$('btnShare').style.display='none';$('btnReset').style.display='none';$('sizeBadge').style.display='none';
+  // Show the card + progress bar IMMEDIATELY so the user sees feedback the
+  // instant they click Convert \u2014 same pattern as the /tiktok page. The thumb
+  // is guessed from the YouTube video id; title/uploader fill in from /info.
+  var vm=url.match(/(?:v=|youtu\.be\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/);
+  var bm={'720':'MP4 720p','1080':'MP4 1080p','best':'MP4 Best'};
+  $('videoThumb').src=vm?('https://i.ytimg.com/vi/'+vm[1]+'/hqdefault.jpg'):'';
+  $('videoTitle').textContent='Loading title\u2026';
+  $('videoSub').textContent='';
+  $('qualityBadge').textContent=selectedFmt==='mp4'?(bm[selectedQ]||'MP4'):'MP3 '+selectedQ;
+  $('videoCard').style.display='block';
+  $('progressWrap').style.display='block';
+  $('progressBar').style.width='5%';
+  currentDownloadUrl=null;setConverting(true);setStatus('Starting\u2026');
   var iOpts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})};
   var sOpts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,quality:selectedQ,format:selectedFmt})};
   var iP=fetch('/info',iOpts).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})});
   var sP=fetch('/start',sOpts).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})});
   iP.then(function(res){
     if(!res.ok)return;var data=res.data;
-    var vm=url.match(/(?:v=|youtu\.be\/|\/shorts\/|\/live\/)([a-zA-Z0-9_-]{11})/);
-    $('videoThumb').src=data.thumbnail||('https://i.ytimg.com/vi/'+(vm?vm[1]:'')+'/hqdefault.jpg');
-    $('videoTitle').textContent=data.title;
+    if(data.thumbnail)$('videoThumb').src=data.thumbnail;
+    if(data.title)$('videoTitle').textContent=data.title;
     $('videoSub').textContent=(data.duration&&data.duration!=='?:??'&&data.duration_sec>0)?data.uploader+'  \u00b7  '+data.duration:(data.uploader||'');
-    var bm={'720':'MP4 720p','1080':'MP4 1080p','best':'MP4 Best'};
-    $('qualityBadge').textContent=selectedFmt==='mp4'?(bm[selectedQ]||'MP4'):'MP3 '+selectedQ;
     var sz=estimateSize(data.duration_sec,selectedFmt,selectedQ);
     if(sz){$('sizeBadge').textContent=sz;$('sizeBadge').style.display='inline-block'}
-    $('videoCard').style.display='block'
   }).catch(function(){});
   sP.then(function(res){
     setStatus('');
-    if(!res.ok){showSingleError(res.data.error||'Failed to start conversion.');setConverting(false);return}
-    $('progressWrap').style.display='block';$('progressBar').style.width='5%';setStatus('Starting conversion&#8230;');setConverting(false);$('btnReset').style.display='block';pollJob(res.data.job_id)
-  }).catch(function(){setStatus('');showSingleError('Network error. Please try again.');setConverting(false)})
+    if(!res.ok){
+      $('videoCard').style.display='none';$('progressWrap').style.display='none';
+      showSingleError(res.data.error||'Failed to start conversion.');setConverting(false);return
+    }
+    setStatus('Starting conversion…');setConverting(false);$('btnReset').style.display='block';pollJob(res.data.job_id)
+  }).catch(function(){
+    $('videoCard').style.display='none';$('progressWrap').style.display='none';
+    setStatus('');showSingleError('Network error. Please try again.');setConverting(false)
+  })
 }
 
 var _cMsgs=['Fetching audio stream&#8230;','Converting to '+(selectedFmt==='mp4'?'MP4':'MP3')+'&#8230;','Processing audio&#8230;','Almost done&#8230;','Finalising file&#8230;'];
