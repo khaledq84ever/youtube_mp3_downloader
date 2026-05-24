@@ -798,135 +798,92 @@ def _y2mate_bump(job_id, pct):
 def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
     """Return (signed_download_url, title, opener, ua) or raise on failure.
 
-    NEW (2026-05-23): y2mate.nu dropped the data-key attribute entirely.
-    Bearer key now comes from a fresh GET /api/v1/auth call (no scraping).
-    Flow: auth → init (Bearer) → convert (Bearer, may redirect once) →
-    poll progress (Bearer) → download URL. The Bearer must be present on
-    every eta.etacloud.org call; without it, convert returns 403 error=4.
+    Uses iotacloud.org/api/ direct polling — single GET per round, no auth
+    headers required as of 2026-05-24. Replaces the eta.etacloud.org
+    auth+init+convert+progress flow which started returning HTTP 429 from
+    Railway's IP (the 5%-freeze bug).
+
+    iotacloud is MP3-only; mp4 requests are rejected here so do_convert
+    can fall through to pytubefix / yt-dlp immediately.
     """
+    if fmt != 'mp3':
+        raise RuntimeError('y2mate: mp3 only (iotacloud has no mp4)')
+
     opener, _jar = _y2mate_session()
     ua = _y2mate_pick_ua()
-    backend = base64.b64decode('ZXRhY2xvdWQub3Jn').decode()  # etacloud.org
 
     vm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([a-zA-Z0-9_-]{11})', youtube_url)
     if not vm:
         raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
-    def _api_get(u, bearer=None, timeout=20):
-        h = {
+    def _api_get(u, timeout=20):
+        req = urllib.request.Request(u, headers={
             'User-Agent': ua,
             'Accept': 'application/json,text/html,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Origin':  'https://v3.y2mate.nu',
             'Referer': _Y2MATE_PAGE,
-            'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-site',
-        }
-        if bearer:
-            h['Authorization'] = f'Bearer {bearer}'
-        req = urllib.request.Request(u, headers=h)
+            'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'cross-site',
+        })
         return opener.open(req, timeout=timeout).read()
 
-    # 1) auth — issues a per-session Bearer (16 chars). geo flag tells us
-    # whether to use cProgress (fast path) or full progress polling; we
-    # always poll since we don't have a browser timer.
-    ts = int(time.time() * 1000)
-    auth = json.loads(_api_get(f'https://eta.{backend}/api/v1/auth?_={ts}'))
-    if int(auth.get('err') or auth.get('error') or 0) > 0:
-        raise RuntimeError(f'auth error={auth.get("err") or auth.get("error")}')
-    bearer = auth.get('key') or ''
-    if not bearer:
-        raise RuntimeError('auth: no key')
-    _y2mate_bump(job_id, 5)
-
-    # 2) init — returns convertURL signed for THIS bearer.
-    ts = int(time.time() * 1000)
-    d = json.loads(_api_get(f'https://eta.{backend}/api/v1/init?_={ts}', bearer=bearer))
-    if int(d.get('error') or 0) > 0:
-        raise RuntimeError(f'init error={d.get("error")}')
-    convert_url = d['convertURL']
-    _y2mate_bump(job_id, 6)
-
-    # 3) convert — may hop once via redirectURL. JS does this with 1 retry.
-    for _ in range(3):
+    title = ''
+    download_url = ''
+    # Poll iotacloud rounds 1..6 (~3s gap), mirroring v3.y2mate.nu's client.
+    # Popular videos return progress=completed on r=1; fresh ones need 2-4.
+    for r in range(1, 7):
         ts = int(time.time() * 1000)
-        c_url = f'{convert_url}&v={vid}&f={fmt}&_={ts}'
-        d = json.loads(_api_get(c_url, bearer=bearer))
-        if int(d.get('error') or 0) > 0:
-            raise RuntimeError(f'convert error={d.get("error")}')
-        if d.get('redirect') == 1 and d.get('redirectURL'):
-            convert_url = d['redirectURL'].split('&v=')[0]
-            continue
-        break
-
-    progress_url = d.get('progressURL') or ''
-    download_url = d.get('downloadURL') or ''
-    title        = d.get('title') or ''
+        body = _api_get(f'https://iotacloud.org/api/?r={r}&v={vid}&_={ts}')
+        d = json.loads(body)
+        prog = d.get('progress', '')
+        if d.get('title'):
+            title = d['title']
+        if prog == 'completed' and d.get('url'):
+            download_url = d['url']
+            _y2mate_bump(job_id, min(7 + r, 10))
+            break
+        if prog == 'error' or d.get('error'):
+            raise RuntimeError(f'iotacloud error={d.get("error", prog)}')
+        _y2mate_bump(job_id, min(5 + r, 9))
+        time.sleep(3 if r < 4 else 4)
     if not download_url:
-        raise RuntimeError('convert: empty downloadURL')
-    _y2mate_bump(job_id, 7)
-
-    # 4) poll progress until status == 3 (done). Most popular videos are
-    # already cached: first poll returns 3 immediately.
-    if progress_url:
-        deadline = time.time() + 90
-        polls = 0
-        while time.time() < deadline:
-            ts = int(time.time() * 1000)
-            pd = json.loads(_api_get(f'{progress_url}&_={ts}', bearer=bearer))
-            if int(pd.get('error') or 0) > 0:
-                raise RuntimeError(f'progress error={pd.get("error")}')
-            yp = int(pd.get('progress', 0) or 0)
-            if pd.get('title'):
-                title = pd['title']
-            if yp >= 3:
-                break
-            polls += 1
-            _y2mate_bump(job_id, min(7 + yp + (polls // 3), 9))
-            time.sleep(1.5)
-        else:
-            raise RuntimeError('conversion timeout')
+        raise RuntimeError('iotacloud timeout (no url after 6 polls)')
 
     _y2mate_bump(job_id, 10)
-    # Final URL — matches y2mate.js download() handler.
-    final_url = f'{download_url}&v={vid}&f={fmt}&r=y2mate.nu'
-    # Stash bearer on opener for the file fetch (etacloud.org enforces it).
-    opener._y2mate_bearer = bearer  # type: ignore
-    return final_url, title, opener, ua
+    return download_url, title, opener, ua
 
 def y2mate_download(job_id, url, title, uploader, quality, fmt):
-    """Backend: y2mate.nu — most reliable when our IP is bot-blocked.
-    Quality is fixed by y2mate (mp3=192 kbps, mp4=360p); 'quality' arg ignored.
-    Retries 3x with a fresh session each time before giving up.
+    """Backend: iotacloud.org via the v3.y2mate.nu Origin/Referer headers.
+    Skips the y2mate.nu HTML page entirely (no ads, no JS, no scraping) and
+    hits the JSON API directly. MP3 only (192 kbps); mp4 returns False fast
+    so do_convert falls through to pytubefix/yt-dlp. Retries 3x.
     """
+    if fmt == 'mp4':
+        return False
     last_err = ''
     signed_url = fetched_title = sess_opener = sess_ua = None
     _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
     for attempt in range(3):
         try:
             signed_url, fetched_title, sess_opener, sess_ua = _y2mate_resolve(
-                url, 'mp3' if fmt != 'mp4' else 'mp4', job_id=job_id)
+                url, 'mp3', job_id=job_id)
             break
         except Exception as ex:
             last_err = f'{type(ex).__name__}: {ex}'[:140]
             time.sleep(1.5)
     if not signed_url:
-        _log_proxy_event('y2mate', 'error', f'y2mate resolve: {last_err}')
+        _log_proxy_event('y2mate', 'error', f'iotacloud resolve: {last_err}')
         return False
 
     file_id = str(uuid.uuid4())
-    ext     = 'mp4' if fmt == 'mp4' else 'mp3'
+    ext     = 'mp3'
     out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
     try:
-        # Reuse the same session (cookies + UA + bearer) for the file fetch.
-        # etacloud.org returns 403 on download without the Bearer it issued.
         dl_headers = {
             'User-Agent': sess_ua, 'Accept': '*/*',
             'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
         }
-        sess_bearer = getattr(sess_opener, '_y2mate_bearer', None)
-        if sess_bearer:
-            dl_headers['Authorization'] = f'Bearer {sess_bearer}'
         req = urllib.request.Request(signed_url, headers=dl_headers)
         with sess_opener.open(req, timeout=30) as r:
             total = int(r.headers.get('Content-Length', 0))
