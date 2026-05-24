@@ -817,7 +817,7 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
         raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
-    def _api_get(u, timeout=20):
+    def _api_get(u, timeout=12):
         req = urllib.request.Request(u, headers={
             'User-Agent': ua,
             'Accept': 'application/json,text/html,*/*;q=0.8',
@@ -830,8 +830,9 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
 
     title = ''
     download_url = ''
-    # Poll iotacloud rounds 1..6 (~3s gap), mirroring v3.y2mate.nu's client.
-    # Popular videos return progress=completed on r=1; fresh ones need 2-4.
+    # Poll iotacloud rounds 1..6. Popular videos return completed on r=1;
+    # fresh ones need 2-3. Tight 1.5s gap so a "converting" video doesn't
+    # add visible latency.
     for r in range(1, 7):
         ts = int(time.time() * 1000)
         body = _api_get(f'https://iotacloud.org/api/?r={r}&v={vid}&_={ts}')
@@ -846,7 +847,7 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
         if prog == 'error' or d.get('error'):
             raise RuntimeError(f'iotacloud error={d.get("error", prog)}')
         _y2mate_bump(job_id, min(5 + r, 9))
-        time.sleep(3 if r < 4 else 4)
+        time.sleep(1.5 if r < 4 else 2)
     if not download_url:
         raise RuntimeError('iotacloud timeout (no url after 6 polls)')
 
@@ -888,21 +889,27 @@ def y2mate_download(job_id, url, title, uploader, quality, fmt):
         with sess_opener.open(req, timeout=30) as r:
             total = int(r.headers.get('Content-Length', 0))
             done  = 0
+            last_ui = 0.0
             with open(out, 'wb') as f:
                 while True:
-                    chunk = r.read(524288)
+                    chunk = r.read(1048576)  # 1 MiB chunks → fewer syscalls
                     if not chunk:
                         break
                     f.write(chunk)
                     done += len(chunk)
-                    if total:
-                        pct = min(10 + int(done / total * 80), 90)
-                    else:
-                        pct = min(10 + done // (1024 * 1024), 90)
-                    with jobs_lock:
-                        if jobs.get(job_id, {}).get('status') == 'processing':
-                            jobs[job_id]['progress']         = pct
-                            jobs[job_id]['last_progress_at'] = time.time()
+                    # Throttle progress updates to ~3 Hz (frontend polls 1.4 Hz).
+                    # Avoids contending jobs_lock with /status on every chunk.
+                    now = time.time()
+                    if now - last_ui >= 0.3:
+                        last_ui = now
+                        if total:
+                            pct = min(10 + int(done / total * 80), 90)
+                        else:
+                            pct = min(10 + done // (1024 * 1024), 90)
+                        with jobs_lock:
+                            if jobs.get(job_id, {}).get('status') == 'processing':
+                                jobs[job_id]['progress']         = pct
+                                jobs[job_id]['last_progress_at'] = now
     except Exception:
         return False
 
