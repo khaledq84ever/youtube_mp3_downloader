@@ -1899,12 +1899,38 @@ def get_info():
                     continue
             return None
 
-        # Race all 4 sources. Prefer first result with both title AND duration > 0.
+        def _iota_info():
+            # iotacloud (the y2mate path) is the ONE source that works from
+            # Railway's datacenter IP — it's exactly what do_convert downloads
+            # through. A single r=1 GET returns the real title fast, so /info
+            # must use it too; without it /info 400s on videos that in fact
+            # download perfectly (the "Video unavailable" false-negative bug).
+            try:
+                ts = int(time.time() * 1000)
+                req = urllib.request.Request(
+                    f'https://iotacloud.org/api/?r=1&v={video_id}&_={ts}',
+                    headers={'User-Agent': _y2mate_pick_ua(),
+                             'Accept': 'application/json,*/*;q=0.8',
+                             'Origin': 'https://v3.y2mate.nu',
+                             'Referer': _Y2MATE_PAGE})
+                d = json.loads(urllib.request.urlopen(req, timeout=8).read())
+                if d.get('title'):
+                    return {
+                        'title': d['title'],
+                        'thumbnail': f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+                        'duration_sec': 0,
+                        'uploader': '',
+                    }
+            except Exception:
+                pass
+            return None
+
+        # Race all 5 sources. Prefer first result with both title AND duration > 0.
         # Fall back to first result with title only if nothing has duration in time.
         winner_with_dur = None
         winner_no_dur   = None
-        with ThreadPoolExecutor(max_workers=4) as ex:
-            futures = [ex.submit(fn) for fn in (_piped_info, _oembed_combo, _invidious_info, _pytube_info)]
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            futures = [ex.submit(fn) for fn in (_piped_info, _oembed_combo, _invidious_info, _pytube_info, _iota_info)]
             try:
                 for fut in as_completed(futures, timeout=12):
                     try:
@@ -1964,6 +1990,18 @@ def get_info():
                 'duration': f'{m}:{s:02d}', 'duration_sec': int(duration),
                 'uploader': info.get('uploader', '') or info.get('channel', ''),
                 'url': url,
+            })
+        # A metadata miss must not gate the download: do_convert pulls through
+        # y2mate/iotacloud, which works on Railway's IP even when every /info
+        # source here is bot-blocked. Degrade a bot-block to a usable stub
+        # (always-available CDN thumbnail) so the UI proceeds to /start; a truly
+        # unconvertible video surfaces its error there instead of a false 400.
+        if video_id and last_err == '__BOT__':
+            return jsonify({
+                'title': 'YouTube Video',
+                'thumbnail': f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg',
+                'duration': '?:??', 'duration_sec': 0,
+                'uploader': '', 'url': url,
             })
         err = 'Video unavailable. Please try again.' if last_err == '__BOT__' else last_err
         return jsonify({'error': err}), 400
