@@ -1024,7 +1024,7 @@ def invidious_download(job_id, video_id, url, title, uploader, quality, fmt):
 
 def cobalt_download(job_id, url, title, uploader, quality, fmt):
     try:
-        _set_job(job_id, {'progress': 3})
+        _set_job(job_id, {'progress': 8})
         body = json.dumps({
             'url': url,
             'audioFormat': 'mp3' if fmt != 'mp4' else 'mp4',
@@ -1337,11 +1337,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     # Try y2mate first (iotacloud MP3), but skip if iotacloud is completely down
     backends.append(('y2mate', lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # Try yt-dlp early for MP3 (faster than pytubefix on Railway)
-    if fmt == 'mp3':
-        backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+    # Cobalt API is more reliable than yt-dlp on Railway datacenter IP.
+    # Use it as primary fallback before yt-dlp.
+    backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # Fallback to pytubefix for MP4 or if yt-dlp fails
+    # Fallback to pytubefix for MP4 or slow extraction
     if _PYTUBE_OK:
         backends.append(('pytubefix', lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('pytubefix2',lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
@@ -1350,11 +1350,8 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # Re-add ytdlp for MP4 if not already added
-    if fmt == 'mp4':
-        backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
-
-    backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+    # yt-dlp as last resort (slow/timeout prone on Railway)
+    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     last_err = ''
     try:
