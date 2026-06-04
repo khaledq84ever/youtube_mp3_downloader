@@ -1364,9 +1364,21 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                     break
             _log_proxy_event(name, 'trying', f'{fmt.upper()} {quality} — {name}')
             try:
-                if fn():
-                    _log_proxy_event(name, 'success', f'{name} — done ✓')
-                    return
+                # Run backend with timeout to prevent any single backend from hanging forever
+                executor = ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(fn)
+                try:
+                    result = future.result(timeout=25)  # 25s per backend (plus buffer for cleanup)
+                    executor.shutdown(wait=False)
+                    if result:
+                        _log_proxy_event(name, 'success', f'{name} — done ✓')
+                        return
+                except Exception as timeout_e:
+                    future.cancel()
+                    executor.shutdown(wait=False)
+                    _log_proxy_event(name, 'error', f'{name} timeout/error: {timeout_e}')
+                    last_err = f'{name}: {timeout_e}'
+                    continue
             except Exception as e:
                 _log_proxy_event(name, 'error', f'{name} exception: {e}')
                 last_err = f'{name}: {e}'
