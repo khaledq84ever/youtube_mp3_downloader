@@ -89,9 +89,9 @@ threading.Thread(target=_start_bgutil_server, daemon=True).start()
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 45            # 45 s per yt-dlp attempt (was 90 — never hits limit when blocked)
-MAX_YTDLP_TRIES = 4             # 4 proxy attempts (was 8 — most blocks repeat across IPs)
-GLOBAL_JOB_TTL  = 120           # give up entire job after 2 min
+JOB_TIMEOUT     = 20            # 20 s per yt-dlp attempt (reduced from 45 — YouTube blocks fast)
+MAX_YTDLP_TRIES = 2             # 2 proxy attempts (reduced from 4 — fail faster, try cobalt sooner)
+GLOBAL_JOB_TTL  = 90            # give up entire job after 90s (reduced from 120)
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1279,7 +1279,7 @@ def ytdlp_download(job_id, url, title, uploader, quality, fmt):
     file_id = str(uuid.uuid4())
     ext = 'mp4' if fmt == 'mp4' else 'mp3'
     output_tmpl = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
-    _set_job(job_id, {'progress': 3})
+    _set_job(job_id, {'progress': 10})
 
     # Try up to 3 proxies
     for attempt in range(min(len(_PROXY_LIST), 3)):
