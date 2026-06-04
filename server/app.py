@@ -89,9 +89,9 @@ threading.Thread(target=_start_bgutil_server, daemon=True).start()
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 20            # 20 s per yt-dlp attempt (reduced from 45 — YouTube blocks fast)
-MAX_YTDLP_TRIES = 2             # 2 proxy attempts (reduced from 4 — fail faster, try cobalt sooner)
-GLOBAL_JOB_TTL  = 90            # give up entire job after 90s (reduced from 120)
+JOB_TIMEOUT     = 15            # 15 s per yt-dlp attempt (fail faster on blocked IPs)
+MAX_YTDLP_TRIES = 1             # 1 proxy attempt (fail immediately, try next backend)
+GLOBAL_JOB_TTL  = 45            # give up entire job after 45s (fail fast on stalled streams)
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1334,24 +1334,24 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
 
     backends = []
 
-    # Try y2mate first (iotacloud MP3), but skip if iotacloud is completely down
+    # Try y2mate first (iotacloud MP3) — currently broken but keep for when it recovers
     backends.append(('y2mate', lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # Cobalt API is more reliable than yt-dlp on Railway datacenter IP.
-    # Use it as primary fallback before yt-dlp.
-    backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
-
-    # Fallback to pytubefix for MP4 or slow extraction
+    # Try pytubefix with proxies — more reliable than cobalt on Railway
     if _PYTUBE_OK:
         backends.append(('pytubefix', lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('pytubefix2',lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
+    # Piped/Invidious if video_id available (usually bot-blocked from Railway)
     if video_id:
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # yt-dlp as last resort (slow/timeout prone on Railway)
+    # yt-dlp with single proxy attempt (timeout prone, but worth trying)
     backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    # Cobalt as last resort (also stalling on some streams)
+    backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     last_err = ''
     try:
