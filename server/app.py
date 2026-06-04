@@ -89,9 +89,9 @@ threading.Thread(target=_start_bgutil_server, daemon=True).start()
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 15            # 15 s per yt-dlp attempt (fail faster on blocked IPs)
+JOB_TIMEOUT     = 10            # 10 s per yt-dlp attempt (YouTube blocks fast on datacenter IP)
 MAX_YTDLP_TRIES = 1             # 1 proxy attempt (fail immediately, try next backend)
-GLOBAL_JOB_TTL  = 45            # give up entire job after 45s (fail fast on stalled streams)
+GLOBAL_JOB_TTL  = 30            # give up entire job after 30s (fail fast on stalled streams)
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1347,10 +1347,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # yt-dlp with single proxy attempt (timeout prone, but worth trying)
-    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+    # NOTE: yt-dlp disabled on Railway (datacenter IP bot-blocked, times out at 10s, then freezes at 10%)
+    # Kept for reference but not used
+    # backends.append(('ytdlp', lambda: ytdlp_download(...)))
 
-    # Cobalt as last resort (also stalling on some streams)
+    # Cobalt as last resort (external API, has same stream stalling issue but worth trying)
     backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     last_err = ''
