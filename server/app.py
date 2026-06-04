@@ -929,6 +929,77 @@ def y2mate_download(job_id, url, title, uploader, quality, fmt):
     return True
 
 
+def y2mate_web_download(job_id, url, title, uploader, quality, fmt):
+    """Fallback: y2mate.nu web service direct extraction (when iotacloud is broken).
+    Grabs download links directly from v5.y2mate.nu JSON API.
+    Works even when iotacloud.org is down. MP3 and MP4 support.
+    """
+    _set_job(job_id, {'progress': 6})
+    video_id = _extract_video_id(url)
+    if not video_id:
+        return False
+
+    file_id = str(uuid.uuid4())
+    ext = 'mp4' if fmt == 'mp4' else 'mp3'
+    out = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
+
+    try:
+        # Call y2mate.nu API to get download link
+        # Uses their public endpoint without iotacloud dependency
+        ua = _y2mate_pick_ua()
+        api_url = f'https://v5.y2mate.nu/api/convert'
+
+        # Build request for y2mate.nu's extraction
+        payload = {
+            'url': url,
+            'f': 'mp3' if fmt == 'mp3' else 'mp4',
+            'q': quality or ('320' if fmt == 'mp3' else '720'),
+            'token': '',  # No token needed for initial request
+        }
+
+        headers = {
+            'User-Agent': ua,
+            'Referer': 'https://v5.y2mate.nu/',
+            'Origin': 'https://v5.y2mate.nu',
+        }
+
+        body = urllib.parse.urlencode(payload).encode()
+        req = urllib.request.Request(api_url, data=body, headers=headers, method='POST')
+
+        with urllib.request.urlopen(req, timeout=15) as r:
+            response_text = r.read().decode('utf-8')
+            data = json.loads(response_text) if response_text.startswith('{') else {}
+
+        # Extract download URL from response
+        stream_url = data.get('url') or data.get('link')
+        if not stream_url:
+            _log_proxy_event('y2mate_web', 'error', f'No URL in response: {str(data)[:60]}')
+            return False
+
+        # Download the file
+        _set_job(job_id, {'progress': 10})
+        if fmt == 'mp3':
+            if not _ffmpeg_stream_convert(job_id, stream_url, out, quality or '320K'):
+                return False
+        else:
+            if not _download_stream(job_id, stream_url, out, 10, 85):
+                return False
+
+        if not os.path.exists(out) or os.path.getsize(out) < 1024:
+            return False
+
+        fname = make_filename(title or data.get('title', 'video'),
+                              uploader or '', ext)
+        _set_job(job_id, {'status': 'done', 'file': out, 'filename': fname, 'progress': 100})
+        schedule_cleanup(job_id, out)
+        _log_proxy_event('y2mate_web', 'success', f'y2mate.nu {fmt.upper()} {quality}')
+        return True
+
+    except Exception as e:
+        _log_proxy_event('y2mate_web', 'error', str(e)[:60])
+        return False
+
+
 # ── Download backends ─────────────────────────────────────────────────────────
 
 def piped_download(job_id, video_id, url, title, uploader, quality, fmt):
@@ -1342,6 +1413,9 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
 
     # Try y2mate first (iotacloud MP3) — currently broken but keep for when it recovers
     backends.append(('y2mate', lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    # Fallback: y2mate.nu web scraper (when iotacloud is down)
+    backends.append(('y2mate_web', lambda: y2mate_web_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     # Try pytubefix with proxies — more reliable than cobalt on Railway
     if _PYTUBE_OK:
