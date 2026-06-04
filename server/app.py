@@ -1332,10 +1332,16 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     _set_job(job_id, {'status': 'processing', 'progress': 2, '_started': time.time()})
     video_id = _extract_video_id(url)
 
-    backends = [
-        ('y2mate',    lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)),
-    ]
+    backends = []
 
+    # Try y2mate first (iotacloud MP3), but skip if iotacloud is completely down
+    backends.append(('y2mate', lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    # Try yt-dlp early for MP3 (faster than pytubefix on Railway)
+    if fmt == 'mp3':
+        backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    # Fallback to pytubefix for MP4 or if yt-dlp fails
     if _PYTUBE_OK:
         backends.append(('pytubefix', lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('pytubefix2',lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
@@ -1344,7 +1350,10 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+    # Re-add ytdlp for MP4 if not already added
+    if fmt == 'mp4':
+        backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
     backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     last_err = ''
