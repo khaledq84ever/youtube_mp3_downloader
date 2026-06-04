@@ -633,14 +633,20 @@ def _get_ffmpeg():
 
 def _download_stream(job_id, stream_url, out_path, progress_start=10, progress_end=85):
     """Stream a URL to disk with progress updates. Socket timeout = 30 s applies
-    to BOTH connect and each read, so a stalled CDN can never hang us forever."""
+    to BOTH connect and each read. Overall operation timeout = 60s to prevent hangs."""
     req = urllib.request.Request(stream_url,
         headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.youtube.com/'})
     total, done = 0, 0
+    start_time = time.time()
+    STREAM_TIMEOUT = 60  # 60s max for entire stream operation
     with urllib.request.urlopen(req, timeout=30) as r:
         total = int(r.headers.get('Content-Length', 0))
         with open(out_path, 'wb') as f:
             while True:
+                # Check overall timeout (60s for entire stream operation)
+                if time.time() - start_time > STREAM_TIMEOUT:
+                    return False
+
                 chunk = r.read(524288)   # 512 KB chunks
                 if not chunk:
                     break
@@ -666,8 +672,8 @@ def _ffmpeg_stream_convert(job_id, stream_url, dst, quality,
     Stall watchdog: if no progress for STALL_LIMIT seconds, kill ffmpeg.
     Hard cap: total runtime cannot exceed HARD_LIMIT seconds.
     """
-    STALL_LIMIT = 60
-    HARD_LIMIT  = 300
+    STALL_LIMIT = 30  # Reduced from 60 (detect hangs faster)
+    HARD_LIMIT  = 90  # Reduced from 300 (fail stream operations faster)
     kbps = (quality or '320K').rstrip('Kk')
     _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
     cmd = [
