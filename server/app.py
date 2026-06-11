@@ -91,7 +91,7 @@ YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
 JOB_TIMEOUT     = 10            # 10 s per yt-dlp attempt (YouTube blocks fast on datacenter IP)
 MAX_YTDLP_TRIES = 1             # 1 proxy attempt (fail immediately, try next backend)
-GLOBAL_JOB_TTL  = 30            # give up entire job after 30s (fail fast on stalled streams)
+GLOBAL_JOB_TTL  = 180           # whole-job budget; fresh iotacloud conversions need 30-120s server-side
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -836,10 +836,10 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
 
     title = ''
     download_url = ''
-    # Poll iotacloud rounds 1..6. Popular videos return completed on r=1;
-    # fresh ones need 2-3. Tight 1.5s gap so a "converting" video doesn't
-    # add visible latency.
-    for r in range(1, 7):
+    # Poll iotacloud until the conversion finishes. Popular (cached) videos
+    # return completed on r=1; FRESH videos convert server-side and need
+    # 30-120s, so keep polling up to ~100s before giving up.
+    for r in range(1, 36):
         ts = int(time.time() * 1000)
         body = _api_get(f'https://iotacloud.org/api/?r={r}&v={vid}&_={ts}')
         d = json.loads(body)
@@ -853,9 +853,9 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
         if prog == 'error' or d.get('error'):
             raise RuntimeError(f'iotacloud error={d.get("error", prog)}')
         _y2mate_bump(job_id, min(5 + r, 9))
-        time.sleep(1.5 if r < 4 else 2)
+        time.sleep(1.5 if r < 4 else 3)
     if not download_url:
-        raise RuntimeError('iotacloud timeout (no url after 6 polls)')
+        raise RuntimeError('iotacloud timeout (no url after 35 polls)')
 
     _y2mate_bump(job_id, 10)
     return download_url, title, opener, ua
@@ -1449,7 +1449,10 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 executor = ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(fn)
                 try:
-                    result = future.result(timeout=25)  # 25s per backend (plus buffer for cleanup)
+                    # y2mate/iotacloud legitimately needs up to ~2min for fresh
+                    # conversions; the bot-blocked fallbacks stay on a short leash.
+                    per_backend = 150 if name in ('y2mate', 'y2mate_web') else 25
+                    result = future.result(timeout=per_backend)
                     executor.shutdown(wait=False)
                     if result:
                         _log_proxy_event(name, 'success', f'{name} — done ✓')

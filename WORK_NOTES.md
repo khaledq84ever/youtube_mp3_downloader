@@ -21,3 +21,17 @@ reached the working download.
 **Shipped:** Railway `youtube-mp3-downloader` SUCCESS · GitHub `main` commit `31cb9a4`.
 
 **Still open:** 320K request yields 128 kbps (y2mate/iotacloud is fixed-bitrate). Download works; quality not honored.
+
+## 2026-06-11 — Fix: "All sources are busy" on fresh (uncached) videos
+
+**Symptom:** popular/cached videos converted fine; anything not already in
+iotacloud's cache failed with "Conversion failed. All sources are busy."
+
+**Root cause:** three stacked timeouts all assumed instant conversions:
+GLOBAL_JOB_TTL=30s for the whole job, 25s per backend, and only 6 iotacloud
+polls (~10s). Fresh videos convert server-side in 30-120s → every backend
+"failed" within 30s.
+
+**Fix (server/app.py):** GLOBAL_JOB_TTL 30→180; iotacloud polls 6→35 (~100s);
+per-backend timeout now 150s for y2mate/y2mate_web (bot-blocked fallbacks stay
+at 25s). Frontend already polls indefinitely, no change needed.
