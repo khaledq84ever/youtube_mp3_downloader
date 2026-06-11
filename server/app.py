@@ -1062,7 +1062,7 @@ def invidious_download(job_id, video_id, url, title, uploader, quality, fmt):
     try:
         formats = data.get('adaptiveFormats', [])
         if fmt == 'mp4':
-            max_h   = {'720': 720, '1080': 1080, '4k': 2160}.get(quality, 99999)
+            max_h   = {'360': 360, '480': 480, '720': 720, '1080': 1080, '4k': 2160}.get(str(quality).lower().rstrip('pk'), 99999)
             vid_fmt = sorted(
                 [f for f in formats if 'video' in f.get('type', '')
                  and f.get('qualityLabel', '').rstrip('p').isdigit()
@@ -1189,7 +1189,7 @@ def pytube_download(job_id, url, title, uploader, quality, fmt):
     try:
         _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
         if fmt == 'mp4':
-            max_h = {'720': 720, '1080': 1080, '4k': 2160}.get(quality, 99999)
+            max_h = {'360': 360, '480': 480, '720': 720, '1080': 1080, '4k': 2160}.get(str(quality).lower().rstrip('pk'), 99999)
             out = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp4')
 
             # Modern YouTube: progressive streams cap at 720p and often missing.
