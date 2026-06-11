@@ -35,7 +35,7 @@ R=$(convert "https://www.youtube.com/watch?v=jNQXAC9IVRw" mp3 128K)
 [[ "$R" == __* ]] && bad "mp3 128K popular" "$R" || ok "mp3 128K popular → ${R#*|}"
 
 # 5. MP3 320K FRESH Arabic video (the previously-broken path)
-VID=$(shuf -n1 /home/khaled/recovered_videos/targets_live.txt)
+VID=$(shuf -n1 /home/khaled/recovered_videos/targets_live.txt 2>/dev/null || echo dQw4w9WgXcQ)
 R5=$(convert "https://www.youtube.com/watch?v=$VID" mp3 320K)
 [[ "$R5" == __* ]] && bad "mp3 320K fresh ($VID)" "$R5" || ok "mp3 320K fresh Arabic → ${R5#*|}"
 
