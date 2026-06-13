@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 import subprocess, os, uuid, json, re, glob, threading, time, shutil, socket
+import ipaddress
 import urllib.parse, urllib.request
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -315,8 +316,34 @@ _YT_DOMAIN_RE = re.compile(
 _VIDEO_ID_RE = re.compile(
     r'(?:v=|/(?:shorts|live|embed|v)/|youtu\.be/)([a-zA-Z0-9_-]{11})')
 
+_YT_DOMAINS = ('youtube.com', 'youtu.be')
+
+def _host_is_allowed(url, domains):
+    """Host must be exactly one of `domains` or a subdomain, over http(s). Closes the
+    SSRF where the allowlist regex matched the domain inside a path/query of an
+    attacker- or internal-pointing URL (e.g. http://169.254.169.254/youtube.com/x)."""
+    try:
+        p = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    if p.scheme not in ('http', 'https'):
+        return False
+    host = (p.hostname or '').rstrip('.').lower()
+    if not any(host == d or host.endswith('.' + d) for d in domains):
+        return False
+    try:  # defense in depth: reject hosts that resolve to non-public IPs
+        for info in socket.getaddrinfo(host, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+                return False
+    except Exception:
+        pass
+    return True
+
 def is_valid_url(url):
-    return bool(_YT_DOMAIN_RE.search(url))
+    u = url if url.startswith('http') else 'https://' + url
+    return _host_is_allowed(u, _YT_DOMAINS) and bool(_YT_DOMAIN_RE.search(url))
 
 def extract_video_id(url):
     m = _VIDEO_ID_RE.search(url)
