@@ -92,7 +92,7 @@ YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
 JOB_TIMEOUT     = 10            # 10 s per yt-dlp attempt (YouTube blocks fast on datacenter IP)
 MAX_YTDLP_TRIES = 1             # 1 proxy attempt (fail immediately, try next backend)
-GLOBAL_JOB_TTL  = 180           # whole-job budget; fresh iotacloud conversions need 30-120s server-side
+GLOBAL_JOB_TTL  = 300           # whole-job budget; clients (web UI, KDL app) poll up to 5 min
 RATE_LIMIT      = 30            # per minute per IP
 
 # ── Proxy pool (rotates every job, auto-heals on failure) ─────────────────────
@@ -1460,9 +1460,10 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # NOTE: yt-dlp disabled on Railway (datacenter IP bot-blocked, times out at 10s, then freezes at 10%)
-    # Kept for reference but not used
-    # backends.append(('ytdlp', lambda: ytdlp_download(...)))
+    # yt-dlp re-enabled 2026-07-10: the bgutil PO-token server now runs (was the
+    # reason for the bot-block), and the per-backend leash below prevents the
+    # old freeze-at-10% hang from stalling the whole job.
+    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     # Cobalt as last resort (external API, has same stream stalling issue but worth trying)
     backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
@@ -1483,8 +1484,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 future = executor.submit(fn)
                 try:
                     # y2mate/iotacloud legitimately needs up to ~2min for fresh
-                    # conversions; the bot-blocked fallbacks stay on a short leash.
-                    per_backend = 150 if name in ('y2mate', 'y2mate_web') else 25
+                    # conversions; pytubefix/yt-dlp must download + ffmpeg-convert
+                    # the whole video through a proxy, so they need minutes too —
+                    # the old 25s leash killed them on anything but tiny clips.
+                    # Only the usually-dead piped/invidious stay on a short leash.
+                    per_backend = 25 if name in ('piped', 'invidious') else 150
                     result = future.result(timeout=per_backend)
                     executor.shutdown(wait=False)
                     if result:
