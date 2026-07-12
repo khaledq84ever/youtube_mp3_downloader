@@ -499,14 +499,17 @@ def _probe_proxies():
         except Exception:
             return proxy, False
 
+    alive = 0
     with ThreadPoolExecutor(max_workers=20) as ex:
         for proxy, ok in ex.map(_check, _PROXY_LIST):
-            if not ok:
+            if ok:
+                alive += 1
+            else:
                 _proxy_rotator.mark_failed(proxy)
 
-    with _proxy_rotator._lock:
-        active = len(_proxy_rotator._pool)
-    print(f'[proxy] Startup probe done: {active}/{len(_PROXY_LIST)} proxies alive')
+    # NOTE: don't read pool size here — mark_failed resets the pool to the full
+    # list when everything dies, which used to make an all-dead pool log "50/50".
+    print(f'[proxy] Startup probe done: {alive}/{len(_PROXY_LIST)} proxies alive')
 
 threading.Thread(target=_probe_proxies, daemon=True).start()
 
@@ -1391,9 +1394,11 @@ def ytdlp_download(job_id, url, title, uploader, quality, fmt):
     output_tmpl = os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s')
     _set_job(job_id, {'progress': 10})
 
-    # Try up to 3 proxies
-    for attempt in range(min(len(_PROXY_LIST), 3)):
-        proxy = _proxy_rotator.get()
+    # Direct first: with bgutil PO tokens the datacenter IP usually passes bot
+    # detection, and the proxy pool can be entirely dead (402 when the webshare
+    # subscription lapses — happened 2026-07-12). Then up to 2 proxies.
+    attempts = [None, _proxy_rotator.get(), _proxy_rotator.get()]
+    for attempt, proxy in enumerate(attempts):
         cmd = build_cmd(url, output_tmpl, quality, fmt, proxy, attempt)
         rc, stderr = _run_ytdlp(cmd, job_id)
         if rc == 0:
@@ -1429,7 +1434,10 @@ def ytdlp_download(job_id, url, title, uploader, quality, fmt):
             return True
         else:
             err_msg = parse_ytdlp_error(stderr)
-            if err_msg != '__BOT__':
+            if err_msg == '__PROXY_EXPIRED__' and proxy:
+                _log_proxy_event('ytdlp', 'error', 'proxy 402 — subscription expired, skipping remaining proxies')
+                break
+            if err_msg != '__BOT__' and proxy:
                 _proxy_rotator.mark_failed(proxy)
             _proxy_rotator.rotate()
     return False
@@ -1450,6 +1458,11 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     # Fallback: y2mate.nu web scraper (when iotacloud is down)
     backends.append(('y2mate_web', lambda: y2mate_web_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
+    # yt-dlp promoted above pytubefix/piped 2026-07-12: it now tries DIRECT with
+    # bgutil PO tokens first, which works even with the proxy pool dead (402),
+    # while pytubefix/piped/invidious all depend on the dead proxies.
+    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
     # Try pytubefix with proxies — more reliable than cobalt on Railway
     if _PYTUBE_OK:
         backends.append(('pytubefix', lambda: pytube_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
@@ -1459,11 +1472,6 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
     if video_id:
         backends.append(('piped',     lambda: piped_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
         backends.append(('invidious', lambda: invidious_download(job_id, video_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
-
-    # yt-dlp re-enabled 2026-07-10: the bgutil PO-token server now runs (was the
-    # reason for the bot-block), and the per-backend leash below prevents the
-    # old freeze-at-10% hang from stalling the whole job.
-    backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     # Cobalt as last resort (external API, has same stream stalling issue but worth trying)
     backends.append(('cobalt', lambda: cobalt_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
