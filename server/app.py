@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
-import subprocess, os, uuid, json, re, glob, threading, time, shutil, socket
+import subprocess, os, uuid, json, re, glob, threading, time, shutil, socket, sys
 import ipaddress
 import urllib.parse, urllib.request
 from collections import defaultdict
@@ -66,31 +66,64 @@ def _start_bgutil_server():
     node = shutil.which('node') or 'node'
     main_js = os.path.join(server_dir, 'build', 'main.js')
     try:
+        log = open('/tmp/bgutil.log', 'ab', buffering=0)
         _bgutil_proc = subprocess.Popen(
             [node, main_js, '-p', str(BGUTIL_PORT)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            stdout=log, stderr=log
         )
         # Wait up to 10 s for the server to come up
         for _ in range(20):
             time.sleep(0.5)
-            try:
-                with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=1) as r:
-                    if r.getcode() == 200:
-                        _bgutil_ready = True
-                        print(f'[bgutil] PO Token server ready on port {BGUTIL_PORT}')
-                        return
-            except Exception:
-                pass
+            if _bgutil_ping():
+                _bgutil_ready = True
+                print(f'[bgutil] PO Token server ready on port {BGUTIL_PORT}')
+                return
         print('[bgutil] Server started but /ping not responding within 10 s')
     except Exception as ex:
         print(f'[bgutil] Failed to start server: {ex}')
 
-threading.Thread(target=_start_bgutil_server, daemon=True).start()
+def _bgutil_ping():
+    try:
+        with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=2) as r:
+            return r.getcode() == 200
+    except Exception:
+        return False
+
+def _bgutil_watchdog():
+    # The node server has died silently in production (bgutil_server:false in
+    # /health while the boot log said ready) — probe and restart it forever.
+    global _bgutil_ready
+    _start_bgutil_server()
+    while True:
+        time.sleep(30)
+        if _bgutil_ping():
+            _bgutil_ready = True
+            continue
+        _bgutil_ready = False
+        rc = _bgutil_proc.poll() if _bgutil_proc else 'never-started'
+        tail = ''
+        try:
+            with open('/tmp/bgutil.log', 'rb') as f:
+                f.seek(max(f.seek(0, 2) - 500, 0))
+                tail = f.read().decode(errors='replace').strip().replace('\n', ' | ')
+        except Exception:
+            pass
+        print(f'[bgutil] DOWN (exit={rc}) — restarting. Last output: {tail[-300:]}')
+        try:
+            if _bgutil_proc and _bgutil_proc.poll() is None:
+                _bgutil_proc.kill()
+                _bgutil_proc.wait(timeout=5)
+        except Exception:
+            pass
+        _start_bgutil_server()
+
+threading.Thread(target=_bgutil_watchdog, daemon=True).start()
 
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
 FILE_TTL        = 1800          # 30 min
-JOB_TIMEOUT     = 10            # 10 s per yt-dlp attempt (YouTube blocks fast on datacenter IP)
+JOB_TIMEOUT       = 100         # direct yt-dlp attempt: bgutil PO token + download + ffmpeg needs this
+JOB_TIMEOUT_PROXY = 20          # proxied attempts: dead/402 proxies fail fast, don't eat the budget
 MAX_YTDLP_TRIES = 1             # 1 proxy attempt (fail immediately, try next backend)
 GLOBAL_JOB_TTL  = 300           # whole-job budget; clients (web UI, KDL app) poll up to 5 min
 RATE_LIMIT      = 30            # per minute per IP
@@ -253,13 +286,17 @@ _last_rate_prune = 0.0
 # ── yt-dlp: update at startup, then every 24 h ───────────────────────────────
 
 def _update_ytdlp_loop():
+    # yt-dlp is pip-installed from git master (see Dockerfile); its built-in
+    # self-updater refuses pip installs, so refresh via pip instead.
     while True:
+        time.sleep(86400)   # 24 h — image ships fresh master, skip update at boot
         try:
-            subprocess.run([YTDLP, '--update-to', 'stable'],
-                           capture_output=True, timeout=120)
+            subprocess.run([sys.executable, '-m', 'pip', 'install', '-U', '--force-reinstall',
+                            '--no-deps',
+                            'yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp.git@master'],
+                           capture_output=True, timeout=600)
         except Exception:
             pass
-        time.sleep(86400)   # 24 h
 
 threading.Thread(target=_update_ytdlp_loop, daemon=True).start()
 
@@ -1334,7 +1371,7 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attem
 
 _PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%')
 
-def _run_ytdlp(cmd, job_id):
+def _run_ytdlp(cmd, job_id, timeout=JOB_TIMEOUT):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stderr_lines = []
 
@@ -1357,7 +1394,7 @@ def _run_ytdlp(cmd, job_id):
     to = threading.Thread(target=_rd_out, daemon=True)
     te.start(); to.start()
     try:
-        proc.wait(timeout=JOB_TIMEOUT)
+        proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
         return -1, 'timeout'
@@ -1400,7 +1437,8 @@ def ytdlp_download(job_id, url, title, uploader, quality, fmt):
     attempts = [None, _proxy_rotator.get(), _proxy_rotator.get()]
     for attempt, proxy in enumerate(attempts):
         cmd = build_cmd(url, output_tmpl, quality, fmt, proxy, attempt)
-        rc, stderr = _run_ytdlp(cmd, job_id)
+        rc, stderr = _run_ytdlp(cmd, job_id,
+                                timeout=JOB_TIMEOUT if proxy is None else JOB_TIMEOUT_PROXY)
         if rc == 0:
             # Find output file
             out_candidates = glob.glob(os.path.join(DOWNLOAD_DIR, f'{file_id}.*'))
