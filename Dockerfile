@@ -14,8 +14,13 @@ WORKDIR /app
 
 # Python deps (stable layer — pip cache busts only on requirements change)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install -U --force-reinstall \
+RUN pip install --no-cache-dir -r requirements.txt
+
+# yt-dlp@master + bgutil in their own layer with a date stamp: bump CACHE_DATE
+# to force a fresh pull (a plain redeploy reuses the cached layer and ships
+# stale yt-dlp / bgutil, which YouTube then blocks).
+ARG CACHE_DATE=2026-07-12c
+RUN pip install --no-cache-dir -U --force-reinstall \
         "yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp.git@master" \
         pytubefix bgutil-ytdlp-pot-provider
 

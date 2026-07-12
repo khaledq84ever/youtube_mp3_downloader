@@ -42,7 +42,11 @@ if _COMPRESS_OK:
 
 # ── bgutil PO token HTTP server ───────────────────────────────────────────────
 BGUTIL_PORT      = 4416
-BGUTIL_BASE_URL  = f'http://127.0.0.1:{BGUTIL_PORT}'
+# bgutil >=1.3 hardcodes host "::" (IPv6, no --host flag); on Railway that
+# listener does not accept IPv4-loopback connections, so 127.0.0.1 alone
+# made the watchdog kill-loop a perfectly healthy server. Probe both.
+_BGUTIL_URLS     = (f'http://127.0.0.1:{BGUTIL_PORT}', f'http://[::1]:{BGUTIL_PORT}')
+BGUTIL_BASE_URL  = _BGUTIL_URLS[0]
 _bgutil_proc     = None
 _bgutil_ready    = False
 
@@ -71,36 +75,57 @@ def _start_bgutil_server():
             [node, main_js, '-p', str(BGUTIL_PORT)],
             stdout=log, stderr=log
         )
-        # Wait up to 10 s for the server to come up
-        for _ in range(20):
+        # Wait up to 30 s for the server to come up (cold node start + BotGuard
+        # init can exceed the old 10 s, which left _bgutil_ready stuck False)
+        for _ in range(60):
             time.sleep(0.5)
             if _bgutil_ping():
                 _bgutil_ready = True
                 print(f'[bgutil] PO Token server ready on port {BGUTIL_PORT}')
                 return
-        print('[bgutil] Server started but /ping not responding within 10 s')
+        print('[bgutil] Server started but /ping not responding within 30 s')
     except Exception as ex:
         print(f'[bgutil] Failed to start server: {ex}')
 
 def _bgutil_ping():
-    try:
-        with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=2) as r:
-            return r.getcode() == 200
-    except Exception:
-        return False
+    global BGUTIL_BASE_URL
+    candidates = (BGUTIL_BASE_URL,) + tuple(u for u in _BGUTIL_URLS if u != BGUTIL_BASE_URL)
+    for url in candidates:
+        try:
+            # 8 s: minting a POT pegs node's single-threaded event loop, so a
+            # busy-but-healthy server can take seconds to answer /ping.
+            with urllib.request.urlopen(f'{url}/ping', timeout=8) as r:
+                if r.getcode() == 200:
+                    BGUTIL_BASE_URL = url  # yt-dlp extractor-args read this per job
+                    return True
+        except Exception:
+            pass
+    return False
 
 def _bgutil_watchdog():
     # The node server has died silently in production (bgutil_server:false in
     # /health while the boot log said ready) — probe and restart it forever.
     global _bgutil_ready
     _start_bgutil_server()
+    misses = 0
     while True:
         time.sleep(30)
         if _bgutil_ping():
             _bgutil_ready = True
+            misses = 0
             continue
-        _bgutil_ready = False
         rc = _bgutil_proc.poll() if _bgutil_proc else 'never-started'
+        if rc is None:
+            # Process alive but ping missed — busy minting a token (node's
+            # single-threaded event loop blocks for the whole mint). Killing
+            # after 3 misses still murdered healthy servers mid-mint on
+            # 2026-07-12, so a LIVE process is never restarted — only a dead
+            # one. _bgutil_ready stays True so yt-dlp keeps asking it for POTs.
+            misses += 1
+            print(f'[bgutil] ping miss {misses} (process alive, busy minting) — tolerating')
+            continue
+        misses = 0
+        _bgutil_ready = False
         tail = ''
         try:
             with open('/tmp/bgutil.log', 'rb') as f:
@@ -820,6 +845,11 @@ import base64
 import http.cookiejar
 
 _Y2MATE_PAGE = 'https://v3.y2mate.nu/'
+# eta.etacloud.org is the engine behind y2mate.gs; it converts on ITS servers
+# so it works even when our egress IP is bot-blocked by YouTube.
+_ETA_BASE = 'https://eta.etacloud.org/api/v1'
+_ETA_REF  = 'https://y2mate.gs/'
+_ETA_ORI  = 'https://y2mate.gs'
 # Rotate through real browser UAs so y2mate doesn't fingerprint us as the
 # same headless client across many requests from the Railway IP.
 _Y2MATE_UAS = [
@@ -872,16 +902,14 @@ def _y2mate_bump(job_id, pct):
 def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
     """Return (signed_download_url, title, opener, ua) or raise on failure.
 
-    Uses iotacloud.org/api/ direct polling — single GET per round, no auth
-    headers required as of 2026-05-24. Replaces the eta.etacloud.org
-    auth+init+convert+progress flow which started returning HTTP 429 from
-    Railway's IP (the 5%-freeze bug).
-
-    iotacloud is MP3-only; mp4 requests are rejected here so do_convert
-    can fall through to pytubefix / yt-dlp immediately.
+    eta.etacloud.org auth→init→convert→progress flow (the engine behind
+    y2mate.gs). 2026-07-12: iotacloud.org DNS is dead and yt-dlp+POT is
+    bot-blocked from datacenter IPs, but etacloud accepts direct calls
+    as long as EVERY request carries UA + Referer + Origin: y2mate.gs —
+    the old direct path omitted Origin and got empty 200s from /init.
     """
-    if fmt != 'mp3':
-        raise RuntimeError('y2mate: mp3 only (iotacloud has no mp4)')
+    if fmt not in ('mp3', 'mp4'):
+        raise RuntimeError(f'y2mate: unsupported format {fmt}')
 
     opener, _jar = _y2mate_session()
     ua = _y2mate_pick_ua()
@@ -891,73 +919,98 @@ def _y2mate_resolve(youtube_url, fmt='mp3', job_id=None):
         raise RuntimeError('bad youtube url')
     vid = vm.group(1)
 
-    def _api_get(u, timeout=12):
-        req = urllib.request.Request(u, headers={
+    def _api_get(u, timeout=25, key=None):
+        headers = {
             'User-Agent': ua,
-            'Accept': 'application/json,text/html,*/*;q=0.8',
+            'Accept': 'application/json,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Origin':  'https://v3.y2mate.nu',
-            'Referer': _Y2MATE_PAGE,
+            'Referer': _ETA_REF,
+            'Origin':  _ETA_ORI,
             'Sec-Fetch-Dest': 'empty', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'cross-site',
-        })
-        return opener.open(req, timeout=timeout).read()
+        }
+        if key:
+            headers['Authorization'] = f'Bearer {key}'
+        req = urllib.request.Request(u, headers=headers)
+        return json.loads(opener.open(req, timeout=timeout).read())
 
-    title = ''
-    download_url = ''
-    # Poll iotacloud until the conversion finishes. Popular (cached) videos
-    # return completed on r=1; FRESH videos convert server-side and need
-    # 30-120s, so keep polling up to ~100s before giving up.
-    for r in range(1, 36):
-        ts = int(time.time() * 1000)
-        body = _api_get(f'https://iotacloud.org/api/?r={r}&v={vid}&_={ts}')
-        d = json.loads(body)
-        prog = d.get('progress', '')
-        if d.get('title'):
-            title = d['title']
-        if prog == 'completed' and d.get('url'):
-            download_url = d['url']
-            _y2mate_bump(job_id, min(7 + r, 10))
+    ts = int(time.time() * 1000)
+    key = _api_get(f'{_ETA_BASE}/auth?_={ts}').get('key')
+    if not key:
+        raise RuntimeError('etacloud auth: no key')
+    _y2mate_bump(job_id, 5)
+
+    convert_url = _api_get(f'{_ETA_BASE}/init?_={ts}', key=key).get('convertURL', '')
+    if not convert_url:
+        raise RuntimeError('etacloud init: no convertURL')
+    convert_url = convert_url.split('&v=')[0]
+    _y2mate_bump(job_id, 6)
+
+    conv = _api_get(f'{convert_url}&v={vid}&f={fmt}&_={ts}', timeout=45)
+    # etacloud may bounce the job to a sibling node (redirectURL, no downloadURL)
+    for _ in range(2):
+        redir = (conv.get('redirectURL') or '').split('&v=')[0]
+        if conv.get('downloadURL') or not redir:
             break
-        if prog == 'error' or d.get('error'):
-            raise RuntimeError(f'iotacloud error={d.get("error", prog)}')
-        _y2mate_bump(job_id, min(5 + r, 9))
-        time.sleep(1.5 if r < 4 else 3)
+        conv = _api_get(f'{redir}&v={vid}&f={fmt}&_={ts}', timeout=60)
+    download_url = conv.get('downloadURL', '')
     if not download_url:
-        raise RuntimeError('iotacloud timeout (no url after 35 polls)')
+        raise RuntimeError(f'etacloud convert: {str(conv)[:80]}')
+    title = conv.get('title', '')
+    _y2mate_bump(job_id, 7)
+
+    # progress >= 3 means the file is ready; cached videos pass instantly,
+    # fresh ones convert on etacloud's servers and need up to ~2 min.
+    progress_url = conv.get('progressURL', '')
+    if progress_url:
+        ready = False
+        for r in range(40):
+            pr = _api_get(f'{progress_url}&_={int(time.time() * 1000)}', timeout=15)
+            if pr.get('title'):
+                title = pr['title']
+            try:
+                ready = int(pr.get('progress', 0)) >= 3
+            except (TypeError, ValueError):
+                ready = False
+            if ready:
+                break
+            if pr.get('error'):
+                raise RuntimeError(f'etacloud progress error={pr.get("error")}')
+            _y2mate_bump(job_id, min(7 + r // 4, 10))
+            time.sleep(3)
+        if not ready:
+            raise RuntimeError('etacloud timeout (progress never reached 3)')
 
     _y2mate_bump(job_id, 10)
-    return download_url, title, opener, ua
+    return f'{download_url}&v={vid}&f={fmt}&r=y2mate.gs', title, opener, ua
 
 def y2mate_download(job_id, url, title, uploader, quality, fmt):
-    """Backend: iotacloud.org via the v3.y2mate.nu Origin/Referer headers.
-    Skips the y2mate.nu HTML page entirely (no ads, no JS, no scraping) and
-    hits the JSON API directly. MP3 only (192 kbps); mp4 returns False fast
-    so do_convert falls through to pytubefix/yt-dlp. Retries 3x.
+    """Backend: eta.etacloud.org (y2mate.gs engine) JSON API — no HTML, no JS.
+    Conversion runs on etacloud's servers, so it survives YouTube blocking
+    our egress IP. MP3 (192 kbps) and MP4. Retries 2x.
     """
-    if fmt == 'mp4':
-        return False
     last_err = ''
     signed_url = fetched_title = sess_opener = sess_ua = None
     _set_job(job_id, {'progress': 5, 'last_progress_at': time.time()})
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             signed_url, fetched_title, sess_opener, sess_ua = _y2mate_resolve(
-                url, 'mp3', job_id=job_id)
+                url, fmt, job_id=job_id)
             break
         except Exception as ex:
             last_err = f'{type(ex).__name__}: {ex}'[:140]
             time.sleep(1.5)
     if not signed_url:
-        _log_proxy_event('y2mate', 'error', f'iotacloud resolve: {last_err}')
+        _log_proxy_event('y2mate', 'error', f'etacloud resolve: {last_err}')
+        print(f'[y2mate] etacloud resolve failed: {last_err}', flush=True)
         return False
 
     file_id = str(uuid.uuid4())
-    ext     = 'mp3'
+    ext     = 'mp4' if fmt == 'mp4' else 'mp3'
     out     = os.path.join(DOWNLOAD_DIR, f'{file_id}.{ext}')
     try:
         dl_headers = {
             'User-Agent': sess_ua, 'Accept': '*/*',
-            'Referer': _Y2MATE_PAGE, 'Origin': 'https://v3.y2mate.nu',
+            'Referer': _ETA_REF, 'Origin': _ETA_ORI,
         }
         req = urllib.request.Request(signed_url, headers=dl_headers)
         with sess_opener.open(req, timeout=30) as r:
@@ -1472,6 +1525,13 @@ def ytdlp_download(job_id, url, title, uploader, quality, fmt):
             return True
         else:
             err_msg = parse_ytdlp_error(stderr)
+            tail = ' '.join((stderr or '').strip().split())[-160:]
+            _log_proxy_event('ytdlp', 'error',
+                             f'attempt {attempt} ({"direct" if proxy is None else "proxy"}) rc={rc}: {tail or "no stderr"}')
+            # Full-ish stderr to stdout so `railway logs` shows the real error,
+            # not the 160-char in-memory tail.
+            print(f'[ytdlp] attempt {attempt} rc={rc}: '
+                  f'{" ".join((stderr or "").strip().split())[-500:] or "no stderr"}', flush=True)
             if err_msg == '__PROXY_EXPIRED__' and proxy:
                 _log_proxy_event('ytdlp', 'error', 'proxy 402 — subscription expired, skipping remaining proxies')
                 break
@@ -1490,16 +1550,18 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
 
     backends = []
 
-    # Try y2mate first (iotacloud MP3) — currently broken but keep for when it recovers
+    # y2mate/etacloud FIRST (2026-07-12 evening): YouTube started bot-blocking
+    # datacenter IPs even with valid bgutil PO tokens (~21:15 UTC, verified
+    # with fresh yt-dlp@master + local POT server — every client blocked).
+    # etacloud converts on ITS servers, so our IP never touches YouTube.
     backends.append(('y2mate', lambda: y2mate_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
-    # Fallback: y2mate.nu web scraper (when iotacloud is down)
-    backends.append(('y2mate_web', lambda: y2mate_web_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
-
-    # yt-dlp promoted above pytubefix/piped 2026-07-12: it now tries DIRECT with
-    # bgutil PO tokens first, which works even with the proxy pool dead (402),
-    # while pytubefix/piped/invidious all depend on the dead proxies.
+    # yt-dlp direct + bgutil PO tokens — blocked from Railway right now but
+    # keep as fallback for when YouTube relaxes or yt-dlp ships a workaround.
     backends.append(('ytdlp', lambda: ytdlp_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
+
+    # y2mate.nu web scraper (when iotacloud is down)
+    backends.append(('y2mate_web', lambda: y2mate_web_download(job_id, url, prefetched_title, prefetched_uploader, quality, fmt)))
 
     # Try pytubefix with proxies — more reliable than cobalt on Railway
     if _PYTUBE_OK:
@@ -1529,12 +1591,18 @@ def do_convert(job_id, url, prefetched_title=None, prefetched_uploader=None,
                 executor = ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(fn)
                 try:
-                    # y2mate/iotacloud legitimately needs up to ~2min for fresh
-                    # conversions; pytubefix/yt-dlp must download + ffmpeg-convert
-                    # the whole video through a proxy, so they need minutes too —
+                    # y2mate/etacloud legitimately needs up to ~2min of server-side
+                    # conversion plus the download for fresh videos, so it gets most
+                    # of the 300s job budget; pytubefix/yt-dlp must download +
+                    # ffmpeg-convert the whole video, so they need minutes too —
                     # the old 25s leash killed them on anything but tiny clips.
                     # Only the usually-dead piped/invidious stay on a short leash.
-                    per_backend = 25 if name in ('piped', 'invidious') else 150
+                    if name in ('piped', 'invidious'):
+                        per_backend = 25
+                    elif name == 'y2mate':
+                        per_backend = 240
+                    else:
+                        per_backend = 150
                     result = future.result(timeout=per_backend)
                     executor.shutdown(wait=False)
                     if result:
@@ -1789,8 +1857,7 @@ def health():
         bgutil_plugin_loaded = False
     bgutil_server_alive = False
     try:
-        with urllib.request.urlopen(f'{BGUTIL_BASE_URL}/ping', timeout=2) as r:
-            bgutil_server_alive = r.getcode() == 200
+        bgutil_server_alive = _bgutil_ping()
     except Exception:
         pass
     payload = {
