@@ -86,3 +86,47 @@ never touches YouTube), per-backend leash 240s for it; ytdlp kept as fallback.
 bgutil watchdog: never restart a LIVE process (even 3-miss kill murdered
 healthy servers mid-mint). Full yt-dlp stderr now printed to stdout for
 railway logs.
+
+## 2026-07-31 — App is DOWN: Railway trial expired (not a code bug) + bgutil wedge fixed
+
+**Symptom reported:** conversions failing with "All sources are busy"; a plain
+redeploy in the last 2h did not help.
+
+**What the logs actually showed — two separate things:**
+
+1. **The site is off for billing, not code.** `railway status` → service
+   *Failed*, `activeDeployments: []`, latest deployment is an old June FAILED
+   one; the URL returns Railway's own `{"code":404,"Application not found"}`.
+   Deploy logs end with `Stopping Container` at **06:38:20 UTC 2026-07-31**
+   with no replacement deployment. `railway up` / `railway redeploy` both
+   refuse: **"Your trial has expired. Please select a plan to continue using
+   Railway."** Nothing can deploy until a plan is chosen (billing = owner's
+   call). Real conversions were still succeeding at 03:51–06:20 UTC that same
+   morning, which is why this reads as a backend failure but is not one.
+
+2. **bgutil watchdog wedge (real bug, fixed).** The 2026-07-12 rule "never
+   restart a LIVE process" over-corrected: a bgutil server that is alive but
+   *wedged* never recovers. Production logged **26,432 consecutive**
+   `[bgutil] ping miss N (process alive, busy minting) — tolerating` lines
+   (~9 days), while `_bgutil_ready` stayed **True** — so every yt-dlp command
+   still passed `fetch_pot=always` + `base_url=` for a POT provider that never
+   answered. Result: `/info` 504s and the ytdlp backend burning its full 150s
+   leash on every job, i.e. "All sources are busy" the moment etacloud hiccups.
+
+**Fix (server/app.py):** new `BGUTIL_STALL_MISSES = 8` (8 × 30s = 4 min) —
+long enough for any genuine mint (mints take seconds), short enough that a
+wedge self-heals; a live-but-unresponsive process is now restarted like a dead
+one; `_bgutil_ready` is cleared on restart so yt-dlp stops advertising a dead
+provider; miss log throttled (was 26k identical lines). Dockerfile
+`CACHE_DATE` → `2026-07-31a` for a fresh yt-dlp@master + bgutil layer.
+
+**Verified (locally on the VPS, since Railway won't accept a deploy):** ran the
+patched server on :8099 → `POST /start {jNQXAC9IVRw, mp3, 320K}` → status
+`done` in **~15s**, `/download` = **459,056-byte real MP3**, ffmpeg reads it as
+`mp3 44100 Hz mono 192 kb/s, Duration 00:00:19.10` ("Me at the zoo" is 19s).
+`/proxy-status` shows **y2mate/etacloud served it in 2s** — the upstream
+backend is healthy, so the conversion pipeline is fine.
+
+**Still open:** (a) pick a Railway plan, then `railway up --detach` — the code
+is committed and ready; (b) 320K still yields 192 kbps (etacloud is
+fixed-bitrate, pre-existing).
