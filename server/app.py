@@ -102,6 +102,11 @@ def _bgutil_ping():
             pass
     return False
 
+# A POT mint blocks node's single-threaded event loop for seconds, never for
+# minutes — so a live process that misses this many pings in a row (8 × 30 s =
+# 4 min) is wedged, not busy, and must be restarted like a dead one.
+BGUTIL_STALL_MISSES = 8
+
 def _bgutil_watchdog():
     # The node server has died silently in production (bgutil_server:false in
     # /health while the boot log said ready) — probe and restart it forever.
@@ -116,16 +121,22 @@ def _bgutil_watchdog():
             continue
         rc = _bgutil_proc.poll() if _bgutil_proc else 'never-started'
         if rc is None:
-            # Process alive but ping missed — busy minting a token (node's
-            # single-threaded event loop blocks for the whole mint). Killing
-            # after 3 misses still murdered healthy servers mid-mint on
-            # 2026-07-12, so a LIVE process is never restarted — only a dead
-            # one. _bgutil_ready stays True so yt-dlp keeps asking it for POTs.
+            # Process alive but ping missed — usually busy minting a token, so
+            # give it room: killing after 3 misses murdered healthy servers
+            # mid-mint on 2026-07-12. But "never restart a LIVE process" was
+            # the opposite bug — on 2026-07-31 a wedged-but-alive server
+            # logged 26,432 consecutive misses (~9 days of "tolerating") while
+            # _bgutil_ready stayed True, so every yt-dlp command still pointed
+            # fetch_pot=always at a POT provider that never answered (/info
+            # 504s, ytdlp burning its whole leash) → "All sources are busy".
             misses += 1
-            print(f'[bgutil] ping miss {misses} (process alive, busy minting) — tolerating')
-            continue
+            if misses < BGUTIL_STALL_MISSES:
+                if misses <= 2 or misses % 4 == 0:   # 26k identical lines is not a log
+                    print(f'[bgutil] ping miss {misses} (process alive, busy minting) — tolerating')
+                continue
+            print(f'[bgutil] HUNG — alive but no /ping for {misses * 30}s; restarting')
         misses = 0
-        _bgutil_ready = False
+        _bgutil_ready = False   # stop advertising a POT provider that cannot answer
         tail = ''
         try:
             with open('/tmp/bgutil.log', 'rb') as f:
@@ -133,7 +144,8 @@ def _bgutil_watchdog():
                 tail = f.read().decode(errors='replace').strip().replace('\n', ' | ')
         except Exception:
             pass
-        print(f'[bgutil] DOWN (exit={rc}) — restarting. Last output: {tail[-300:]}')
+        why = 'HUNG (alive, unresponsive)' if rc is None else f'DOWN (exit={rc})'
+        print(f'[bgutil] {why} — restarting. Last output: {tail[-300:]}')
         try:
             if _bgutil_proc and _bgutil_proc.poll() is None:
                 _bgutil_proc.kill()
