@@ -1484,8 +1484,14 @@ def _check_rate(ip):
         return True
 
 def _client_ip():
-    return (request.headers.get('X-Forwarded-For', '')
-            .split(',')[0].strip() or request.remote_addr or 'unknown')
+    # Take the LAST hop of X-Forwarded-For, not the first: the first entry is
+    # whatever the client sent and can be spoofed to defeat the per-IP rate
+    # limiter (send a new fake IP on every request). The last entry is the one
+    # the nearest trusted proxy (Railway's edge) appended itself.
+    xff = request.headers.get('X-Forwarded-For', '')
+    if xff:
+        return xff.split(',')[-1].strip() or request.remote_addr or 'unknown'
+    return request.remote_addr or 'unknown'
 
 
 # ── yt-dlp backend wrapper ──────────────────────────────────────────────────
