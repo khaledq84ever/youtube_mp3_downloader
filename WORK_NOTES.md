@@ -130,3 +130,24 @@ backend is healthy, so the conversion pipeline is fine.
 **Still open:** (a) pick a Railway plan, then `railway up --detach` — the code
 is committed and ready; (b) 320K still yields 192 kbps (etacloud is
 fixed-bitrate, pre-existing).
+
+## 2026-08-16 — Recurrence: same billing block, not a code regression
+
+**Symptom reported:** conversions failing "All sources are busy"; a plain
+redeploy in the last 2h did not help (identical framing to 2026-07-31).
+
+**Diagnosis:** `curl /` on the live URL returned Railway's own
+`{"code":404,"message":"Application not found"}` — the app was never running,
+so "All sources are busy" was never actually reachable; users/monitors were
+hitting Railway's edge, not the Flask app. `railway up --detach` confirmed:
+**"Usage limit exceeded. Please increase or remove the hard limit to resume
+resource provisioning."** This is the same account-wide Railway usage cap
+that's currently blocking taxiapp, five-m, backupbot, and the Discord bots
+(active since 2026-08-14) — not the bgutil/yt-dlp issue this repo has chased
+before. `git status` confirms the tree is clean and already in sync with
+`origin/main`: the 2026-07-31 bgutil wedge fix and the XFF rate-limit fix are
+both committed and pushed, so no code change was made or needed this round.
+
+**Still open:** raise/remove the Railway hard usage limit (dashboard, owner's
+call) — the moment that's done, `railway up --detach` should deploy the
+already-fixed code with no further changes.
