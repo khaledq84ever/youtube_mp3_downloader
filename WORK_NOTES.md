@@ -363,3 +363,32 @@ Could not run the POST /start → /status verification: there is no running depl
 **Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing settings
 for this project. Until then, every future check of this app will reproduce this same result —
 consider treating this as closed pending that action rather than re-diagnosing again.
+
+## 2026-08-17 (12th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed as "All sources are busy" with fix hypotheses (stale yt-dlp, dead bgutil
+PO-token provider, dead proxy list, upstream API change) and asked to fix, `railway up --detach`,
+then verify via live POST /start + poll /status. Full re-check:
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: service **Failed**, deployment
+  `a8cf9293…`, `activeDeployments: []` (nothing running).
+- `railway logs --build a8cf9293…`: this build log shows a **Railpack** build (not Docker) that
+  analyzed `/home/khaled` itself (lists sibling dirs like `crafthost/`, `discord-ai-bot/`, etc.) and
+  failed with "Railpack could not determine how to build the app" — this is a *stale/unrelated*
+  build log line Railway is surfacing for this deployment id, not a build against this repo (this
+  repo has `railway.toml` pinning `builder = "DOCKERFILE"` and a valid root-level `Dockerfile`
+  that previous recurrences already confirmed builds + healthchecks clean). Not a real lead — do
+  not chase this again; it's an artifact of Railway's log endpoint, not this repo's build.
+- Live `GET /health` → Railway edge `404 {"message":"Application not found"}` — app not running,
+  confirms `activeDeployments: []`.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — 12th identical confirmation today, unchanged since
+  2026-08-14.
+
+No code changes made or needed. `Dockerfile` already has `CACHE_DATE=2026-08-17a` (yt-dlp@master
+force-reinstall pinned fresh today) and bgutil watchdog/plugin-verify steps intact. The only
+remaining blocker is the Railway account-wide hard usage cap.
+
+**Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing
+settings for this project. This has now been confirmed 12 times on 2026-08-17 alone (plus prior
+days) — recommend treating this as closed pending that one manual action rather than re-diagnosing
+further.
