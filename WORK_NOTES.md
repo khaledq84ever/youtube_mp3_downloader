@@ -274,3 +274,23 @@ No code changes made or needed. **Action needed from user:** raise/remove the ha
 Railway dashboard billing settings for this project — the moment that's done, `railway up --detach`
 will deploy the already-fixed code (yt-dlp@master pin, bgutil watchdog force-restart from 10cf40e)
 with no further changes.
+
+## 2026-08-17 (8th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed as "All sources are busy" with the usual hypothesis list (stale yt-dlp, dead
+proxy list, upstream API change) and instructions to fix+redeploy+verify via POST /start + poll
+/status. Did a quick re-verification per standing rule, not a fresh full diagnosis:
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: service still **Failed**,
+  deployment `a8cf9293…` unchanged.
+- `curl /health` on the live URL → HTTP `404` (Railway edge "Application not found", not an
+  app-level JSON error) — app is not running, so it cannot be the source of a live "All sources are
+  busy" response.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** before any upload/build step — same hard billing block as
+  all 7 prior checks today and on 08-16/07-31.
+- No code changes made. Skipped the POST /start → poll /status verification since the app has zero
+  uptime to test against (edge 404, not a running Flask process).
+
+**Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing settings
+for this project — only then can `railway up --detach` provision resources and deploy the
+already-fixed code (yt-dlp@master pin, bgutil watchdog force-restart from 10cf40e).
