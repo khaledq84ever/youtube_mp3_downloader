@@ -180,3 +180,15 @@ already bumped today, `BGUTIL_STALL_MISSES=8` watchdog fix
 **Still open:** raise/remove the Railway hard usage limit (dashboard, owner's
 call). Until then no `railway up` can provision resources, regardless of code
 state.
+
+## 2026-08-17 (re-check same day) — Re-verified: still the same usage-limit block
+
+Re-ran the full diagnosis (same symptom report). `git status` clean/in sync
+with `origin/main` (no drift since the last entry above). `curl /health` on
+the live URL → still Railway's `{"code":404,"Application not found"}`.
+`railway up --detach` → immediately **"Usage limit exceeded. Please increase
+or remove the hard limit to resume resource provisioning."**, before any
+upload/build happens. Nothing to fix in code; this is purely the account-wide
+Railway cap. Not re-touching yt-dlp/bgutil/proxy code until this repro
+changes shape (e.g. build fails, or app runs but conversions themselves
+error) — that would point to a real regression instead of billing.
