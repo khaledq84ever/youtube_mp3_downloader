@@ -294,3 +294,23 @@ proxy list, upstream API change) and instructions to fix+redeploy+verify via POS
 **Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing settings
 for this project — only then can `railway up --detach` provision resources and deploy the
 already-fixed code (yt-dlp@master pin, bgutil watchdog force-restart from 10cf40e).
+
+## 2026-08-17 (9th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed as "All sources are busy" with fix hypotheses (stale yt-dlp, dead bgutil PO-token
+provider, dead proxies, upstream API change). Quick re-verification per standing rule:
+- `railway link` (auto-resolved to youtube-mp3-downloader) → `railway status`: deployment
+  `a8cf9293…` still **Failed**, unchanged since 2026-07-12.
+- `railway logs` / `railway logs --build` → last successful **build+healthcheck** shown is the
+  2026-07-12 image; runtime logs end 2026-07-31 06:38 UTC (`Stopping Container`) — matches the
+  bgutil wedge fix (10cf40e) already committed, confirmed present in `server/app.py`
+  (`BGUTIL_STALL_MISSES = 8`, force-restart logic intact).
+- Live `GET /health` → Railway edge `404 {"message":"Application not found"}` — app not running,
+  so "All sources are busy" can't be coming from a live process right now.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — same hard billing block, 9th confirmation today.
+
+No code changes made or needed — the fix (yt-dlp@master pin + bgutil watchdog force-restart) has
+been committed and unable to deploy since 2026-07-12 solely due to this account-wide Railway hard
+usage cap. This will not change until the user raises/removes the limit in Railway dashboard
+billing settings.
