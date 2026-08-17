@@ -406,3 +406,25 @@ live POST /start → /status verification: no deployment is running to receive i
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings. Treating this as closed pending that manual action.
+
+## 2026-08-17 (14th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task framing again: "conversions failing, All sources are busy, redeploy in last 2h didn't fix it,
+diagnose (yt-dlp/bgutil/proxy/upstream API), fix code, redeploy, verify via POST /start". Followed
+memory's 30s-reproduction shortcut instead of full re-diagnosis:
+- `railway link` + `railway status`: service **Failed**, `activeDeployments: []`, same deployment
+  ID `a8cf9293` as every prior recurrence (created 2026-06-12, still the latest/only deployment).
+- `railway logs -d` only returns stale logs from the last time it briefly ran (2026-07-31) — a
+  bgutil watchdog loop stuck in "busy minting" until the container was stopped. Not from a current
+  run; no current run exists.
+- Live `GET /health` → edge 404 `{"code":404,"message":"Application not found"}`. This is what
+  produces "All sources are busy"-shaped reports from any external caller — there's no app to hit.
+- `railway up --detach` → instant **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — 14th identical confirmation.
+
+No code changes made (none needed — code has been deploy-ready since 07-12/08-14). Did not run the
+live POST /start → /status verification: zero active deployments to receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings. This is the sole remaining blocker; re-diagnosing the yt-dlp/bgutil/proxy pipeline again
+will not change the outcome until that's cleared.
