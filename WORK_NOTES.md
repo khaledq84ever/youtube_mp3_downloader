@@ -338,3 +338,28 @@ No code changes made — build/healthcheck already pass, yt-dlp@master pin and b
 are already committed. This is purely a billing/plan issue on the Railway account, unchanged since
 2026-08-14. Verification step in this task's instructions cannot be completed until the user clears
 the usage limit in the Railway dashboard.
+
+## 2026-08-17 (11th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed with explicit fix hypotheses (stale yt-dlp, dead bgutil PO-token provider, dead
+proxy list, upstream API change) and instructions to fix, `railway up --detach`, then verify via
+live `POST /start` + poll `/status`. Independently re-derived the same evidence before consulting
+this file (confirms the diagnosis is stable, not just copy-pasted):
+- `railway link -p youtube-mp3-downloader` → OK. `railway status --json`: `latestDeployment`
+  createdAt **2026-06-12**, `activeDeployments: []`, `deploymentStopped: true`, status **FAILED**.
+- `railway logs --build --latest`: Docker build **and healthcheck both succeeded** (all 10 steps,
+  incl. yt-dlp@master reinstall + bgutil clone/build/plugin-import, `[1/1] Healthcheck succeeded!`)
+  — build path is fine, nothing to bump/rebuild.
+- Live `GET /` and `GET /health` → Railway edge `{"code":404,"message":"Application not found"}`
+  (platform-level, not Flask JSON) — app has zero uptime right now, so it cannot be emitting a live
+  "All sources are busy" response; that framing is stale/cached.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — 11th identical confirmation today, unchanged since
+  2026-08-14.
+
+No code changes made — the real fix (yt-dlp@master pin, bgutil watchdog force-restart from
+10cf40e, XFF rate-limit fix from 85acf02) has been committed and deploy-ready since 2026-07-12/08-14.
+Could not run the POST /start → /status verification: there is no running deployment to receive it.
+**Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing settings
+for this project. Until then, every future check of this app will reproduce this same result —
+consider treating this as closed pending that action rather than re-diagnosing again.
