@@ -428,3 +428,15 @@ live POST /start → /status verification: zero active deployments to receive it
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings. This is the sole remaining blocker; re-diagnosing the yt-dlp/bgutil/proxy pipeline again
 will not change the outcome until that's cleared.
+
+## 2026-08-17 (15th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Same task framing again. Re-check:
+- `railway status`: service Failed, `activeDeployments: []`.
+- Live `GET /health` → 404 `Application not found` (app not running) — this is what surfaces as
+  "All sources are busy" to any external caller.
+- `railway up --detach` → **"Usage limit exceeded. Please increase or remove the hard limit to
+  resume resource provisioning"** — 15th identical confirmation on 2026-08-17.
+
+No code changes made (none needed). Did not run live POST /start verification — zero active
+deployments. Same action needed from user: raise/remove Railway hard usage limit in dashboard.
