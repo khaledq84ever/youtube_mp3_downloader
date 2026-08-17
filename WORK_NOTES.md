@@ -392,3 +392,17 @@ remaining blocker is the Railway account-wide hard usage cap.
 settings for this project. This has now been confirmed 12 times on 2026-08-17 alone (plus prior
 days) — recommend treating this as closed pending that one manual action rather than re-diagnosing
 further.
+
+## 2026-08-17 (13th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Same task framing again ("All sources are busy", fix hypotheses, redeploy+verify). Re-check:
+- `railway status`: service Failed, no active deployment.
+- Live `GET /health` and `POST /start` → both 404 `"Application not found"` (app not running).
+- `railway up --detach` → **"Usage limit exceeded. Please increase or remove the hard limit to
+  resume resource provisioning"** — 13th identical confirmation today.
+
+No code changes made. Fix already committed and deploy-ready since 07-12/08-14. Could not run the
+live POST /start → /status verification: no deployment is running to receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings. Treating this as closed pending that manual action.
