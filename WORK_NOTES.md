@@ -151,3 +151,32 @@ both committed and pushed, so no code change was made or needed this round.
 **Still open:** raise/remove the Railway hard usage limit (dashboard, owner's
 call) — the moment that's done, `railway up --detach` should deploy the
 already-fixed code with no further changes.
+
+## 2026-08-17 — Third recurrence: same usage-limit block, no code bug
+
+**Symptom reported:** conversions failing "All sources are busy"; a plain
+redeploy in the last 2h did not help (identical framing to 2026-07-31 and
+2026-08-16).
+
+**Diagnosis:** `railway status` → service **Failed**, deployment
+`a8cf9293…` (from the `CACHE_DATE=2026-08-17a` bump earlier today, commit
+`3f44bb2`); `curl /health` on the live URL returns Railway's own
+`{"code":404,"message":"Application not found"}` — the app isn't running, so
+real users are hitting Railway's edge, not the Flask backend. `railway logs
+--build` for that deployment shows the Docker build **and healthcheck both
+succeeded** (image built, `[1/1] Healthcheck succeeded!`), so the code and
+Dockerfile are fine. `railway up --detach` was attempted fresh and immediately
+returned: **"Usage limit exceeded. Please increase or remove the hard limit to
+resume resource provisioning."** — the same account-wide Railway cap that has
+blocked this app (and taxiapp/five-m/backupbot/Discord bots) since
+2026-08-14. This is why the earlier same-day redeploy "didn't help": it never
+got a chance to run.
+
+**Code check (no changes made — nothing was broken):** confirmed still in
+place from prior fixes: `yt-dlp@master` pin (Dockerfile:24), `CACHE_DATE`
+already bumped today, `BGUTIL_STALL_MISSES=8` watchdog fix
+(server/app.py:108). `git status` clean, in sync with `origin/main`.
+
+**Still open:** raise/remove the Railway hard usage limit (dashboard, owner's
+call). Until then no `railway up` can provision resources, regardless of code
+state.
