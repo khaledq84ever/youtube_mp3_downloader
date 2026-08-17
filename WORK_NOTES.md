@@ -228,3 +228,25 @@ that has blocked this app since 2026-08-14.
 - Live /health and /start both return Railway EDGE 404 "Application not found" (platform-level, not app JSON) — app is not running at all, not actually emitting the "All sources are busy" JSON error right now.
 - The "All sources are busy" bug itself (wedged bgutil PO-token provider, 26k+ tolerated ping misses) was already fixed 2026-08-14 in 10cf40e (watchdog force-restarts after 8 stalled pings). That fix is committed and ready but can't deploy — blocked purely by Railway billing/usage cap.
 - Action needed from user: raise/remove hard usage limit in Railway dashboard billing settings for this project, then redeploy.
+
+## 2026-08-17 (6th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed as "All sources are busy" real-conversion failures, redeploy in last 2h claimed
+not to help. Checked memory/WORK_NOTES first per standing rule (don't re-run full diagnosis when a
+confirmed unresolved blocker is already documented) — did one quick re-verification instead of a
+fresh full diagnosis:
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: deployment `a8cf9293…` still
+  **Failed**, unchanged since 3rd/4th/5th checks today (created 2026-06-12, no new deploys since
+  2026-07-12).
+- Live `/start` POST with the sample youtu.be URL → Railway EDGE 404 `{"message":"Application not
+  found"}` — platform-level, app not running, so it cannot be emitting a live "All sources are
+  busy" JSON error right now.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — same hard billing block as all 5 prior checks today.
+- `git log` / `grep BGUTIL_STALL_MISSES server/app.py` → the 2026-08-14 watchdog fix (10cf40e,
+  force-restart bgutil after 8 stalled pings) is still committed and present, untouched.
+
+No code changes made — nothing to fix; this is purely the account-wide Railway hard usage cap.
+**Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing
+settings for this project, then redeploy. Will keep confirming on request but the diagnosis will
+not change until the billing limit is lifted.
