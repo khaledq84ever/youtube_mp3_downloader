@@ -314,3 +314,27 @@ No code changes made or needed — the fix (yt-dlp@master pin + bgutil watchdog 
 been committed and unable to deploy since 2026-07-12 solely due to this account-wide Railway hard
 usage cap. This will not change until the user raises/removes the limit in Railway dashboard
 billing settings.
+
+## 2026-08-17 (10th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task again framed with explicit fix hypotheses (stale yt-dlp → bump/reinstall + rebuild bgutil
+PO-token provider, dead proxy list, upstream API change) and asked to fix code, `railway up
+--detach`, then verify via a live `/start` + `/status` poll. Full re-check instead of relying only
+on memory, since the task explicitly asked for a fix-and-verify pass:
+- `railway link` → `railway status`: deployment `a8cf9293…` still **Failed**.
+- `railway logs --build` for that deployment: Docker build **and healthcheck both succeeded**
+  (all 10 build steps incl. `pip install yt-dlp@master` + bgutil clone/build/plugin-import checks
+  passed, `[1/1] Healthcheck succeeded!`) — confirms the yt-dlp/bgutil build path itself is not
+  broken; nothing to bump or rebuild.
+- Live `GET /health` and `GET /` → Railway edge `{"code":404,"message":"Application not found"}` —
+  no app process is running, so no real conversion could have produced "All sources are busy" right
+  now.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — same account-wide Railway billing cap, 10th
+  confirmation today. Could not proceed to the POST /start → /status verification step because
+  there is no running deployment to receive the request.
+
+No code changes made — build/healthcheck already pass, yt-dlp@master pin and bgutil watchdog fix
+are already committed. This is purely a billing/plan issue on the Railway account, unchanged since
+2026-08-14. Verification step in this task's instructions cannot be completed until the user clears
+the usage limit in the Railway dashboard.
