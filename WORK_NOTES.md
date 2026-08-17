@@ -250,3 +250,27 @@ No code changes made — nothing to fix; this is purely the account-wide Railway
 **Action needed from user:** raise/remove the hard usage limit in Railway dashboard billing
 settings for this project, then redeploy. Will keep confirming on request but the diagnosis will
 not change until the billing limit is lifted.
+
+## 2026-08-17 (7th recurrence, same day) — confirmed still Railway usage-limit block, no code bug
+
+Task framed with explicit repro steps (POST /start + poll /status) and a broader hypothesis list
+(stale yt-dlp, dead proxies, upstream API change). Re-verified rather than assuming stale memory,
+since the framing was more detailed than prior checks:
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: deployment `a8cf9293…` still
+  **Failed**, `railway deployment list` shows no deployment newer than 2026-07-12 23:15 (all
+  REMOVED/FAILED) — confirms zero successful deploys in 5+ weeks, consistent with prior checks.
+- `railway logs --build` for `a8cf9293` (the last attempted build, from today's earlier
+  `CACHE_DATE=2026-08-17a` bump) shows the Docker build **and healthcheck both succeeded** — so
+  the yt-dlp/bgutil build steps are not broken; this rules out "stale yt-dlp" / "dead bgutil build"
+  as the live cause.
+- Live `GET /health` → Railway edge `404 {"message":"Application not found"}`. Live `POST /start`
+  with the sample youtu.be URL → same Railway edge 404, not an app-level "All sources are busy"
+  JSON error — confirms the app process is not running, so no poll of `/status` was possible.
+- `railway up --detach` → immediately **"Usage limit exceeded. Please increase or remove the hard
+  limit to resume resource provisioning"** — same hard billing block as all 6 prior checks today
+  and on 08-16/07-31.
+
+No code changes made or needed. **Action needed from user:** raise/remove the hard usage limit in
+Railway dashboard billing settings for this project — the moment that's done, `railway up --detach`
+will deploy the already-fixed code (yt-dlp@master pin, bgutil watchdog force-restart from 10cf40e)
+with no further changes.
