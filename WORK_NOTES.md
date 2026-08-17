@@ -192,3 +192,31 @@ upload/build happens. Nothing to fix in code; this is purely the account-wide
 Railway cap. Not re-touching yt-dlp/bgutil/proxy code until this repro
 changes shape (e.g. build fails, or app runs but conversions themselves
 error) — that would point to a real regression instead of billing.
+
+## 2026-08-17 (4th check, task-framed as "All sources are busy") — Still the same usage-limit block
+
+**Symptom reported this time:** conversions failing with app-level error "All
+sources are busy" (implying the app was running and its proxy/bgutil pool was
+exhausted), redeploy in the last 2h didn't help. This framing is different
+from earlier same-day checks (which reported a plain outage), so treated it
+as a possible real regression and re-verified from scratch instead of relying
+on memory alone.
+
+**Diagnosis:** `railway status` → service still **Failed**, deployment
+`a8cf9293…` unchanged since the 3rd check today. `railway logs` shows only
+stale output ending `2026-07-31 06:38:20 +0000 Shutting down: Master` — the
+container has not run since July 31; there is no current log evidence of an
+"All sources are busy" app error because the app process itself isn't alive
+to produce one. Live verification: `POST /start` with the sample youtu.be URL
+→ HTTP 404 `{"message":"Application not found"}` — Railway's edge, not the
+Flask app. `railway up --detach` → immediately **"Usage limit exceeded.
+Please increase or remove the hard limit to resume resource provisioning."**
+before any build/upload step runs.
+
+**Conclusion:** whatever "All sources are busy" the user saw was almost
+certainly stale/cached (browser or monitor cache of a pre-2026-07-31 app
+response), not a live symptom — the app has had zero uptime to produce a
+fresh one. No code changed; yt-dlp@master pin, bgutil watchdog fix, and XFF
+fix from prior rounds are all still in place and untouched. Root cause
+remains the account-wide Railway hard usage limit (dashboard, owner's call)
+that has blocked this app since 2026-08-14.
