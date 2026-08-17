@@ -220,3 +220,11 @@ fresh one. No code changed; yt-dlp@master pin, bgutil watchdog fix, and XFF
 fix from prior rounds are all still in place and untouched. Root cause
 remains the account-wide Railway hard usage limit (dashboard, owner's call)
 that has blocked this app since 2026-08-14.
+
+## 2026-08-17 (5th recurrence) — confirmed still Railway usage-limit block, not code bug
+- Task: diagnose "All sources are busy" real-conversion failures reported live.
+- `railway link` succeeded, `railway status --json`: latestDeployment createdAt 2026-06-12, activeDeployments:[], deploymentStopped:true, status FAILED.
+- `railway up --detach` → hard-rejected: "Usage limit exceeded. Please increase or remove the hard limit to resume resource provisioning."
+- Live /health and /start both return Railway EDGE 404 "Application not found" (platform-level, not app JSON) — app is not running at all, not actually emitting the "All sources are busy" JSON error right now.
+- The "All sources are busy" bug itself (wedged bgutil PO-token provider, 26k+ tolerated ping misses) was already fixed 2026-08-14 in 10cf40e (watchdog force-restarts after 8 stalled pings). That fix is committed and ready but can't deploy — blocked purely by Railway billing/usage cap.
+- Action needed from user: raise/remove hard usage limit in Railway dashboard billing settings for this project, then redeploy.
