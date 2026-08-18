@@ -856,3 +856,24 @@ bgutil watchdog fix, proxy fallback chain already correct and already committed)
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole blocker, now confirmed 49x since 2026-08-14.
+
+## 2026-08-18 — 50th recurrence, still Railway usage-limit block (memory checked first, skipped redundant re-diagnosis)
+Same signature as 47th-49th: `railway link -p youtube-mp3-downloader` → linked fine. `railway
+status` → service Failed, deployment `a8cf9293-4061-4f57-9d30-ba7820d121b3` unchanged (same ID
+since mid-July). `railway logs` / `railway logs --build` → same stale cached data as every
+prior recurrence (July-31 runtime traffic, July-12 build log) — no live process. `curl -X POST
+/start` with the exact requested test payload ({"url":"https://youtu.be/jNQXAC9IVRw","format":
+"mp3","quality":"320K"}) → edge 404 `{"status":"error","code":404,"message":"Application not
+found"}` — confirms "All sources are busy" reports are this Railway edge 404 being misread as
+an app-level failure; there is no running process to hit /start or /status against, so no live
+job could be started, and no code change (stale yt-dlp / bgutil / dead proxies / upstream API)
+can fix an app that isn't deployed. `railway up --detach` → Indexing/Uploading then "Usage
+limit exceeded. Please increase or remove the hard limit to resume resource provisioning" —
+50th identical confirmation since 2026-08-14. No code changes made or needed: yt-dlp@master
+pin, bgutil watchdog fix (BGUTIL_STALL_MISSES=8), and proxy fallback chain already in place and
+correct per prior recurrences — code is not the blocker.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole blocker, now confirmed 50x since 2026-08-14. Recommend stopping automated
+re-diagnosis of this task until the account-level limit is cleared, since the result cannot
+change until then.
