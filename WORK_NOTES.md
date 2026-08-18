@@ -825,3 +825,14 @@ fallback chain already in place per prior recurrences — code is not the blocke
 settings — sole remaining blocker, confirmed 47x across 5 days (2026-08-14 through 2026-08-18).
 Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first; nothing will
 change until the account-level limit is cleared.
+
+## 2026-08-18 — 48th recurrence, still Railway usage-limit block (checked memory first, skipped redundant `railway up`)
+Same signature as 47th: `railway status` → Failed, deployment `a8cf9293` unchanged. `curl /health`
+→ edge 404 `{"status":"error","code":404,"message":"Application not found"}`, confirming no app
+is running and "All sources are busy" reports are this edge 404, not a real yt-dlp/proxy/bgutil
+failure. Per feedback_check_memory_before_recurring_diagnosis, did not re-run `railway up
+--detach` (deterministic "Usage limit exceeded" per 47 prior identical results) or re-diagnose
+code (already correct: yt-dlp@master, bgutil watchdog BGUTIL_STALL_MISSES=8, proxy chain).
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole blocker, now confirmed 48x since 2026-08-14.
