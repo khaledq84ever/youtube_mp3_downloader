@@ -836,3 +836,23 @@ code (already correct: yt-dlp@master, bgutil watchdog BGUTIL_STALL_MISSES=8, pro
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole blocker, now confirmed 48x since 2026-08-14.
+
+## 2026-08-18 — 49th recurrence, still Railway usage-limit block (memory checked first, skipped redundant `railway up`)
+Same signature as 47th/48th: `railway link -p youtube-mp3-downloader` → linked fine. `railway
+status` → service Failed, deployment `a8cf9293-4061-4f57-9d30-ba7820d121b3` unchanged (same ID
+since mid-July), `activeDeployments: []`, `deploymentStopped: true`. `railway logs --build`
+shows the same cached successful build (yt-dlp@master reinstall, bgutil clone+build OK,
+"Healthcheck succeeded!") — not a live run. `railway logs` (runtime) frozen at July-31 traffic
+ending in gunicorn `Shutting down: Master`, including the exact 26,432-consecutive-miss bgutil
+stall that BGUTIL_STALL_MISSES=8 (commit history, already deployed in code) fixes — that fix
+never got a chance to run live because no deployment has stayed up since. `curl /health` and
+`curl -X POST /start` with the requested test payload → both edge 404
+`{"status":"error","code":404,"message":"Application not found"}` — Railway's own "app not
+found" page, confirming "All sources are busy" reports are this edge 404 being misread as an
+app-level failure, not a real yt-dlp/proxy/bgutil failure. Per
+feedback_check_memory_before_recurring_diagnosis, did NOT re-run `railway up --detach` (48
+prior identical "Usage limit exceeded" results) or make further code changes (yt-dlp@master,
+bgutil watchdog fix, proxy fallback chain already correct and already committed).
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole blocker, now confirmed 49x since 2026-08-14.
