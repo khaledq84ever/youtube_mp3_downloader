@@ -522,3 +522,16 @@ POST /start verification possible — zero active deployments to receive it.
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole remaining blocker, confirmed 32x since 2026-08-14.
+
+## 2026-08-18 — 33rd recurrence, still Railway usage-limit block
+Task framing: "All sources are busy" job errors, redeploy in last 2h didn't fix, diagnose
+yt-dlp/bgutil/proxy/upstream. Checked live first instead of assuming: `GET /health` → 404
+`{"code":404,"message":"Application not found"}` (Railway edge, not Flask — app isn't running,
+so it can't be producing live "All sources are busy" errors right now). `POST /start` with the
+sample payload → same edge 404. `railway status`: service Failed, activeDeployments: [].
+`railway up --detach` → Indexing/Uploading then "Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning" — 33rd identical confirmation since
+2026-08-14. No code changes made — nothing to fix, no live app to verify against.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker.
