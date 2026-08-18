@@ -652,3 +652,26 @@ verification possible: zero active deployments to answer it.
 settings — sole remaining blocker, confirmed 39x across 5 days (2026-08-14 through
 2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
 nothing will change until the account-level limit is cleared.
+
+## 2026-08-18 — 40th recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. `railway link` + `railway
+status`: service Failed, deployment `a8cf9293` (still the same ID as the last several
+recurrences), no active deployment. `railway logs` tail is frozen at `Stopping Container` /
+gunicorn `Shutting down: Master` on 2026-07-31 06:38 UTC — nothing has run since. `GET /`,
+`GET /health`, `GET /proxy-status` on the public URL all → edge 404
+`{"status":"error","code":404,"message":"Application not found"}` — Railway's own "app not
+found" page, not the app; no running process exists for yt-dlp/bgutil/proxies to fail inside
+of, so no POST /start / /status verification is possible (would just hit the same edge 404).
+`railway up --detach` → Indexing/Uploading then "Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning" — 40th identical confirmation since
+2026-08-14. No code changes made or needed: `git status` clean, in sync with `origin/main`;
+the bgutil watchdog fix (BGUTIL_STALL_MISSES=8) and yt-dlp@master/bgutil force-reinstall in
+Dockerfile (CACHE_DATE=2026-08-17a) are already in place, correct, and unreachable behind the
+account block.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 40x across 5 days (2026-08-14 through
+2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
+nothing will change until the account-level limit is cleared.
