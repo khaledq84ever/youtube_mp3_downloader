@@ -699,3 +699,30 @@ block.
 settings — sole remaining blocker, confirmed 41x across 5 days (2026-08-14 through
 2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
 nothing will change until the account-level limit is cleared.
+
+## 2026-08-18 — 42nd recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. `railway link -p
+youtube-mp3-downloader` + `railway status`: service Failed, deployment `a8cf9293` (same ID as
+every prior recurrence, dated 2026-06-12), no active deployment — every deploy since
+2026-07-12 23:15 shows REMOVED in `railway deployment list`. `railway logs` (runtime) →
+tail is stale July 31 traffic ending in gunicorn `Shutting down: Master`; nothing since. The
+July-31 tail also shows the exact 26,432-consecutive-miss bgutil hang the BGUTIL_STALL_MISSES
+fix (server/app.py:108) was written to address — confirms that fix is real and already
+in-repo, not still needed. `railway logs --build` shows a full Docker build (yt-dlp@master
+force-reinstall, bgutil clone+build, plugin import check) succeeding with `Healthcheck
+succeeded!` — but this is a cached/stale build log, not proof of a current running app.
+`GET /health` on the public URL → edge 404 `{"status":"error","code":404,"message":"Application
+not found"}`, both before and after the redeploy attempt below — no running process, so no
+POST /start / /status verification is possible (would just hit the same edge 404). `railway up
+--detach` → Indexing/Uploading then "Usage limit exceeded. Please increase or remove the hard
+limit to resume resource provisioning" — 42nd identical confirmation since 2026-08-14. No code
+changes made or needed: `git status` clean, in sync with `origin/main`; yt-dlp pinned to
+`@master` in Dockerfile with a cache-bust date stamp (requirements.txt:1), bgutil watchdog fix
+(BGUTIL_STALL_MISSES=8) in place, proxy list and fallback chain unchanged.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 42x across 5 days (2026-08-14 through
+2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
+nothing will change until the account-level limit is cleared.
