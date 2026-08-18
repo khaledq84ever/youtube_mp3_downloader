@@ -501,3 +501,10 @@ active deployments to receive it.
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole remaining blocker, confirmed 18x across 2026-08-17/18. Re-diagnosing the
 yt-dlp/bgutil/proxy pipeline again will not change the outcome until that's cleared.
+
+## 2026-08-18 — 31st recurrence, still Railway usage-limit block
+Same "diagnose yt-dlp/bgutil/proxy + fix + railway up + POST /start verify" task framing.
+railway status: FAILED. /health: edge 404 "Application not found". railway up --detach:
+progressed to Indexing/Uploading (further than usual) then "Usage limit exceeded. Please
+increase or remove the hard limit to resume resource provisioning". No code changes —
+nothing to fix. Blocker unresolved since 2026-06-12, deployment a8cf9293.
