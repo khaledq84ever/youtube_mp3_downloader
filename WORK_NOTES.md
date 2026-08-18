@@ -877,3 +877,19 @@ correct per prior recurrences — code is not the blocker.
 settings — sole blocker, now confirmed 50x since 2026-08-14. Recommend stopping automated
 re-diagnosis of this task until the account-level limit is cleared, since the result cannot
 change until then.
+
+## 2026-08-18 — 51st recurrence, still Railway usage-limit block (memory checked first)
+Same signature as 47th-50th: `railway link -p youtube-mp3-downloader` → linked fine. `railway
+status` → service Failed, deployment `a8cf9293-4061-4f57-9d30-ba7820d121b3` unchanged (same ID
+since mid-July). `curl /health` on the public URL → edge 404
+`{"status":"error","code":404,"message":"Application not found"}` — Railway's own "app not
+found" page, confirming "All sources are busy" reports are this edge 404 being misread as an
+app-level failure; no running process exists, so no live POST /start / /status verification
+was possible. `railway up --detach` → Indexing/Uploading then "Usage limit exceeded. Please
+increase or remove the hard limit to resume resource provisioning" — 51st identical
+confirmation since 2026-08-14. `git status` clean, in sync with origin/main. No code changes
+made or needed: yt-dlp@master pin, bgutil watchdog fix (BGUTIL_STALL_MISSES=8), and proxy
+fallback chain already in place and correct per prior recurrences — code is not the blocker.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole blocker, now confirmed 51x since 2026-08-14.
