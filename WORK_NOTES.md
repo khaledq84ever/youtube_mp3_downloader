@@ -801,3 +801,27 @@ prior recurrences — code is not the blocker.
 settings — sole remaining blocker, confirmed 46x across 5 days (2026-08-14 through 2026-08-18).
 Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first; nothing will
 change until the account-level limit is cleared.
+
+## 2026-08-18 — 47th recurrence, still Railway usage-limit block
+Task framing: real conversion jobs erroring "All sources are busy", plain redeploy in last 2h
+didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change, fix + push
++ `railway up --detach` + verify via live POST /start + poll /status. `railway link -p
+youtube-mp3-downloader` + `railway status` → service Failed, deployment `a8cf9293` (same ID as
+every prior recurrence since mid-July). `railway logs --build` shows a full successful Docker
+build (yt-dlp@master force-reinstall, bgutil clone+build, plugin import check, "Healthcheck
+succeeded!") but this is the same stale/cached build log from prior recurrences, not a
+currently-running app. `railway logs` (runtime) is frozen at July-31 traffic ending in
+gunicorn `Shutting down: Master`. `curl -X POST .../start` with the requested test payload →
+`{"status":"error","code":404,"message":"Application not found"}` — Railway's own edge
+"app not found" page, not the app; confirms the reported "All sources are busy" errors are
+this edge 404 being misread as an app-level failure, not a real conversion/yt-dlp/proxy
+failure — no live job could be started or polled for the same reason. `railway up --detach` →
+Indexing/Uploading then "Usage limit exceeded. Please increase or remove the hard limit to
+resume resource provisioning" — 47th identical confirmation since 2026-08-14. No code changes
+made or needed: yt-dlp@master pin, bgutil watchdog fix (BGUTIL_STALL_MISSES=8), and proxy
+fallback chain already in place per prior recurrences — code is not the blocker.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 47x across 5 days (2026-08-14 through 2026-08-18).
+Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first; nothing will
+change until the account-level limit is cleared.
