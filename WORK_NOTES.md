@@ -739,3 +739,24 @@ remove the hard limit to resume resource provisioning" — 43rd identical confir
 settings — sole remaining blocker, confirmed 42x across 5 days (2026-08-14 through
 2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
 nothing will change until the account-level limit is cleared.
+
+## 2026-08-18 — 44th recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. `railway link -p
+youtube-mp3-downloader` + `railway status` → service Failed, deployment `a8cf9293` (same ID
+as every prior recurrence since mid-July). `railway logs` tail is still the stale July-31
+traffic ending in gunicorn `Shutting down: Master`; nothing has run since. `GET /` on the
+public URL → edge 404 `{"status":"error","code":404,"message":"Application not found"}` —
+Railway's own "app not found" page, not the app; no running process exists, so no POST /start
+/ /status verification was possible (would just hit the same edge 404). `railway up --detach`
+→ Indexing/Uploading then "Usage limit exceeded. Please increase or remove the hard limit to
+resume resource provisioning" — 44th identical confirmation since 2026-08-14. No code changes
+made or needed: `git status` clean, in sync with `origin/main`; yt-dlp@master pin, bgutil
+watchdog fix (BGUTIL_STALL_MISSES=8), and proxy fallback chain are already in place and
+correct per prior recurrences — code is not the blocker.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 44x across 5 days (2026-08-14 through
+2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
+nothing will change until the account-level limit is cleared.
