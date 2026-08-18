@@ -675,3 +675,27 @@ account block.
 settings — sole remaining blocker, confirmed 40x across 5 days (2026-08-14 through
 2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
 nothing will change until the account-level limit is cleared.
+
+## 2026-08-18 — 41st recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. `railway link -p
+youtube-mp3-downloader` + `railway status`: service Failed, deployment `a8cf9293` (same ID as
+prior recurrences), no active deployment. `railway logs --deployment a8cf9293` → empty (no
+runtime log ever emitted this deployment). `railway logs --build a8cf9293` returned a stale
+Railpack build log dated 2026-06-12 (scanning /home/khaled root, unrelated to this repo) —
+red herring from an old cached build attempt, not today's failure. `GET /health` on the
+public URL → edge 404 `{"status":"error","code":404,"message":"Application not found"}` —
+Railway's own "app not found" page; no running process exists, so no POST /start / /status
+verification is possible. `railway up --detach` → Indexing/Uploading then "Usage limit
+exceeded. Please increase or remove the hard limit to resume resource provisioning" — 41st
+identical confirmation since 2026-08-14. No code changes made or needed: `git status` clean,
+in sync with `origin/main`; railway.toml correctly pins `builder = "DOCKERFILE"`; the bgutil
+watchdog fix (BGUTIL_STALL_MISSES=8) and yt-dlp@master/bgutil force-reinstall in Dockerfile
+(CACHE_DATE=2026-08-17a) are already in place, correct, and unreachable behind the account
+block.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 41x across 5 days (2026-08-14 through
+2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
+nothing will change until the account-level limit is cleared.
