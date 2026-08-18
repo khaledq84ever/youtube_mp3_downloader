@@ -18,16 +18,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # yt-dlp@master + bgutil in their own layer with a date stamp: bump CACHE_DATE
 # to force a fresh pull (a plain redeploy reuses the cached layer and ships
-# stale yt-dlp / bgutil, which YouTube then blocks).
-ARG CACHE_DATE=2026-08-17a
-RUN pip install --no-cache-dir -U --force-reinstall \
+# stale yt-dlp / bgutil, which YouTube then blocks). CACHE_DATE must actually
+# be referenced inside the RUN below — an unused ARG doesn't change the
+# instruction's cache key, so Docker still reuses the old layer.
+ARG CACHE_DATE=2026-08-18a
+RUN echo "cache-bust: ${CACHE_DATE}" && pip install --no-cache-dir -U --force-reinstall \
         "yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp.git@master" \
         pytubefix bgutil-ytdlp-pot-provider
 
 # bgutil PO token server — lets yt-dlp bypass YouTube's bot detection
 # without cookies (needed for popular/famous videos).
 # This step VERIFIES the build artifact exists; build fails loudly if missing.
-RUN git clone --depth=1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-ytdlp-pot-provider && \
+RUN echo "cache-bust: ${CACHE_DATE}" && \
+    git clone --depth=1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-ytdlp-pot-provider && \
     cd /app/bgutil-ytdlp-pot-provider/server && \
     npm install --no-audit --no-fund && \
     (npm run build 2>/dev/null || tsc) && \
