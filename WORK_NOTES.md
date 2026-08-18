@@ -535,3 +535,17 @@ remove the hard limit to resume resource provisioning" — 33rd identical confir
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole remaining blocker.
+
+## 2026-08-18 — 34th recurrence, still Railway usage-limit block
+Task framing: "All sources are busy" job errors, redeploy in last 2h didn't fix, diagnose
+yt-dlp/bgutil/proxy/upstream. `railway link` + `railway status`: service Failed, deployment
+a8cf9293 unchanged since 2026-06-12, activeDeployments: []. `GET /health` → edge 404
+`{"code":404,"message":"Application not found"}` (Railway edge, not Flask — app isn't running,
+so it can't be producing live "All sources are busy" errors right now). `railway up --detach`
+→ Indexing/Uploading then "Usage limit exceeded. Please increase or remove the hard limit to
+resume resource provisioning" — 34th identical confirmation since 2026-08-14. No code changes
+made — nothing to fix. No POST /start verification possible — zero active deployments to
+receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker.
