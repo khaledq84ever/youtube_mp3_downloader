@@ -632,3 +632,23 @@ account block. No POST /start → /status verification possible: zero active dep
 settings — sole remaining blocker, confirmed 38x across 5 days (2026-08-14 through
 2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
 nothing will change until the account-level limit is cleared.
+
+## 2026-08-18 — 39th recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. `railway status`: service
+Failed, deployment `a8cf9293` unchanged since 2026-06-12, no active deployment. `GET /health`
+→ edge 404. `POST /start` with the sample payload → edge 404
+`{"status":"error","code":404,"message":"Application not found"}` — this is Railway's own
+"app not found" page, not a real conversion job response; there is no running process for
+yt-dlp/bgutil/proxies to fail inside of. `railway up --detach` → Indexing/Uploading then
+"Usage limit exceeded. Please increase or remove the hard limit to resume resource
+provisioning" — 39th identical confirmation since 2026-08-14. No code changes made — bgutil
+watchdog fix (BGUTIL_STALL_MISSES=8) and yt-dlp@master/bgutil force-reinstall in Dockerfile
+already in place and unreachable behind the account block. No POST /start → /status
+verification possible: zero active deployments to answer it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 39x across 5 days (2026-08-14 through
+2026-08-18). Do not re-run this diagnosis again without checking memory/WORK_NOTES.md first;
+nothing will change until the account-level limit is cleared.
