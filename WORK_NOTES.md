@@ -508,3 +508,17 @@ railway status: FAILED. /health: edge 404 "Application not found". railway up --
 progressed to Indexing/Uploading (further than usual) then "Usage limit exceeded. Please
 increase or remove the hard limit to resume resource provisioning". No code changes —
 nothing to fix. Blocker unresolved since 2026-06-12, deployment a8cf9293.
+
+## 2026-08-18 — 32nd recurrence, still Railway usage-limit block
+Same "diagnose yt-dlp/bgutil/proxy + fix + railway up + POST /start verify" task framing,
+citing "All sources are busy" and the production URL explicitly. railway status: FAILED,
+deployment a8cf9293 (unchanged since 2026-06-12), activeDeployments: []. /health: edge 404
+"Application not found" (Railway edge, not Flask — so the "All sources are busy" report
+being re-diagnosed can't be current, app isn't running). railway up --detach: Indexing/
+Uploading then "Usage limit exceeded. Please increase or remove the hard limit to resume
+resource provisioning" — 32nd identical confirmation. No code changes made — nothing to
+fix, code already correct (yt-dlp @master, bgutil watchdog, XFF fix all present). No
+POST /start verification possible — zero active deployments to receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 32x since 2026-08-14.
