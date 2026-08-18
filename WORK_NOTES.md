@@ -479,3 +479,25 @@ Same task framing again ("All sources are busy", diagnose yt-dlp/bgutil/proxy/up
 No code changes made or needed. Could not run live POST /start → /status verification: zero
 active deployments. Same action needed from user: raise/remove Railway hard usage limit in
 dashboard billing settings — sole remaining blocker.
+
+## 2026-08-18 (18th recurrence) — confirmed still Railway usage-limit block, no code bug
+
+Same task framing again ("All sources are busy", diagnose yt-dlp/bgutil/proxy/upstream-API, fix,
+`railway up --detach`, verify via live POST /start + poll /status). Confirmation only (per own
+prior guidance not to re-run full diagnosis when the blocker is already documented 17x):
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: service **Failed**, deployment
+  `a8cf9293…` (dated 2026-06-12), no active deployment.
+- Live `GET /health` and `POST /start` → both 404 `{"code":404,"message":"Application not found"}`
+  (Railway edge, not Flask) — app not running, so no live conversion could have produced "All
+  sources are busy" right now; that framing is stale/inherited from before the outage.
+- Checked `server/app.py` bgutil watchdog: the `BGUTIL_STALL_MISSES=8` fix (from the 2026-07-31
+  wedged-server incident) is already committed and present — no regression there, nothing to bump.
+- `railway up --detach` → "Indexing... Uploading..." then **"Usage limit exceeded. Please increase
+  or remove the hard limit to resume resource provisioning"** — 18th identical confirmation.
+
+No code changes made or needed. Could not run live POST /start → /status verification: zero
+active deployments to receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 18x across 2026-08-17/18. Re-diagnosing the
+yt-dlp/bgutil/proxy pipeline again will not change the outcome until that's cleared.
