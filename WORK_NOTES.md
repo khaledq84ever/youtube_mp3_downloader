@@ -567,3 +567,27 @@ verification possible — zero active deployments to receive it.
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole remaining blocker, confirmed 35x. Further redeploy attempts will not
 succeed until that account setting is changed.
+
+## 2026-08-18 — 36th recurrence, still Railway usage-limit block
+Task framing: "All sources are busy" job errors, plain redeploy in last 2h didn't fix,
+diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change. `railway link` +
+`railway status`: service Failed, latestDeployment still `a8cf9293` createdAt
+2026-06-12T16:09:05Z, `activeDeployments: []`, `deploymentStopped: true`. `railway logs`
+only replays that dead deployment's cached history (ends 2026-07-31 06:38 UTC container
+stop, after 26k+ `[bgutil] ping miss ... tolerating` lines) — not live traffic. `GET /` and
+`GET /health` on the public URL → edge 404 `{"code":404,"message":"Application not found"}`;
+`POST /start` with the sample payload also 404s at the edge — there is no running process to
+receive it, so it cannot be emitting "All sources are busy" right now (that symptom is
+inherited from the pre-fix 2026-07-31 crash, not current). Read server/app.py bgutil watchdog
+in full: `BGUTIL_STALL_MISSES=8` fix for exactly that July 31 wedge is present and unchanged;
+Dockerfile still force-reinstalls `yt-dlp@master` + rebuilds bgutil provider on every build
+(CACHE_DATE 2026-08-17a). `railway up --detach` → Indexing/Uploading then "Usage limit
+exceeded. Please increase or remove the hard limit to resume resource provisioning" — 36th
+identical confirmation since 2026-08-14. No code changes made (none needed — the actual bug
+class described is already fixed in code and unreachable behind the account block). No
+POST /start → /status verification possible: zero active deployments exist to answer it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 36x across 5 days. Do not re-run this diagnosis
+again without checking memory/WORK_NOTES.md first; nothing here will change until the
+account-level limit is lifted.
