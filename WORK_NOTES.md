@@ -911,3 +911,27 @@ tested live until the account limit is cleared.
 
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole blocker, now confirmed 52x since 2026-08-14.
+
+## 2026-08-19 — 53rd recurrence, still Railway usage-limit block (memory checked first, task framed as "stale yt-dlp / dead proxy / upstream API" but re-verified root cause first)
+Task asked to diagnose via `railway logs` after `railway link`, assuming usual causes (stale
+yt-dlp, dead proxy, upstream API change) and fix+redeploy+verify. `railway link -p
+youtube-mp3-downloader` → linked fine. `railway status` → service Failed, deployment
+`a8cf9293-4061-4f57-9d30-ba7820d121b3` unchanged (same ID since mid-July). `railway logs`
+returned only stale July-31 runtime traffic; `railway logs -b <deployment-id>` returned a
+stale July build log showing "Script start.sh not found" / Railpack falling back to scanning
+an unrelated directory tree — this is old cached build log noise from a much earlier failed
+attempt, NOT a live rebuild (deployment ID hasn't changed since mid-July, so no rebuild has
+run since). Confirmed via `curl -X POST /start` with the exact requested payload → edge 404
+`{"status":"error","code":404,"message":"Application not found"}` — no running process exists,
+so no live conversion job could be started; "All sources are busy" reports are this edge 404
+being misread as an app-level failure. `railway up --detach` → Indexing/Uploading then "Usage
+limit exceeded. Please increase or remove the hard limit to resume resource provisioning" —
+53rd identical confirmation since 2026-08-14. `git status` clean. No code changes made: the
+Dockerfile already pins yt-dlp@master with a cache-busting ARG (CACHE_DATE), builds bgutil PO
+token provider from source, and verifies both at build time — this is the same fix already
+applied and committed in prior recurrences. Code is not the blocker and cannot be verified
+live until the account limit is cleared.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole blocker, now confirmed 53x since 2026-08-14. Recommend not re-running this
+diagnosis again until the user confirms the limit has been raised.
