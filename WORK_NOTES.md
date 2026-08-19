@@ -1079,3 +1079,34 @@ fix in code while `railway up` cannot get past the billing gate to even build.
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 59x since 2026-08-14.
+
+## 2026-08-19 — 60th recurrence, still Railway usage-limit block (task: "conversion errors 'All sources are busy', redeploy within 2h didn't fix")
+Checked memory first (59 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Fast re-verification only: `curl /health` and `curl -X POST /start` with the exact requested
+payload (`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}`) both return
+Railway's own edge 404 `{"status":"error","code":404,"message":"Application not found"}` —
+no process is running, so "All sources are busy" reports cannot be a live yt-dlp/bgutil/proxy
+symptom; it's this edge 404 being misread as an app-level conversion failure (same signature
+as #47-59).
+
+`railway status --json` → `activeDeployments: []`, `latestDeployment` still `a8cf9293-4061-
+4f57-9d30-ba7820d121b3` created 2026-06-12T16:09:05Z, `deploymentStopped: true`. Also newly
+confirmed: that stuck deployment's build log shows it used `builder: RAILPACK` with
+`rootDirectory: null` and failed because Railpack scanned the *entire home directory*
+(10minmail/, discord-ai-bot/, tiktok-downloader/, etc. — dozens of unrelated sibling
+projects) instead of just this repo, found no start.sh, and errored out. That botched
+build/deploy attempt (likely `railway up` run from `/home/khaled` instead of `/home/khaled/
+ytmp3`, or a stale linked rootDirectory) is why the last *attempted* deployment never even
+built — but it is moot: `railway.toml` already pins `builder = "DOCKERFILE"` for a correct
+run, and no new deployment can be attempted at all right now regardless, per below.
+
+`railway up --detach` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning."** — 60th identical confirmation since
+2026-08-14. No code changes made: yt-dlp@master pin, bgutil rebuild, cache-busting Docker ARG,
+and bgutil watchdog stall-detection are already committed from prior recurrences; nothing to
+fix in code while `railway up` cannot get past the billing gate to even build.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 60x since 2026-08-14. Once cleared, a plain
+`railway up --detach` from `/home/khaled/ytmp3` (not the home directory) should redeploy
+cleanly with no further code changes.
