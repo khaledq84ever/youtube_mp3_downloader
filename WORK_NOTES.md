@@ -1200,3 +1200,27 @@ already committed; nothing to fix in code while `railway up` cannot get past the
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 64x since 2026-08-14.
+
+## 2026-08-19 — 65th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (64 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Independently reproduced: `railway link` (already linked to youtube-mp3-downloader) →
+`railway status --json` → `activeDeployments: []`. `curl /health` and `curl -X POST /start`
+with the exact requested payload (`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3",
+"quality":"320K"}`) both return Railway's edge 404 `{"status":"error","code":404,"message":
+"Application not found"}` — no process running, so no job ID was ever issued and there is
+nothing to poll `/status` for. "All sources are busy" cannot be a live yt-dlp/bgutil/proxy
+symptom when no app process exists; same signature as #47-64. `railway logs` only returns a
+stale buffered dump ending `Stopping Container` / `Shutting down: Master` from 31/Jul — not
+live output.
+
+`railway up --detach` from `/home/khaled/ytmp3` → Indexing → Uploading → **"Usage limit
+exceeded. Please increase or remove the hard limit to resume resource provisioning."** — 65th
+identical confirmation since 2026-08-14. No code changes made or needed: yt-dlp@master pin,
+bgutil rebuild, cache-busting Docker ARG, and bgutil watchdog stall-detection are already
+committed from prior recurrences; there is no stale-yt-dlp/dead-proxy/upstream-API bug to
+chase while zero requests have reached the app since 2026-06-12.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 65x since 2026-08-14, unchanged for 5 days. Once
+cleared, `railway up --detach` from `/home/khaled/ytmp3` should redeploy cleanly with no
+further code changes.
