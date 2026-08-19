@@ -1064,3 +1064,18 @@ in code while `railway up` can't get past the billing gate to even build.
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings. Once cleared, `railway up --detach` should redeploy cleanly with
 no further code changes.
+
+## 2026-08-19 — 59th recurrence, still Railway usage-limit block (task: "conversion errors 'All sources are busy', redeploy within 2h didn't fix")
+Checked memory first (58 prior identical confirmations). Fast re-verification only, no
+full re-diagnosis: `curl /start` with the exact requested payload
+(`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}`) and `curl /health`
+both return Railway's edge 404 `{"status":"error","code":404,"message":"Application not
+found"}`. `railway status --json` → `activeDeployments: []`, `latestDeployment` still
+`a8cf9293-4061-4f57-9d30-ba7820d121b3` from 2026-06-12, `deploymentStopped: true`.
+`railway up --detach` → "Usage limit exceeded. Please increase or remove the hard limit to
+resume resource provisioning." — 59th identical confirmation since 2026-08-14. No code
+changes: yt-dlp@master pin, bgutil rebuild, cache-busting ARG already committed; nothing to
+fix in code while `railway up` cannot get past the billing gate to even build.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 59x since 2026-08-14.
