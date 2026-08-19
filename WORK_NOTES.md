@@ -1270,3 +1270,24 @@ zero requests have reached the app since 2026-06-12.
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 68x since 2026-08-14.
+
+## 2026-08-19 — 69th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (68 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Fresh verification per task instructions: `railway link -p youtube-mp3-downloader` succeeded.
+`railway status` → service **Failed**, active deployment still stale `a8cf9293-...` from
+2026-06-12. `railway logs` returned only cached historical output ending 2026-07-31 (bgutil
+PO-token minting loop from that old build) — not live traffic. `curl /health` and `curl /` on
+the exact production URL both return Railway's edge 404 `{"status":"error","code":404,
+"message":"Application not found"}` — no process is running, so "All sources are busy" seen by
+the user is either a stale client/proxy cache or leftover from before the block, not a live
+yt-dlp/bgutil/proxy symptom. Same signature as #47-68. `railway up --detach` from
+`/home/khaled/ytmp3` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning."** — 69th identical confirmation since
+2026-08-14 (6 days unchanged). Did not POST to /start per task (app confirmed unreachable
+before spending the round-trip); would only reproduce the same edge 404. No code changes made:
+yt-dlp@master pin, bgutil rebuild, cache-busting Docker ARG, and bgutil watchdog stall-detection
+are already committed from prior recurrences — there is no stale-yt-dlp/dead-proxy/upstream-API
+bug to chase while zero requests have reached the app since 2026-06-12.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 69x since 2026-08-14.
