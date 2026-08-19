@@ -1252,3 +1252,21 @@ in code while `railway up` cannot get past the billing gate.
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 67x since 2026-08-14.
+
+## 2026-08-19 — 68th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (67 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Fast re-verification only: `railway link -p youtube-mp3-downloader` succeeded. `railway status
+--json` → `activeDeployments: []`, `latestDeployment` still stale `a8cf9293-...` from
+2026-06-12, `deploymentStopped: true`. `curl -X POST /start` with the exact requested payload
+and `curl /health` both return Railway's edge 404 `{"status":"error","code":404,"message":
+"Application not found"}` — no process running, so "All sources are busy" cannot be a live
+yt-dlp/bgutil/proxy symptom; same signature as #47-67. `railway up --detach` from
+`/home/khaled/ytmp3` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning."** — 68th identical confirmation since
+2026-08-14, unchanged for 5 days. No code changes made or needed: yt-dlp@master pin, bgutil
+rebuild, cache-busting Docker ARG, and bgutil watchdog stall-detection are already committed
+from prior recurrences; there is no stale-yt-dlp/dead-proxy/upstream-API bug to chase while
+zero requests have reached the app since 2026-06-12.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 68x since 2026-08-14.
