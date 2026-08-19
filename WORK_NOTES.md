@@ -997,3 +997,25 @@ already committed in prior recurrences); a code change is unverifiable and unshi
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole confirmed blocker, 55x since 2026-08-14. Once cleared, a
 plain `railway up --detach` should be enough to bring the app back; no code fix is pending.
+
+## 2026-08-19 — 56th recurrence, still Railway usage-limit block (task: "conversion errors 'All sources are busy', redeploy within 2h didn't fix")
+Re-verified per feedback_check_memory_before_recurring_diagnosis before touching code.
+`railway link -p youtube-mp3-downloader` → OK. `railway status` → service **Failed**, last
+successful deployment `a8cf9293` frozen since 2026-06-12; `railway deployment list` → nothing
+newer than 2026-07-12 23:15 (all REMOVED), no deployment exists from the "redeploy 2h ago"
+the user referenced — it must have hit the same wall silently, same as recurrence #55.
+
+Live check: `curl /health` and `curl -X POST /start` with the exact requested payload both
+return Railway's edge `{"status":"error","code":404,"message":"Application not found"}` — no
+process is running at all, so "All sources are busy" cannot be a live yt-dlp/bgutil/proxy
+symptom; it's this edge 404 misread as an app error (same signature as #47-55).
+
+`railway up --detach` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning."** — 56th identical confirmation since
+2026-08-14. No code changes made: yt-dlp@master pin + bgutil rebuild + cache-busting ARG are
+already committed (1e4ab5a and earlier); nothing to fix in code while `railway up` can't get
+past the billing gate to even build.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings. Once cleared, `railway up --detach` should redeploy cleanly with
+no further code changes.
