@@ -963,3 +963,37 @@ usage limit in dashboard billing settings. Additionally, Railway CLI auth (brows
 is currently failing platform-side with its own HTTP 500 — if this persists once the usage
 limit is cleared, re-authenticating may require retrying `railway login --browserless` later
 or checking Railway's status page.
+
+## 2026-08-19 — 55th recurrence, still Railway usage-limit block (task framed as "diagnose+fix yt-dlp/bgutil/proxy", re-verified root cause first per feedback_check_memory_before_recurring_diagnosis)
+Task asked to `railway link` + `railway logs`, diagnose against the usual suspects (stale
+yt-dlp, dead bgutil PO-token provider, dead proxy list, upstream API change), fix, `railway up
+--detach`, then verify live via POST /start + poll /status. Checked memory first (53
+prior confirmations of the same blocker through 2026-08-19); did the repro anyway since the
+task explicitly asked for logs-based diagnosis.
+
+`railway link -p youtube-mp3-downloader` → linked fine (CLI auth itself recovered since the
+54th recurrence's HTTP 500 device-auth outage). `railway status` → service **Failed**,
+deployment `a8cf9293-4061-4f57-9d30-ba7820d121b3` unchanged since mid-June. `railway deployment
+list` → nothing newer than 2026-07-12 23:15 (all REMOVED); no new deployment exists from any
+"redeploy within the last 2h" — that redeploy attempt must have hit the same usage-limit wall
+silently. `railway logs` → only stale July-31 runtime traffic, including the bgutil watchdog's
+"ping miss N (process alive, busy minting) — tolerating" spam climbing past 26000 — this is
+old log noise from the last time the app actually ran, not a current symptom.
+
+Live verification: `curl POST /start` with the exact requested payload
+(`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}`) and `curl /health`
+→ both return Railway's own edge 404 `{"status":"error","code":404,"message":"Application not
+found"}` — confirming (again) that "All sources are busy" reports are this edge 404 being
+misread as an app-level conversion failure. No process is running, so no yt-dlp/bgutil bug can
+be live right now regardless of code state.
+
+`railway up --detach` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
+remove the hard limit to resume resource provisioning."** — 55th identical confirmation since
+2026-08-14. Did not touch yt-dlp/bgutil/proxy code: the Dockerfile already pins yt-dlp@master
+with a cache-busting ARG, builds bgutil from source, and verifies both at build time (fix
+already committed in prior recurrences); a code change is unverifiable and unshippable while
+`railway up` cannot get past the billing gate to even build.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole confirmed blocker, 55x since 2026-08-14. Once cleared, a
+plain `railway up --detach` should be enough to bring the app back; no code fix is pending.
