@@ -1110,3 +1110,22 @@ fix in code while `railway up` cannot get past the billing gate to even build.
 dashboard billing settings — sole blocker, 60x since 2026-08-14. Once cleared, a plain
 `railway up --detach` from `/home/khaled/ytmp3` (not the home directory) should redeploy
 cleanly with no further code changes.
+
+## 2026-08-19 — 61st recurrence, still Railway usage-limit block (task: same "All sources are busy" report, redeploy within 2h didn't fix)
+Independently reproduced the same chain before reading this file's tail: `railway link -p
+youtube-mp3-downloader` → `railway status` → linked service `● Failed`, deployment ID still
+`a8cf9293-...` (the botched Railpack-scanned-home-directory build from #60's note).
+`curl /health` and `curl -X POST /start` with the requested payload both → Railway edge
+`{"status":"error","code":404,"message":"Application not found"}`, matching #60's finding that
+this 404 (no active deployment) is what's being reported upstream as "All sources are busy."
+
+Bumped `Dockerfile` `ARG CACHE_DATE` 2026-08-18a → 2026-08-19a (harmless, consistent with prior
+recurrences' cache-busting; not the actual blocker) and committed. Ran `railway up --detach`
+from `/home/khaled/ytmp3` (confirmed correct directory, not home) → Indexing → Uploading →
+**"Usage limit exceeded. Please increase or remove the hard limit to resume resource
+provisioning."** — 61st identical confirmation since 2026-08-14. `railway status --json` →
+`activeDeployments: []`, confirming nothing is running at all right now.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 61x since 2026-08-14. Once cleared, `railway up
+--detach` from `/home/khaled/ytmp3` should redeploy cleanly; no further code changes needed.
