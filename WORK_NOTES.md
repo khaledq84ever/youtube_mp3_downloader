@@ -1129,3 +1129,25 @@ provisioning."** — 61st identical confirmation since 2026-08-14. `railway stat
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 61x since 2026-08-14. Once cleared, `railway up
 --detach` from `/home/khaled/ytmp3` should redeploy cleanly; no further code changes needed.
+
+## 2026-08-19 — 62nd recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix)
+Checked memory first (61 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Fast re-verification only: `railway link -p youtube-mp3-downloader` succeeded. `curl /health`
+and `curl -X POST /start` with the exact requested payload
+(`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}`) both return
+Railway's edge 404 `{"status":"error","code":404,"message":"Application not found"}` — no
+process is running, so "All sources are busy" cannot be a live yt-dlp/bgutil/proxy symptom;
+it's this edge 404 being misread as an app-level conversion failure (same signature as #47-61).
+
+`railway status --json` → `activeDeployments: []`, `latestDeployment` still stale
+`a8cf9293-4061-4f57-9d30-ba7820d121b3` from 2026-06-12, `deploymentStopped: true`.
+`railway up --detach` from `/home/khaled/ytmp3` → Indexing → Uploading → **"Usage limit
+exceeded. Please increase or remove the hard limit to resume resource provisioning."** — 62nd
+identical confirmation since 2026-08-14. No code changes made: yt-dlp@master pin, bgutil
+rebuild, cache-busting Docker ARG, and bgutil watchdog stall-detection are already committed
+from prior recurrences; nothing to fix in code while `railway up` cannot get past the billing
+gate to even build.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 62x since 2026-08-14. Once cleared, `railway up
+--detach` from `/home/khaled/ytmp3` should redeploy cleanly; no further code changes needed.
