@@ -1151,3 +1151,36 @@ gate to even build.
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 62x since 2026-08-14. Once cleared, `railway up
 --detach` from `/home/khaled/ytmp3` should redeploy cleanly; no further code changes needed.
+
+## 2026-08-19 — 63rd recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (62 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Independently reproduced the full chain to be thorough given the task explicitly named other
+suspects (stale yt-dlp, dead bgutil PO-token provider, dead proxy list, upstream API change):
+`railway link -p youtube-mp3-downloader` succeeded. `railway logs -n 300` returned only stale
+buffered log lines from `31/Jul/2026` ending in `Stopping Container` / `Shutting down: Master`
+— no current runtime output, consistent with no active deployment. `railway status` → linked
+service `● Failed`. `railway logs -b` (build logs, no deployment ID given → most recent
+successful/latest) showed a Dockerfile build from `2026-07-12` that actually completed and
+passed its healthcheck — that build is not the current blocker, just old cached log output;
+Railway is not surfacing fresh logs because nothing has run since.
+
+`curl /health` and `curl -X POST /start` with the exact requested payload
+(`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}`) both return
+Railway's edge 404 `{"status":"error","code":404,"message":"Application not found"}` — no
+process is running, so "All sources are busy" cannot be a live yt-dlp/bgutil/proxy symptom;
+it's this edge 404 being misread as an app-level conversion failure (same signature as
+#47-62). `railway status --json` → `activeDeployments: []`, `latestDeployment` still stale
+`a8cf9293-4061-4f57-9d30-ba7820d121b3` from 2026-06-12, `deploymentStopped: true`.
+
+`railway up --detach` from `/home/khaled/ytmp3` (confirmed correct directory) → Indexing →
+Uploading → **"Usage limit exceeded. Please increase or remove the hard limit to resume
+resource provisioning."** — 63rd identical confirmation since 2026-08-14. No code changes
+made: yt-dlp@master pin, bgutil rebuild, cache-busting Docker ARG, and bgutil watchdog
+stall-detection are already committed from prior recurrences; there is no proxy list or
+upstream-API-change bug to chase — nothing to fix in code while `railway up` cannot get past
+the billing gate to even build, and no process has been running since 2026-06-12 to have
+produced a genuine "all sources busy" conversion failure in the first place.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 63x since 2026-08-14. Once cleared, `railway up
+--detach` from `/home/khaled/ytmp3` should redeploy cleanly; no further code changes needed.
