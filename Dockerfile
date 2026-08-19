@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # stale yt-dlp / bgutil, which YouTube then blocks). CACHE_DATE must actually
 # be referenced inside the RUN below — an unused ARG doesn't change the
 # instruction's cache key, so Docker still reuses the old layer.
-ARG CACHE_DATE=2026-08-18a
+ARG CACHE_DATE=2026-08-19a
 RUN echo "cache-bust: ${CACHE_DATE}" && pip install --no-cache-dir -U --force-reinstall \
         "yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp.git@master" \
         pytubefix bgutil-ytdlp-pot-provider
