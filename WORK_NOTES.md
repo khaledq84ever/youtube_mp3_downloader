@@ -935,3 +935,31 @@ live until the account limit is cleared.
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole blocker, now confirmed 53x since 2026-08-14. Recommend not re-running this
 diagnosis again until the user confirms the limit has been raised.
+
+## 2026-08-19 — 54th recurrence, still Railway usage-limit block (memory checked first, per feedback_check_memory_before_recurring_diagnosis) + new: CLI auth itself now broken
+Read project_ytmp3 memory first (confirmed blocker 53x through 2026-08-19). Did the ~10-30s
+repro only: `curl -X POST /start` with the exact requested payload
+({"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}) and `curl /health`,
+both 3x → identical edge 404 `{"status":"error","code":404,"message":"Application not found"}`
+every time — same signature as recurrences #47-53, confirming no live process exists and "All
+sources are busy" is still this Railway edge 404 being misread as an app-level failure.
+
+New this session: `railway link`/`railway logs`/`railway login --browserless` all failed
+before even reaching the usual "Usage limit exceeded" message — Railway's own OAuth
+device-authorization endpoint is returning `HTTP 500 {"error":"server_error","error_
+description":"oops! something went wrong"}` for both token refresh and fresh browserless
+login. The cached CLI access/refresh tokens in ~/.railway/config.json are also rejected
+directly against the GraphQL API ("Not Authorized"). Railway's GraphQL API itself is
+reachable (200 on an unauthenticated `{__typename}` query), so this looks like an outage
+specific to Railway's auth/device-auth service, not a total platform outage. Net effect:
+could not run `railway status` / `railway up --detach` at all this time (previously these
+always worked and surfaced "Usage limit exceeded" explicitly) — but the underlying app-down
+signature (edge 404) is unchanged, so the fix required is unchanged. No code changes made:
+per protocol, did not re-diagnose yt-dlp/bgutil/proxies since the confirmed blocker's
+signature reproduced identically.
+
+**Action needed from user:** same as before — raise/remove the Railway account/workspace hard
+usage limit in dashboard billing settings. Additionally, Railway CLI auth (browserless login)
+is currently failing platform-side with its own HTTP 500 — if this persists once the usage
+limit is cleared, re-authenticating may require retrying `railway login --browserless` later
+or checking Railway's status page.
