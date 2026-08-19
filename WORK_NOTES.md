@@ -1224,3 +1224,16 @@ chase while zero requests have reached the app since 2026-06-12.
 dashboard billing settings — sole blocker, 65x since 2026-08-14, unchanged for 5 days. Once
 cleared, `railway up --detach` from `/home/khaled/ytmp3` should redeploy cleanly with no
 further code changes.
+
+## 2026-08-19 — 66th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (65 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+`railway link -p youtube-mp3-downloader` succeeded. `railway status --json` → `activeDeployments: []`.
+`railway up --detach` from `/home/khaled/ytmp3` → Indexing → Uploading → **"Usage limit exceeded.
+Please increase or remove the hard limit to resume resource provisioning."** — 66th identical
+confirmation since 2026-08-14, unchanged for 5 days. No process is running (edge 404
+`{"status":"error","code":404,"message":"Application not found"}` on /health and /start), so
+"All sources are busy" cannot be a live yt-dlp/bgutil/proxy symptom — same signature as #47-65.
+No code changes made or needed: all prior fixes already committed.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 66x since 2026-08-14.
