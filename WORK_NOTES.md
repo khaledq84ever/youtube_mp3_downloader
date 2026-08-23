@@ -1550,28 +1550,3 @@ fresh:
 billing settings — sole remaining blocker, confirmed 81x since 2026-08-14. Nothing on the code
 side will change this outcome; further recurrences of this exact task will not find a different
 result until that billing setting changes.
-
-## 2026-08-23 (4th today) — 82nd recurrence, still Railway usage-limit block
-Task framing (4th time today): same live-job-error framing ("All sources are busy"), redeploy-
-in-last-2h claim, diagnose stale yt-dlp/bgutil PO-token/dead proxy/upstream API, fix + `railway
-up --detach` + verify via live POST /start + poll /status. Checked memory first (81 prior
-identical confirmations since 2026-08-14) and did a fast confirmation instead of a full re-diagnosis:
-- `railway link -p youtube-mp3-downloader` → OK.
-- `railway status` → service **Failed**, deployment `a8cf9293-...` (same stale ID since
-  2026-06-12), no active deployment.
-- `railway logs --latest --build --lines 200` → last real Dockerfile build (2026-07-12) succeeded,
-  healthcheck passed — same as every prior check, confirms nothing broken in the code that
-  actually shipped.
-- `railway up --detach` → Indexing → Uploading → **"Usage limit exceeded. Please increase or
-  remove the hard limit to resume resource provisioning"** — 82nd identical confirmation since
-  2026-08-14 (9+ days unchanged).
-- Code check: `BGUTIL_STALL_MISSES=8` watchdog (server/app.py:108), `CACHE_DATE=2026-08-23a`
-  yt-dlp@master pin (Dockerfile:24) both already present from the last fix commit
-  (`191740f`), `git status` clean. No new code changes made or needed.
-- Live `POST /start` with the exact test payload from this task → Railway edge 404
-  `{"status":"error","code":404,"message":"Application not found"}` — no app process exists,
-  so no `/status` polling was possible.
-
-**Action needed from user:** raise/remove the Railway account hard usage limit in dashboard
-billing settings — sole remaining blocker, confirmed 82x since 2026-08-14. Further recurrences
-of this exact task will not find a different result until that billing setting changes.
