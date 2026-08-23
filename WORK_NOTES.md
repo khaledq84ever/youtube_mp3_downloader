@@ -1467,3 +1467,29 @@ never created a job (edge 404, pre-app billing gate). No code changes made or ne
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 78x since 2026-08-14.
+
+## 2026-08-23 — 79th recurrence, still Railway usage-limit block
+Task framing: live job errors "All sources are busy" via /start + /status, plain redeploy in
+last 2h didn't fix, diagnose stale yt-dlp/bgutil PO-token/dead proxies/upstream API change,
+fix + railway up + verify via live POST /start + poll /status. Quick reproduction per standing
+rule (don't re-run full diagnosis when a confirmed unresolved blocker is already documented):
+- `railway link -p youtube-mp3-downloader` → OK. `railway status`: service **Failed**,
+  deployment `a8cf9293` (same ID as every prior recurrence, dated 2026-06-12), no active
+  deployment.
+- `railway logs` → stale, ends 2026-07-31 06:38 UTC `Stopping Container` / gunicorn
+  `Shutting down: Master` — same dead container history as before, nothing since.
+- Live `GET /health` → edge 404 `{"status":"error","code":404,"message":"Application not found"}`
+  (Railway's own page, not Flask) — app not running, so it cannot be emitting a live "All
+  sources are busy" response right now.
+- `railway up --detach` → Indexing/Uploading then **"Usage limit exceeded. Please increase or
+  remove the hard limit to resume resource provisioning"** — 79th identical confirmation since
+  2026-08-14.
+- Code check: `BGUTIL_STALL_MISSES=8` watchdog fix present (server/app.py:108),
+  `CACHE_DATE=2026-08-19a` yt-dlp@master pin present (Dockerfile:24), `git status` clean, in
+  sync with `origin/main`. No code changes made or needed.
+
+No POST /start → /status verification possible: zero active deployments to receive it.
+
+**Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
+settings — sole remaining blocker, confirmed 79x since 2026-08-14. This will not change until
+that account-level setting is cleared.
