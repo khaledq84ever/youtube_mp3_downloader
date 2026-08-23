@@ -1427,3 +1427,27 @@ while `railway up` cannot get past the account-wide billing gate before any buil
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 76x since 2026-08-14.
+
+## 2026-08-23 — 77th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (76 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+Fast re-verification: `railway link -p youtube-mp3-downloader` succeeded. `railway status
+--json` → `activeDeployments: []`, `latestDeployment` still stale `a8cf9293-...` from
+2026-06-12, `deploymentStopped: true`. `curl /health` and `/` on the exact production URL →
+Railway edge 404 `{"status":"error","code":404,"message":"Application not found"}` on both — no
+process is running, so the "All sources are busy" symptom the user reports cannot be a live
+yt-dlp/bgutil/proxy/upstream-API failure (there is no live app to produce it). `railway logs
+--build` for the stale deployment still shows the last *real* app build (2026-07-12, Dockerfile
+path) succeeded and healthchecked fine — yt-dlp@master pin, bgutil rebuild, cache-busting
+Docker ARG, and bgutil watchdog stall-detection are already committed and working as designed
+from prior recurrences. `railway up --detach` from `/home/khaled/ytmp3` (confirmed correct
+directory, Dockerfile present) → Indexing → Uploading → **"Usage limit exceeded. Please
+increase or remove the hard limit to resume resource provisioning."** — 77th identical
+confirmation since 2026-08-14 (9 days unchanged). Per this run's task, also POSTed the test job
+`{"url":"https://youtu.be/jNQXAC9IVRw","format":"mp3","quality":"320K"}` to `/start` anyway →
+same Railway edge 404 `Application not found`, confirming the failure is pre-app (billing gate),
+not a job-processing bug — did not poll `/status` since no job was ever created. No code changes
+made or needed: there is no stale-yt-dlp/dead-proxy/upstream-API bug to chase while `railway up`
+cannot get past the account-wide billing gate before any build even starts.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 77x since 2026-08-14.
