@@ -1493,3 +1493,30 @@ No POST /start → /status verification possible: zero active deployments to rec
 **Action needed from user:** raise/remove the Railway hard usage limit in dashboard billing
 settings — sole remaining blocker, confirmed 79x since 2026-08-14. This will not change until
 that account-level setting is cleared.
+
+## 2026-08-23 (later) — 80th recurrence, still Railway usage-limit block
+Task framing (2nd time same day): same live-job-error framing, redeploy-in-last-2h claim,
+diagnose stale yt-dlp/bgutil/dead proxy/upstream API, fix + `railway up --detach` + verify via
+live POST /start + poll /status. Checked memory first per standing rule, then verified fresh
+rather than trusting the memory snapshot blindly:
+- `railway link -p youtube-mp3-downloader` → OK, service `youtube-mp3-downloader`.
+- `railway status` → **Failed**, deployment `a8cf9293-...` (same stale ID as every prior
+  recurrence, dated 2026-06-12) — no active deployment.
+- `railway list` deployments → everything since is `REMOVED`, nothing has stayed up since
+  2026-07-12.
+- `railway logs` → same stale history ending 2026-07-31 06:38 UTC (`Stopping Container` /
+  gunicorn `Shutting down: Master`), nothing newer.
+- Live `curl -X POST /start` with the exact test payload → Railway edge
+  `{"status":"error","code":404,"message":"Application not found"}` — no app process exists to
+  emit "All sources are busy"; that error cannot be a live symptom right now.
+- `railway up --detach` from `/home/khaled/ytmp3` → Indexing → Uploading →
+  **"Usage limit exceeded. Please increase or remove the hard limit to resume resource
+  provisioning."** — 80th identical confirmation since 2026-08-14 (9+ days unchanged).
+- No code changes made: this is a billing/provisioning gate before the app ever starts, so
+  bumping yt-dlp/bgutil/proxies would not change the outcome and there's nothing broken at the
+  app level to fix (per 78th/79th checks, watchdog + yt-dlp@master pin already in place).
+- No POST /start → /status verification possible: zero active deployments to receive it.
+
+**Action needed from user:** raise/remove the Railway account hard usage limit in dashboard
+billing settings — sole remaining blocker, confirmed 80x since 2026-08-14. Nothing on the code
+side will change this outcome.
