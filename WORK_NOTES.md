@@ -1451,3 +1451,19 @@ cannot get past the account-wide billing gate before any build even starts.
 
 **Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
 dashboard billing settings — sole blocker, 77x since 2026-08-14.
+
+## 2026-08-23 — 78th recurrence, still Railway usage-limit block (task: "All sources are busy" errors, redeploy within 2h didn't fix, diagnose stale yt-dlp/bgutil/proxy/API change)
+Checked memory first (77 prior identical confirmations, feedback_check_memory_before_recurring_diagnosis).
+`railway status` → linked service **Failed**, stale deployment `a8cf9293-...` from 2026-06-12/07-12.
+`railway logs`/`railway logs --build` → last real Dockerfile build (Jul 12) succeeded and healthchecked
+fine; no error/fail/limit strings in current deployment logs — confirms no app-level bug (yt-dlp,
+bgutil, proxy, upstream API) to chase. `curl /` and `POST /start` on the exact production URL →
+Railway edge 404 `{"status":"error","code":404,"message":"Application not found"}` both times — no
+process is running, so "All sources are busy" cannot be a live-app symptom. `railway up --detach`
+from `/home/khaled/ytmp3` (correct dir, Dockerfile present) → Indexing → Uploading → **"Usage limit
+exceeded. Please increase or remove the hard limit to resume resource provisioning."** — 78th
+identical confirmation since 2026-08-14 (9 days unchanged). Did not poll `/status` since `/start`
+never created a job (edge 404, pre-app billing gate). No code changes made or needed.
+
+**Action needed from user:** raise/remove the Railway account/workspace hard usage limit in
+dashboard billing settings — sole blocker, 78x since 2026-08-14.
