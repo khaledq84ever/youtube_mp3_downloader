@@ -158,6 +158,11 @@ threading.Thread(target=_bgutil_watchdog, daemon=True).start()
 
 DOWNLOAD_DIR  = '/tmp/ytdl_cache'
 YTDLP           = os.environ.get('YTDLP_PATH', 'yt-dlp')
+# YouTube's bot-wall now demands cookies from datacenter IPs even with a working
+# bgutil PO token. If a cookies.txt (Netscape format) is present it is passed to
+# every yt-dlp call. Upload one at runtime via POST /upload-cookies.
+COOKIES_FILE    = os.environ.get('YTDLP_COOKIES',
+                                 os.path.join(os.path.dirname(_HERE), 'cookies.txt'))
 FILE_TTL        = 1800          # 30 min
 JOB_TIMEOUT       = 100         # direct yt-dlp attempt: bgutil PO token + download + ffmpeg needs this
 JOB_TIMEOUT_PROXY = 20          # proxied attempts: dead/402 proxies fail fast, don't eat the budget
@@ -1410,6 +1415,8 @@ def build_cmd(url, output_template, quality='320K', fmt='mp3', proxy=None, attem
     if bgutil_up:
         base_flags += ['--extractor-args',
                        f'youtubepot-bgutilhttp:base_url={BGUTIL_BASE_URL}']
+    if COOKIES_FILE and os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0:
+        base_flags += ['--cookies', COOKIES_FILE]
     if proxy:
         base_flags += _proxy_args(proxy)
 
@@ -1668,6 +1675,36 @@ def _404(e):
 @app.route('/ping')
 def ping():
     return 'pong', 200
+
+@app.route('/upload-cookies', methods=['POST'])
+def upload_cookies():
+    """Accept a Netscape cookies.txt — raw body or form field 'cookies' / file
+    upload 'file' — and write it to COOKIES_FILE so every yt-dlp call uses it."""
+    data = b''
+    if request.files.get('file'):
+        data = request.files['file'].read()
+    elif request.form.get('cookies'):
+        data = request.form['cookies'].encode('utf-8', 'replace')
+    else:
+        data = request.get_data() or b''
+    text = data.decode('utf-8', 'replace').strip()
+    if 'youtube.com' not in text and '# Netscape' not in text and '# HTTP Cookie' not in text:
+        return jsonify({'ok': False, 'error': 'Not a YouTube cookies.txt (Netscape format expected)'}), 400
+    try:
+        with open(COOKIES_FILE, 'w') as fh:
+            fh.write(text + '\n')
+        os.chmod(COOKIES_FILE, 0o600)
+    except Exception as ex:
+        return jsonify({'ok': False, 'error': f'write failed: {ex}'}), 500
+    lines = [l for l in text.splitlines() if l and not l.startswith('#')]
+    return jsonify({'ok': True, 'path': COOKIES_FILE, 'cookie_lines': len(lines)})
+
+@app.route('/cookies-status')
+def cookies_status():
+    present = os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 0
+    return jsonify({'cookies_present': present,
+                    'path': COOKIES_FILE,
+                    'size': os.path.getsize(COOKIES_FILE) if present else 0})
 
 @app.route('/proxy-status')
 def proxy_status():

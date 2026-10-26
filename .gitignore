@@ -3,3 +3,9 @@ venv
 __pycache__/
 *.pyc
 .venv/
+
+# vendored third-party PO-token provider (clone separately)
+bgutil-ytdlp-pot-provider/
+# never commit YT cookies
+cookies.txt
+server/cookies.txt
